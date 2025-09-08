@@ -6,7 +6,7 @@ import { Album } from "../../../../entity/Album";
 import { plainToClass } from "class-transformer";
 import { CreateAlbumDto } from "../../../../dtos/music/CreateAlbumDto";
 import { validate } from "class-validator";
-import { error } from "console";
+import { In } from "typeorm";
 import { User } from "../../../../entity/User";
 import { Image } from "../../../../entity/Image";
 
@@ -22,8 +22,7 @@ export const albumRouter = Router();
  *     description: |
  *       این endpoint برای دریافت لیست آلبوم‌های مرتبط با یک ژانر خاص استفاده می‌شود.
  *       فقط آلبوم‌های فعال را برمی‌گرداند و شامل اطلاعات محدودی از هر آلبوم می‌شود.
- *     tags:
- *       - Albums
+ *     tags: [Albums]
  *     parameters:
  *       - in: path
  *         name: genre_id
@@ -148,6 +147,136 @@ albumRouter.get(
 );
 
 // create album
+/**
+ * @swagger
+ * v1/user/album/create_album:
+ *   post:
+ *     summary: ایجاد آلبوم جدید
+ *     description: |
+ *       این endpoint برای ایجاد یک آلبوم جدید توسط هنرمند استفاده می‌شود.
+ *       کاربر باید هنرمند باشد و احراز هویت شده باشد.
+ *     tags:
+ *       - Albums
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateAlbumDto'
+ *           example:
+ *             title: "آلبوم جدید"
+ *             bio: "این یک آلبوم جدید است"
+ *             cover_image: 1
+ *             release_date: "2023-12-01"
+ *             genre_ids: [1, 2, 3]
+ *             is_active: true
+ *     responses:
+ *       201:
+ *         description: آلبوم با موفقیت ایجاد شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     title:
+ *                       type: string
+ *                       example: "آلبوم جدید"
+ *                     id:
+ *                       type: number
+ *                       example: 1
+ *       400:
+ *         description: خطای اعتبارسنجی داده‌ها
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                       value:
+ *                         type: object
+ *             examples:
+ *               invalidBody:
+ *                 value:
+ *                   status: false
+ *                   message: "request body is required"
+ *               validationError:
+ *                 value:
+ *                   status: false
+ *                   message: "invalid data"
+ *                   error:
+ *                     - field: "title"
+ *                       value: { isString: "title must be a string", isNotEmpty: "title should not be empty" }
+ *       403:
+ *         description: کاربر هنرمند نیست یا حساب غیرفعال است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             example:
+ *               status: false
+ *               message: "you are not artist"
+ *       404:
+ *         description: تصویر یا ژانر یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             examples:
+ *               imageNotFound:
+ *                 value:
+ *                   status: false
+ *                   message: "image not found"
+ *               genreNotFound:
+ *                 value:
+ *                   status: false
+ *                   message: "genre not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             example:
+ *               status: false
+ *               message: "server error"
+ */
 albumRouter.post(
     "/create_album/",
     authenticateJWT,
@@ -220,20 +349,41 @@ albumRouter.post(
 
             // check genre
             const genreRepository = AppDataSource.getRepository(Genre);
-            // const genres = genreRepository.find(
-            //     {
-            //         where: {id: in(createAlbumDto.genre_ids), is_active: true},
-            //         select: ['id']
-            //     }
-            // );
-            // if (!genres) {
-            //     return res.status(404).json()
-            // }
+            const genres = await genreRepository.find({
+                where: {
+                    id: In(createAlbumDto.genre_ids),
+                    is_active: true
+                },
+                select: ['id']
+            });
+            if (!genres) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "genre not found"
+                    }
+                )
+            }
+
+            // create album
+            const album = new Album();
+            album.title = createAlbumDto.title;
+            album.bio = createAlbumDto.bio;
+            album.cover_image = getImage;
+            album.release_date = new Date(createAlbumDto.release_date);
+            album.genres = genres;
+            album.user = getUser;
+
+            // save album
+            await album.save();
 
             return res.status(201).json(
                 {
                     status: "success",
-                    data: "ok"
+                    data: {
+                        title: album.title,
+                        id: album.id,
+                    }
                 }
             )
         } catch (error) {
@@ -243,6 +393,167 @@ albumRouter.post(
                     message: "server error"
                 }
             )
+        }
+    }
+);
+
+
+// get my albums
+/**
+ * @swagger
+ * v1/user/album/my_album:
+ *   get:
+ *     summary: دریافت آلبوم‌های کاربر هنرمند
+ *     description: |
+ *       این endpoint برای دریافت لیست آلبوم‌های کاربر هنرمند با قابلیت صفحه‌بندی استفاده می‌شود.
+ *       کاربر باید هنرمند باشد و احراز هویت شده باشد.
+ *     tags:
+ *       - Albums
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه برای صفحه‌بندی
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: تعداد آیتم‌ها در هر صفحه (حداکثر 100)
+ *         example: 20
+ *     responses:
+ *       200:
+ *         description: لیست آلبوم‌های کاربر با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Album'
+ *                 page:
+ *                   type: integer
+ *                   description: شماره صفحه فعلی
+ *                   example: 1
+ *                 skip:
+ *                   type: integer
+ *                   description: تعداد آیتم‌های رد شده
+ *                   example: 0
+ *                 limit:
+ *                   type: integer
+ *                   description: تعداد آیتم‌ها در هر صفحه
+ *                   example: 20
+ *                 total:
+ *                   type: integer
+ *                   description: تعداد کل آلبوم‌ها
+ *                   example: 15
+ *       403:
+ *         description: کاربر هنرمند نیست یا دسترسی ندارد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             example:
+ *               status: false
+ *               message: "you are not permission this route"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             example:
+ *               status: false
+ *               message: "server error"
+ */
+albumRouter.get(
+    "/my_album/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            // get user
+            const userRepository = AppDataSource.getRepository(User);
+            const getUser = await userRepository.findOne({
+                where: { 
+                    id: (req as any).user.user_id, 
+                    is_active: true, 
+                    is_artist: true 
+                },
+                select: ['id']
+            });
+
+            if (!getUser) {
+                return res.status(403).json({
+                    status: false,
+                    message: "you are not permission this route"
+                });
+            }
+
+            // pagination
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 20;
+            const skip = (page - 1) * limit;
+
+            const albumRepository = AppDataSource.getRepository(Album);
+            
+            const queryBuilder = albumRepository
+                .createQueryBuilder("album")
+                .leftJoinAndSelect("album.genres", "genre")
+                .where("album.user_id = :userId", { userId: getUser.id })
+                .andWhere("album.is_active = :isActive", { isActive: true })
+                .select([
+                    "album.id",
+                    "album.title",
+                    "album.bio",
+                    "album.is_active",
+                    "album.release_date",
+                    "genre.id",
+                    "genre.name",
+                    "genre.description",
+                ])
+                .skip(skip)
+                .take(limit);
+
+            const [myAlbum, total] = await queryBuilder.getManyAndCount();
+
+            return res.status(200).json({
+                status: "success",
+                data: myAlbum,
+                page: page,
+                skip: skip,
+                limit: limit,
+                total: total
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
         }
     }
 );
