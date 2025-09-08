@@ -4,7 +4,7 @@ import { AppDataSource } from "../../../../data-source";
 import { Genre } from "../../../../entity/Genre";
 import { Album } from "../../../../entity/Album";
 import { plainToClass } from "class-transformer";
-import { CreateAlbumDto } from "../../../../dtos/music/CreateAlbumDto";
+import { CreateAlbumDto, UpdateAlbumDto } from "../../../../dtos/music/CreateAlbumDto";
 import { validate } from "class-validator";
 import { In } from "typeorm";
 import { User } from "../../../../entity/User";
@@ -397,6 +397,288 @@ albumRouter.post(
     }
 );
 
+// update album
+/**
+ * @swagger
+ * /v1/user/album/update_album/{id}:
+ *   patch:
+ *     summary: به‌روزرسانی آلبوم
+ *     description: |
+ *       این endpoint برای به‌روزرسانی آلبوم موجود توسط هنرمند استفاده می‌شود.
+ *       کاربر باید هنرمند باشد و احراز هویت شده باشد.
+ *       فقط فیلدهای ارسال شده به‌روزرسانی می‌شوند.
+ *     tags:
+ *       - Albums
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه آلبوم برای به‌روزرسانی
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateAlbumDto'
+ *           example:
+ *             title: "آلبوم ویرایش شده"
+ *             bio: "این آلبوم ویرایش شده است"
+ *             cover_image: 2
+ *             release_date: "2024-01-01"
+ *             genre_ids: [1, 4]
+ *             is_active: false
+ *     responses:
+ *       200:
+ *         description: آلبوم با موفقیت به‌روزرسانی شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Album updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                       example: 1
+ *                     title:
+ *                       type: string
+ *                       example: "آلبوم ویرایش شده"
+ *       400:
+ *         description: خطای اعتبارسنجی داده‌ها
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                       value:
+ *                         type: object
+ *             example:
+ *               status: false
+ *               message: "invalid data"
+ *               error:
+ *                 - field: "title"
+ *                   value: { isString: "title must be a string" }
+ *       403:
+ *         description: کاربر هنرمند نیست یا دسترسی ندارد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             examples:
+ *               notArtist:
+ *                 value:
+ *                   status: false
+ *                   message: "you are not artist"
+ *               notOwner:
+ *                 value:
+ *                   status: false
+ *                   message: "you are not the owner of this album"
+ *       404:
+ *         description: آلبوم، تصویر یا ژانر یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             examples:
+ *               albumNotFound:
+ *                 value:
+ *                   status: false
+ *                   message: "album not found"
+ *               imageNotFound:
+ *                 value:
+ *                   status: false
+ *                   message: "image not found"
+ *               genreNotFound:
+ *                 value:
+ *                   status: false
+ *                   message: "genre not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             example:
+ *               status: false
+ *               message: "server error"
+ */
+albumRouter.patch(
+    "/update_album/:id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const albumId = parseInt(req.params.id);
+            
+            // validate req body
+            if (!req.body) {
+                return res.status(400).json({
+                    status: false,
+                    message: "request body is required"
+                });
+            }
+
+            // dto
+            const updateAlbumDto = plainToClass(UpdateAlbumDto, req.body);
+            const errors = await validate(updateAlbumDto, { skipMissingProperties: true });
+            
+            if (errors.length > 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "invalid data",
+                    error: errors.map(error => ({
+                        field: error.property,
+                        value: error.constraints
+                    }))
+                });
+            }
+
+            // check user
+            const userId = (req as any).user.user_id;
+            const userRepository = AppDataSource.getRepository(User);
+            const getUser = await userRepository.findOne({
+                where: { id: userId, is_artist: true, is_active: true },
+                select: ['id']
+            });
+            
+            if (!getUser) {
+                return res.status(403).json({
+                    status: false,
+                    message: "you are not artist"
+                });
+            }
+
+            // check if album exists and belongs to user
+            const albumRepository = AppDataSource.getRepository(Album);
+            const existingAlbum = await albumRepository.findOne({
+                where: { id: albumId, user: { id: getUser.id } },
+                relations: ['genres', 'cover_image']
+            });
+
+            if (!existingAlbum) {
+                return res.status(404).json({
+                    status: false,
+                    message: "album not found"
+                });
+            }
+
+            // update fields if provided
+            if (updateAlbumDto.title !== undefined) {
+                existingAlbum.title = updateAlbumDto.title;
+            }
+
+            if (updateAlbumDto.bio !== undefined) {
+                existingAlbum.bio = updateAlbumDto.bio;
+            }
+
+            if (updateAlbumDto.is_active !== undefined) {
+                existingAlbum.is_active = updateAlbumDto.is_active;
+            }
+
+            if (updateAlbumDto.release_date !== undefined) {
+                existingAlbum.release_date = new Date(updateAlbumDto.release_date);
+            }
+
+            // update cover image if provided
+            if (updateAlbumDto.cover_image !== undefined) {
+                const imageRepository = AppDataSource.getRepository(Image);
+                const getImage = await imageRepository.findOne({
+                    where: { id: updateAlbumDto.cover_image, user: getUser },
+                    select: ['id']
+                });
+
+                if (!getImage) {
+                    return res.status(404).json({
+                        status: false,
+                        message: "image not found"
+                    });
+                }
+                existingAlbum.cover_image = getImage;
+            }
+
+            // update genres if provided
+            if (updateAlbumDto.genre_ids !== undefined) {
+                const genreRepository = AppDataSource.getRepository(Genre);
+                const genres = await genreRepository.find({
+                    where: {
+                        id: In(updateAlbumDto.genre_ids),
+                        is_active: true
+                    },
+                    select: ['id']
+                });
+
+                if (genres.length === 0) {
+                    return res.status(404).json({
+                        status: false,
+                        message: "genre not found"
+                    });
+                }
+                existingAlbum.genres = genres;
+            }
+
+            // save updated album
+            await albumRepository.save(existingAlbum);
+
+            return res.status(200).json({
+                status: "success",
+                message: "Album updated successfully",
+                data: {
+                    id: existingAlbum.id,
+                    title: existingAlbum.title,
+                    bio: existingAlbum.bio,
+                    release_date: existingAlbum.release_date
+                }
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
+    }
+);
 
 // get my albums
 /**
