@@ -440,12 +440,32 @@ coreRouter.get(
     async (req: Request, res: Response) => {
         try {
             // pagination data
-            const take = req.query['take'] || 20;
+            const take = parseInt(req.query.limit as string) || 20;
+            const page = parseInt(req.query.page as string) || 1;
+            const skip = (page - 1) * take 
+
+            // get user
+            const userId = (req as any).user.user_id;
+            const userRepository = AppDataSource.getRepository(User);
+            const getUser = await userRepository.findOne(
+                {
+                    where: {id: userId, is_active: true},
+                    select: ['id']
+                }
+            )
+            if (!getUser) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "user not found"
+                    }
+                )
+            }
             // get data
             const imageRepository = AppDataSource.getRepository(Image);
             const [images, total] = await imageRepository.findAndCount(
                 {
-                    where: {user: (req as any).user.user_id},
+                    where: {user: getUser},
                     relations: ['user'],
                     select: {
                         id: true, image_path: true,
@@ -454,6 +474,7 @@ coreRouter.get(
                         }
                     },
                     take: Number(take),
+                    skip: skip
                 }
             );
             return res.status(200).json(
@@ -461,7 +482,8 @@ coreRouter.get(
                     status: "success",
                     take: take,
                     total: total,
-                    data: images
+                    data: images,
+                    page: page
                 }
             )
         } catch (error) {

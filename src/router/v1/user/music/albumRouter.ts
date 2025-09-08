@@ -3,9 +3,16 @@ import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { AppDataSource } from "../../../../data-source";
 import { Genre } from "../../../../entity/Genre";
 import { Album } from "../../../../entity/Album";
+import { plainToClass } from "class-transformer";
+import { CreateAlbumDto } from "../../../../dtos/music/CreateAlbumDto";
+import { validate } from "class-validator";
+import { error } from "console";
+import { User } from "../../../../entity/User";
+import { Image } from "../../../../entity/Image";
 
 
 export const albumRouter = Router();
+
 
 /**
  * @swagger
@@ -136,6 +143,106 @@ albumRouter.get(
                 status: false,
                 message: "server error"
             });
+        }
+    }
+);
+
+// create album
+albumRouter.post(
+    "/create_album/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            // validate req body
+            if (!req.body) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "request body is required"
+                    }
+                )
+            }
+
+            // dto
+            const createAlbumDto = plainToClass(CreateAlbumDto, req.body);
+            const errors = await validate(createAlbumDto);
+            if (errors.length > 0) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "invalid data",
+                        error: errors.map(
+                            error => (
+                                {
+                                    field: error.property,
+                                    value: error.constraints
+                                }
+                            )
+                        )
+                    }
+                );
+            }
+
+            // check user
+            const userId = (req as any).user.user_id;
+            const userRepository = AppDataSource.getRepository(User);
+            const getUser = await userRepository.findOne(
+                {
+                    where: {id: userId, is_artist: true, is_active: true},
+                    select: ['id']
+                }
+            );
+            if (!getUser) {
+                return res.status(403).json(
+                    {
+                        status: false,
+                        message: "you are not artist"
+                    }
+                )
+            }
+            
+            // check cover image
+            const imageRepository = AppDataSource.getRepository(Image);
+            const getImage = await imageRepository.findOne(
+                {
+                    where:  {id: createAlbumDto.cover_image, user: getUser},
+                    select: ['id']
+                }
+            );
+            if (!getImage) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "image not found"
+                    }
+                )
+            }
+
+            // check genre
+            const genreRepository = AppDataSource.getRepository(Genre);
+            // const genres = genreRepository.find(
+            //     {
+            //         where: {id: in(createAlbumDto.genre_ids), is_active: true},
+            //         select: ['id']
+            //     }
+            // );
+            // if (!genres) {
+            //     return res.status(404).json()
+            // }
+
+            return res.status(201).json(
+                {
+                    status: "success",
+                    data: "ok"
+                }
+            )
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
         }
     }
 );
