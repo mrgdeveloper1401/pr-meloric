@@ -477,6 +477,96 @@ coreRouter.get(
 )
 
 // upload audio
+/**
+ * @swagger
+ * /api/upload_audio/:
+ *   post:
+ *     summary: آپلود فایل صوتی
+ *     description: کاربران هنرمند می‌توانند فایل صوتی آپلود کنند
+ *     tags: [Audio]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               music:
+ *                 type: string
+ *                 format: binary
+ *                 description: فایل صوتی (حداکثر ۱۵ مگابایت)
+ *     responses:
+ *       201:
+ *         description: فایل با موفقیت آپلود شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: شناسه فایل صوتی در دیتابیس
+ *                       example: 123
+ *                     file_path:
+ *                       type: string
+ *                       description: آدرس کامل فایل در سرویس ذخیره‌سازی
+ *                       example: https://bucket-name.s3.ir-thr-at1.arvanstorage.ir/uploads/1/filename.mp3
+ *                     size:
+ *                       type: integer
+ *                       description: حجم فایل به بایت
+ *                       example: 5242880
+ *                     format:
+ *                       type: string
+ *                       description: فرمت فایل
+ *                       example: audio/mpeg
+ *       400:
+ *         description: خطا در آپلود فایل
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: No file uploaded
+ *       403:
+ *         description: کاربر مجوز آپلود فایل ندارد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: you not have permission this route
+ *       500:
+ *         description: خطای سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: server error
+ */
 coreRouter.post(
     "/upload_audio/",
     authenticateJWT,
