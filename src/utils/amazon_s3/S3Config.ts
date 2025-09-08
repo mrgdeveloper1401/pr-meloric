@@ -18,7 +18,30 @@ export const s3ClientConfig = new S3Client({
   },
 });
 
-const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+export const AudioFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    const allowedMimeTypes = [
+    'audio/mpeg', // mp3
+    'audio/mp4', // m4a, mp4
+    'audio/aac',
+    'audio/aacp',
+    'audio/ogg',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/webm',
+    'audio/flac',
+    'audio/x-flac'
+  ];
+
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true)
+  }
+  else {
+    cb(new Error('Only audio files are allowed! Allowed formats: MP3, AAC, M4A, OGG, WAV, FLAC'))
+  }
+}
+
+
+const imageFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
@@ -42,9 +65,19 @@ const configStorage = multer.diskStorage({
 export const upload = multer(
   {
     storage: configStorage,
-    fileFilter: fileFilter,
+    fileFilter: imageFileFilter,
     limits: {
       fileSize: 1 * 1024 * 1024
     }
   }
 );
+
+export const audioUpload = multer(
+  {
+    storage: configStorage,
+    fileFilter: AudioFileFilter,
+    limits: {
+      fileSize: 15 * 1024 * 1024
+    }
+  }
+)

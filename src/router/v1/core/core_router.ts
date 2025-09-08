@@ -7,7 +7,10 @@ import { Image } from "../../../entity/Image";
 import path from "path";
 import fs from "fs";
 import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
-import { s3ClientConfig, upload } from "../../../utils/amazon_s3/S3Config";
+import { audioUpload, s3ClientConfig, upload } from "../../../utils/amazon_s3/S3Config";
+import { Audio } from "../../../entity/Audio";
+import { User } from "../../../entity/User";
+import mm from "music-metadata";
 
 
 export const coreRouter = express.Router();
@@ -470,5 +473,96 @@ coreRouter.get(
             );
         }
 
+    }
+)
+
+// upload audio
+coreRouter.post(
+    "/upload_audio/",
+    authenticateJWT,
+    audioUpload.single("music"),
+    async (req: Request, res: Response) => {
+        try {
+            // check upload file
+            if (!req.file) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "No file uploaded"
+                    }
+                );
+            }
+
+            // get user_id by request and check user is artst
+            const userId = (req as any).user.user_id;
+            const userRepository = AppDataSource.getRepository(User);
+            const getUser = await userRepository.findOne(
+                {
+                    where: {id: userId, is_active: true, is_artist: true},
+                    select: ['id']
+                }
+            )
+            if (!getUser) {
+                return res.status(403).json(
+                    {
+                        status: false,
+                        message: "you not have permission this route"
+                    }
+                )
+            }
+
+            // parse metadata
+            const metadata = await mm.parseFile(req.file.path);
+            const durationInSeconds = Math.floor(metadata.format.duration || 0);
+
+            // save in bucket
+            const fileContent = fs.readFileSync(req.file.path);
+            const params: PutObjectCommandInput = {
+                ACL: "public-read",
+                Bucket: process.env.AWS_BUCKET_NAME,
+                Key: `uploads/${userId}/${req.file.filename}.${req.file.originalname.split('.').pop()}`,
+                Body: fileContent,
+                ContentType: req.file.mimetype,
+
+            }
+            const command = new PutObjectCommand(params);
+            await s3ClientConfig.send(command);
+
+            // create record and save into database
+            const audio = new Audio();
+            audio.audio_file_path = `https://${process.env.AWS_BUCKET_NAME}.s3.ir-thr-at1.arvanstorage.ir/${params.Key}`;
+            audio.size = req.file.size;
+            audio.audio_format = req.file.mimetype || req.file.originalname.split('.').pop() || '';
+            audio.is_active = true;
+            audio.hash = crypto.randomUUID();
+            audio.user = getUser;
+            audio.duration = durationInSeconds;
+
+            // save into database
+            const saveAudio = await Audio.save(audio);
+
+            // remove file in memory
+            fs.unlinkSync(req.file.path);
+            
+            // return data
+            return res.status(201).json(
+                {
+                    status: "success",
+                    data: {
+                        id: saveAudio.id,
+                        file_path: saveAudio.audio_file_path,
+                        size: saveAudio.size,
+                        format: saveAudio.audio_format
+                    }
+                }
+            );
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            );
+        }
     }
 )

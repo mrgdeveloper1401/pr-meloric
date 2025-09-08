@@ -1,5 +1,6 @@
-import { Column ,Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column ,Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { TimestampEntity } from "./Abstract";
+import { User } from "./User";
 
 @Entity()
 export class Audio extends TimestampEntity{
@@ -7,7 +8,7 @@ export class Audio extends TimestampEntity{
   id: number;
 
   @Column()
-  audio_file: string;
+  audio_file_path: string;
 
   @Column()
   size: number;
@@ -24,10 +25,8 @@ export class Audio extends TimestampEntity{
   @Column({ default: true })
   is_active: boolean;
 
-  // @CreateDateColumn()
-  // createdAt: Date;
-
-  // @UpdateDateColumn()
-  // updatedAt: Date;
+  @ManyToOne(() => User)
+  @JoinColumn({name: "user_id"})
+  user: User;
 
 }
