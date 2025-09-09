@@ -8,7 +8,6 @@ import { Audio } from "../../../../entity/Audio";
 import { plainToClass } from "class-transformer";
 import { CreateMusicDto } from "../../../../dtos/music/CreateMusic";
 import { validate } from "class-validator";
-import { error } from "console";
 import { Artist } from "../../../../entity/Artist";
 import { UpdateMusicDto } from "../../../../dtos/music/UpdateMusic";
 
@@ -134,7 +133,7 @@ musicRouter.get(
             const musicRepository = AppDataSource.getRepository(Song);
             const [songs, count] = await musicRepository.findAndCount(
                 {
-                    where: {album: getAlbum},
+                    where: {album: getAlbum, is_active: true},
                     take: limit,
                     skip: skip
                 }
@@ -328,7 +327,7 @@ musicRouter.post(
             const albumRepository = AppDataSource.getRepository(Album);
             const getAlbum = await albumRepository.findOne(
                 {
-                    where: {id: parseInt(req.params.album_id)},
+                    where: {id: parseInt(req.params.album_id), is_active: true},
                     select: ['id']
                 }
             )
@@ -668,6 +667,9 @@ musicRouter.delete(
         where: {
           id: musicId,
           is_active: true,
+          album: {
+            is_active: true
+          },
           artist: {
             user: {
               id: userId
