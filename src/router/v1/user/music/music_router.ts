@@ -591,3 +591,125 @@ musicRouter.patch(
     }
   }
 );
+
+// delete (soft delete) song by artist
+/**
+ * @swagger
+ * /v1/user/music/{music_id}:
+ *   delete:
+ *     summary: حذف موسیقی (غیرفعال کردن)
+ *     description: این endpoint برای حذف منطقی موسیقی با تنظیم is_active=false استفاده می‌شود
+ *     tags: [Music]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: music_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه موسیقی
+ *     responses:
+ *       200:
+ *         description: موسیقی با موفقیت غیرفعال شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Music deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 45
+ *                     title:
+ *                       type: string
+ *                       example: "My Song"
+ *                     is_active:
+ *                       type: boolean
+ *                       example: false
+ *       403:
+ *         description: دسترسی غیرمجاز - کاربر مالک موسیقی نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: موسیقی یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: خطای سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+musicRouter.delete(
+  "/:music_id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const musicId = parseInt(req.params.music_id);
+
+      // Check if music exists and user has permission
+      const musicRepository = AppDataSource.getRepository(Song);
+      const music = await musicRepository.findOne({
+        where: {
+          id: musicId,
+          is_active: true,
+          artist: {
+            user: {
+              id: userId
+            }
+          }
+        },
+        relations: ["artist"]
+      });
+
+      if (!music) {
+        return res.status(404).json({
+          status: false,
+          message: "Music not found or you don't have permission to delete it"
+        });
+      }
+
+    //   if (!music.is_active) {
+    //     return res.status(400).json({
+    //       status: false,
+    //       message: "Music is already deleted"
+    //     });
+    //   }
+
+      music.is_active = false;
+      await musicRepository.save(music);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Music deleted successfully",
+        data: {
+          id: music.id,
+          title: music.title,
+          is_active: music.is_active
+        }
+      });
+
+    } catch (error) {
+      console.error("Delete music error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error"
+      });
+    }
+  }
+);
