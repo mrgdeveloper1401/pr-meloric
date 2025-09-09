@@ -159,6 +159,91 @@ musicRouter.get(
 )
 
 // create song by artist
+/**
+ * @swagger
+ * /v1/user/music/{album_id}/create_music:
+ *   post:
+ *     summary: ایجاد موسیقی جدید در آلبوم
+ *     description: این endpoint برای ایجاد یک موسیقی جدید در آلبوم توسط هنرمند استفاده می‌شود
+ *     tags: [Music]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: album_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه آلبوم
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - audio_id
+ *               - title
+ *               - release_date
+ *             properties:
+ *               audio_id:
+ *                 type: integer
+ *                 description: شناسه فایل صوتی
+ *                 example: 123
+ *               title:
+ *                 type: string
+ *                 description: عنوان موسیقی
+ *                 example: "My New Song"
+ *               release_date:
+ *                 type: string
+ *                 format: date
+ *                 description: تاریخ انتشار (YYYY-MM-DD)
+ *                 example: "2024-01-15"
+ *     responses:
+ *       201:
+ *         description: موسیقی با موفقیت ایجاد شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     title:
+ *                       type: string
+ *                       example: "My New Song"
+ *                     id:
+ *                       type: integer
+ *                       example: 45
+ *       400:
+ *         description: داده‌های نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       403:
+ *         description: دسترسی غیرمجاز - کاربر هنرمند نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: آلبوم، فایل صوتی یا پروفایل هنرمند یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: خطای سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 musicRouter.post(
     "/:album_id/create_music/",
     authenticateJWT,
@@ -174,7 +259,7 @@ musicRouter.post(
                 )
             }
             // check user is artist
-            const userId = (req as any).user.use_id;
+            const userId = (req as any).user.user_id;
             const userRepository = AppDataSource.getRepository(User);
             const getUser = await userRepository.findOne(
                 {
@@ -215,7 +300,13 @@ musicRouter.post(
             const audioRepository = AppDataSource.getRepository(Audio);
             const getAudio = await audioRepository.findOne(
                 {
-                    where: {id: createMusicDto.audio_id, user: getUser, is_active: true},
+                    where: {
+                        id: createMusicDto.audio_id, 
+                        user: {
+                            id: userId
+                        }, 
+                        is_active: true
+                    },
                     select: ['id']
                 }
             );
@@ -249,7 +340,12 @@ musicRouter.post(
             const artistRepository = AppDataSource.getRepository(Artist);
             const getArtist = await artistRepository.findOne(
                 {
-                    where: {user: getUser, is_active: true},
+                    where: {
+                        user: {
+                            id: userId
+                        }, 
+                        is_active: true
+                    },
                     select: ['id'] 
                 }
             )
@@ -268,6 +364,7 @@ musicRouter.post(
             music.title = createMusicDto.title;
             music.release_date = new Date(createMusicDto.release_date);
             music.audio = getAudio;
+            music.play_count = 0;
             await music.save()
 
             return res.status(201).json(
