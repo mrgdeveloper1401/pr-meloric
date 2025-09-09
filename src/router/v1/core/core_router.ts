@@ -678,3 +678,129 @@ coreRouter.post(
         }
     }
 )
+
+// my upload audio
+/**
+ * @swagger
+ * /v1/core/user/notification/my_audio:
+ *   get:
+ *     summary: دریافت لیست فایل‌های صوتی کاربر هنرمند
+ *     description: این endpoint برای دریافت لیست فایل‌های صوتی کاربر هنرمند با قابلیت صفحه‌بندی استفاده می‌شود
+ *     tags: [Audio]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه برای صفحه‌بندی
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: تعداد آیتم‌ها در هر صفحه
+ *     responses:
+ *       200:
+ *         description: موفقیت آمیز
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Audio'
+ *       403:
+ *         description: عدم دسترسی - کاربر هنرمند نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: خطای سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+coreRouter.get(
+    "/my_audio/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            // get user
+            const userId = (req as any).user.user_id;
+            const userRepository = AppDataSource.getRepository(User);
+            const getUser = await userRepository.findOne(
+                {
+                    where: {id: userId, is_active: true, is_artist: true},
+                    select: ['id']
+                }
+            );
+            if (!getUser) {
+                return res.status(403).json(
+                    {
+                        status: false,
+                        message: "you do not have permission this route"
+                    }
+                );
+            }
+
+            // pagination
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 20;
+            const skip = (page - 1) * limit;
+
+            // audio
+            const audioRepository = AppDataSource.getRepository(Audio);
+            const [audios, total] = await audioRepository.findAndCount(
+                {
+                    where: {
+                        is_active: true,
+                        user: {id: userId}
+                    },
+                    relations: ['user'],
+                    take: limit,
+                    skip: skip,
+                    select: {
+                        id: true,
+                        audio_file_path: true,
+                        size: true,
+                        hash: true,
+                        user: {
+                            id: true
+                        }
+                    }
+                }
+            );
+
+            return res.status(200).json(
+                {
+                    status: "success",
+                    page: page,
+                    limit: limit,
+                    total: total,
+                    skip: skip,
+                    data: audios,
+                }
+            );
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+    }
+);

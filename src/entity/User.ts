@@ -3,7 +3,6 @@ import {
   PrimaryGeneratedColumn, 
   Column,
   OneToOne,
-  Index,
   OneToMany
 } from "typeorm";
 import { Profile } from "./Profile";

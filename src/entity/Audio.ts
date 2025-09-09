@@ -25,7 +25,7 @@ export class Audio extends TimestampEntity{
   @Column({ default: true })
   is_active: boolean;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, {onDelete: "RESTRICT"})
   @JoinColumn({name: "user_id"})
   user: User;
 

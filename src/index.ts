@@ -41,7 +41,7 @@ AppDataSource.initialize().then(() => {
         coreRouter
     )
     app.use(
-        "/v1/user/music/",
+        "/v1/user/story/",
         storyRouter
     )
     app.use(

@@ -4,6 +4,12 @@ import { AppDataSource } from "../../../../data-source";
 import { Song } from "../../../../entity/Song";
 import { Album } from "../../../../entity/Album";
 import { User } from "../../../../entity/User";
+import { Audio } from "../../../../entity/Audio";
+import { plainToClass } from "class-transformer";
+import { CreateMusicDto } from "../../../../dtos/music/CreateMusic";
+import { validate } from "class-validator";
+import { error } from "console";
+import { Artist } from "../../../../entity/Artist";
 
 
 export const musicRouter = Router();
@@ -154,27 +160,132 @@ musicRouter.get(
 
 // create song by artist
 musicRouter.post(
-    ":album_id/create_song/",
+    "/:album_id/create_music/",
     authenticateJWT,
     async (req: Request, res: Response) => {
-        // check user is artist
-        const userId = (req as any).user.use_id;
-        const userRepository = AppDataSource.getRepository(User);
-        const getArtist = userRepository.findOne(
-            {
-                where: {id: userId, is_active: true, is_artist: true},
-                select: ["id", "is_active", "is_artist"]
+        try {
+            // check req body
+            if (!req.body) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "request body is required"
+                    }
+                )
             }
-        );
-        if (!getArtist) {
-            return res.status(403).json(
+            // check user is artist
+            const userId = (req as any).user.use_id;
+            const userRepository = AppDataSource.getRepository(User);
+            const getUser = await userRepository.findOne(
                 {
-                    status: false,
-                    message: "permission denied access this"
+                    where: {id: userId, is_active: true, is_artist: true},
+                    select: ["id"]
                 }
             );
-        }
+            if (!getUser) {
+                return res.status(403).json(
+                    {
+                        status: false,
+                        message: "permission denied access this"
+                    }
+                );
+            }
 
-        
+            // validate
+            const createMusicDto = plainToClass(CreateMusicDto, req.body);
+            const errors = await validate(createMusicDto);
+            if (errors.length > 0) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "invalid data",
+                        error: errors.map(
+                            error => (
+                                {
+                                    field: error.property,
+                                    value: error.constraints
+                                }
+                            )
+                        )
+                    }
+                );
+            }
+
+            // check audio
+            const audioRepository = AppDataSource.getRepository(Audio);
+            const getAudio = await audioRepository.findOne(
+                {
+                    where: {id: createMusicDto.audio_id, user: getUser, is_active: true},
+                    select: ['id']
+                }
+            );
+            if (!getAudio) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "audio not found"
+                    }
+                );
+            }
+            
+            // check album
+            const albumRepository = AppDataSource.getRepository(Album);
+            const getAlbum = await albumRepository.findOne(
+                {
+                    where: {id: parseInt(req.params.album_id)},
+                    select: ['id']
+                }
+            )
+            if (!getAlbum) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "album not found"
+                    }
+                );
+            }
+
+            // check artist profile
+            const artistRepository = AppDataSource.getRepository(Artist);
+            const getArtist = await artistRepository.findOne(
+                {
+                    where: {user: getUser, is_active: true},
+                    select: ['id'] 
+                }
+            )
+            if (!getArtist) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "you are not permission this form"
+                    }
+                );
+            }
+            // create music
+            const music = new Song();
+            music.album = getAlbum;
+            music.artist = getArtist;
+            music.title = createMusicDto.title;
+            music.release_date = new Date(createMusicDto.release_date);
+            music.audio = getAudio;
+            await music.save()
+
+            return res.status(201).json(
+                {
+                    status: "success",
+                    data: {
+                        title: music.title,
+                        id: music.id,
+                    }
+                }
+            );
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
     }
-)
+);
