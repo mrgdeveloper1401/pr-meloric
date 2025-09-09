@@ -11,6 +11,7 @@ import { storyRouter } from "./router/v1/user/music/story_router";
 import { genreRouter } from "./router/v1/user/music/GenreRouter";
 import { albumRouter } from "./router/v1/user/music/albumRouter";
 import { musicRouter } from "./router/v1/user/music/music_router";
+import { favoriteRouter } from "./router/v1/user/music/FavoritRouter";
 
 dotenv.config()
 
@@ -56,7 +57,10 @@ AppDataSource.initialize().then(() => {
         "/v1/user/music/",
         musicRouter
     )
-
+    app.use(
+        "/v1/user/favorite/",
+        favoriteRouter
+    )
     // listen
     app.listen(port)
 
