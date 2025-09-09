@@ -10,6 +10,7 @@ import { CreateMusicDto } from "../../../../dtos/music/CreateMusic";
 import { validate } from "class-validator";
 import { error } from "console";
 import { Artist } from "../../../../entity/Artist";
+import { UpdateMusicDto } from "../../../../dtos/music/UpdateMusic";
 
 
 export const musicRouter = Router();
@@ -390,4 +391,203 @@ musicRouter.post(
             )
         }
     }
+);
+
+// path update music
+// update song by artist
+/**
+ * @swagger
+ * /v1/user/music/{music_id}:
+ *   patch:
+ *     summary: به‌روزرسانی موسیقی
+ *     description: این endpoint برای به‌روزرسانی اطلاعات یک موسیقی توسط هنرمند استفاده می‌شود
+ *     tags: [Music]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: music_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه موسیقی
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: عنوان موسیقی
+ *                 example: "Updated Song Title"
+ *                 nullable: true
+ *               release_date:
+ *                 type: string
+ *                 format: date
+ *                 description: تاریخ انتشار (YYYY-MM-DD)
+ *                 example: "2024-02-20"
+ *                 nullable: true
+ *               music_lyrics:
+ *                 type: string
+ *                 description: متن موزیک
+ *                 example: "Updated lyrics content..."
+ *                 nullable: true
+ *               audio_id:
+ *                 type: integer
+ *                 description: شناسه فایل صوتی جدید
+ *                 example: 456
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: موسیقی با موفقیت به‌روزرسانی شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 45
+ *                     title:
+ *                       type: string
+ *                       example: "Updated Song Title"
+ *                     release_date:
+ *                       type: string
+ *                       format: date
+ *                       example: "2024-02-20"
+ *                     music_lyrics:
+ *                       type: string
+ *                       example: "Updated lyrics content..."
+ *       400:
+ *         description: داده‌های نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       403:
+ *         description: دسترسی غیرمجاز - کاربر مالک موسیقی نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: موسیقی یا فایل صوتی یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: خطای سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+musicRouter.patch(
+  "/:music_id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const musicId = parseInt(req.params.music_id);
+
+      // Check if music exists and user has permission
+      const musicRepository = AppDataSource.getRepository(Song);
+      const music = await musicRepository.findOne({
+        where: {
+          id: musicId,
+          artist: {
+            user: {
+              id: userId
+            }
+          },
+          is_active: true
+        },
+        relations: ["artist", "audio"]
+      });
+
+      if (!music) {
+        return res.status(404).json({
+          status: false,
+          message: "Music not found or you don't have permission to update it"
+        });
+      }
+
+      // Validate request body
+      const updateMusicDto = plainToClass(UpdateMusicDto, req.body);
+      const errors = await validate(updateMusicDto);
+      
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "invalid data",
+          error: errors.map(error => ({
+            field: error.property,
+            constraints: error.constraints
+          }))
+        });
+      }
+
+      // Check if audio_id is provided and valid
+      if (updateMusicDto.audio_id) {
+        const audioRepository = AppDataSource.getRepository(Audio);
+        const audio = await audioRepository.findOne({
+          where: {
+            id: updateMusicDto.audio_id,
+            user: { id: userId },
+            is_active: true
+          }
+        });
+
+        if (!audio) {
+          return res.status(404).json({
+            status: false,
+            message: "Audio file not found or you don't have permission to use it"
+          });
+        }
+        music.audio = audio;
+      }
+
+      // Update fields if provided
+      if (updateMusicDto.title !== undefined) {
+        music.title = updateMusicDto.title;
+      }
+
+      if (updateMusicDto.release_date !== undefined) {
+        music.release_date = new Date(updateMusicDto.release_date);
+      }
+
+      if (updateMusicDto.music_lyrics !== undefined) {
+        music.music_lyrics = updateMusicDto.music_lyrics;
+      }
+
+      // Save updated music
+      await musicRepository.save(music);
+
+      return res.status(200).json({
+        status: "success",
+        data: {
+          id: music.id,
+          title: music.title,
+          release_date: music.release_date.toISOString().split('T')[0],
+          music_lyrics: music.music_lyrics
+        }
+      });
+
+    } catch (error) {
+      console.error("Update music error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error"
+      });
+    }
+  }
 );
