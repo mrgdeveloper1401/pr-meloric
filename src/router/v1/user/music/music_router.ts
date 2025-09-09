@@ -199,6 +199,10 @@ musicRouter.get(
  *                 format: date
  *                 description: تاریخ انتشار (YYYY-MM-DD)
  *                 example: "2024-01-15"
+ *               music_lyrics:
+ *                 type: string
+ *                 description: متن موزیک
+ *                 nullable: true
  *     responses:
  *       201:
  *         description: موسیقی با موفقیت ایجاد شد
@@ -365,6 +369,7 @@ musicRouter.post(
             music.release_date = new Date(createMusicDto.release_date);
             music.audio = getAudio;
             music.play_count = 0;
+            music.music_lyrics = createMusicDto.music_lyrics;
             await music.save()
 
             return res.status(201).json(

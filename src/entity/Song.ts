@@ -29,6 +29,9 @@ export class Song extends TimestampEntity{
   @Column()
   play_count: number;
 
+  @Column({nullable: true})
+  music_lyrics: string
+
   @ManyToOne(() => Audio)
   @JoinColumn({name: "audio_id"})
   audio: Audio

@@ -1,27 +1,6 @@
-import { IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     CreateMusicRequest:
- *       type: object
- *       required:
- *         - audio_id
- *         - title
- *         - release_date
- *       properties:
- *         audio_id:
- *           type: integer
- *           description: شناسه فایل صوتی
- *         title:
- *           type: string
- *           description: عنوان موسیقی
- *         release_date:
- *           type: string
- *           format: date
- *           description: تاریخ انتشار
- */
+
 export class CreateMusicDto {
     @IsNumber()
     @IsNotEmpty()
@@ -30,6 +9,10 @@ export class CreateMusicDto {
     @IsString()
     @IsNotEmpty()
     title: string;
+
+    @IsString()
+    @IsOptional()
+    music_lyrics?: string;
 
     @IsString()
     @IsNotEmpty()
