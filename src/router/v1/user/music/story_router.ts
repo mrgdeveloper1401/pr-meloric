@@ -242,4 +242,148 @@ storyRouter.post(
             
         }   
     }
-)
+);
+
+
+// delete story
+/**
+ * @swagger
+ * /v1/user/music/story/{story_id}:
+ *   delete:
+ *     summary: حذف استوری
+ *     description: |
+ *       این endpoint برای حذف استوری توسط کاربر ایجادکننده آن استفاده می‌شود.
+ *       نیاز به احراز هویت دارد.
+ *     tags: [Story]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: story_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه استوری
+ *     responses:
+ *       200:
+ *         description: استوری با موفقیت حذف شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Story deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 123
+ *                     caption:
+ *                       type: string
+ *                       example: "My story caption"
+ *                     is_active:
+ *                       type: boolean
+ *                       example: false
+ *       400:
+ *         description: استوری قبلاً حذف شده است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Story is already deleted"
+ *       403:
+ *         description: دسترسی غیرمجاز - کاربر مالک استوری نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You don't have permission to delete this story"
+ *       404:
+ *         description: استوری یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Story not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ServerError'
+ */
+storyRouter.delete(
+  "/story/:story_id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const storyId = parseInt(req.params.story_id);
+
+      // Check if story exists and user has permission
+      const storyRepository = AppDataSource.getRepository(Story);
+      const story = await storyRepository.findOne({
+        where: {
+            is_active: true,
+          id: storyId,
+          user: {
+            id: userId
+          }
+        },
+        relations: ["user", "image_story"]
+      });
+
+      if (!story) {
+        return res.status(404).json({
+          status: false,
+          message: "Story not found or you don't have permission to delete it"
+        });
+      }
+
+      // Soft delete the story (set is_active to false)
+      story.is_active = false;
+      await storyRepository.save(story);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Story deleted successfully",
+        data: {
+          id: story.id,
+          caption: story.caption,
+          is_active: story.is_active
+        }
+      });
+
+    } catch (error) {
+      console.error("Delete story error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error"
+      });
+    }
+  }
+);
