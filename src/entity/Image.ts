@@ -11,6 +11,9 @@ export class Image extends TimestampEntity{
   @Column({ length: 255 })
   file_name: string;
 
+  @Column({default: true})
+  is_active: boolean;
+
   @Column({length: 500})
   image_path: string;
 

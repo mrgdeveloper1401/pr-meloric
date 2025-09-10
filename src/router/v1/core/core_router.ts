@@ -564,7 +564,7 @@ coreRouter.get(
             const imageRepository = AppDataSource.getRepository(Image);
             const [images, total] = await imageRepository.findAndCount(
                 {
-                    where: {user: getUser},
+                    where: {user: getUser, is_active: true},
                     relations: ['user'],
                     select: {
                         id: true, image_path: true,
@@ -598,6 +598,167 @@ coreRouter.get(
 )
 
 // delete image by user
+/**
+ * @swagger
+ * /v1/user/core/image_uploads_user/{id}:
+ *   delete:
+ *     summary: Delete a user's image
+ *     description: Delete a specific image belonging to the authenticated user. Requires JWT authentication.
+ *     tags:
+ *       - Images
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the image to delete
+ *         schema:
+ *           type: integer
+ *           example: 123
+ *     responses:
+ *       '200':
+ *         description: Image deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Image deleted successfully"
+ *                 deletedImage:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 123
+ *       '400':
+ *         description: Invalid image ID provided
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid image ID"
+ *       '401':
+ *         description: Unauthorized - JWT token missing or invalid
+ *       '404':
+ *         description: User or image not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Image not found or you don't have permission to delete it"
+ *       '500':
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Server error"
+ */
+coreRouter.delete(
+    "/image_uploads_user/:id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const imageId = parseInt(req.params.id);
+            
+            if (isNaN(imageId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid image ID"
+                });
+            }
+
+            // get user
+            const userId = (req as any).user.user_id;
+            const userRepository = AppDataSource.getRepository(User);
+            const getUser = await userRepository.findOne({
+                where: { id: userId, is_active: true },
+                select: ['id']
+            });
+
+            if (!getUser) {
+                return res.status(404).json({
+                    status: false,
+                    message: "User not found"
+                });
+            }
+
+            // find image
+            const imageRepository = AppDataSource.getRepository(Image);
+            const image = await imageRepository.findOne({
+                where: { 
+                    id: imageId,
+                    is_active: true,
+                    user: getUser 
+                },
+                relations: ['user'],
+                select: {
+                    user: {
+                        id: true
+                    },
+                    id: true
+                }
+            });
+
+            if (!image) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Image not found or you don't have permission to delete it"
+                });
+            }
+
+            // حذف فیزیکی فایل از storage (اگر نیاز باشد)
+            // const fs = require('fs');
+            // const path = require('path');
+            // const filePath = path.join(__dirname, '..', 'uploads', image.image_path);
+            // if (fs.existsSync(filePath)) {
+            //     fs.unlinkSync(filePath);
+            // }
+
+            image.is_active = false;
+            await image.save()
+
+            return res.status(200).json({
+                status: "success",
+                message: "Image deleted successfully",
+                deletedImage: {
+                    id: image.id
+                }
+            });
+
+        } catch (error) {
+            console.error("Delete image error:", error);
+            return res.status(500).json({
+                status: false,
+                message: "Server error"
+            });
+        }
+    }
+);
 
 // upload audio
 /**
