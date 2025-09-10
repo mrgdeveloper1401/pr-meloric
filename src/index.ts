@@ -12,8 +12,12 @@ import { genreRouter } from "./router/v1/user/music/GenreRouter";
 import { albumRouter } from "./router/v1/user/music/albumRouter";
 import { musicRouter } from "./router/v1/user/music/music_router";
 import { favoriteRouter } from "./router/v1/user/music/FavoritRouter";
+import { CorsOptionsMiddleware } from "./middlewares/CorsMiddlewere";
+import cors from "cors";
 
 dotenv.config()
+
+const debug = process.env.DEBUG
 
 AppDataSource.initialize().then(() => {
     console.log(blue("success connect database"));
@@ -21,6 +25,11 @@ AppDataSource.initialize().then(() => {
 
     // express
     const app = express()
+    if (debug) {
+        app.use(cors());
+    } else {
+        app.use(cors(CorsOptionsMiddleware));
+    }
     app.use(bodyParser.json());
     app.use(bodyParser.urlencoded({ extended: true }));
     const port = process.env.PORT;
