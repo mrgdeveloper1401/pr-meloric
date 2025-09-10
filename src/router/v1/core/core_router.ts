@@ -284,7 +284,7 @@ coreRouter.get(
  *       این endpoint برای آپلود فایل تصویر استفاده می‌شود.
  *       نیاز به احراز هویت JWT دارد.
  *     tags:
- *       - Upload
+ *       - Images
  *     security:
  *       - bearerAuth: []
  *     requestBody:

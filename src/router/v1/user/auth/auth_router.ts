@@ -1415,8 +1415,6 @@ userAuthRouter.post(
  *       کاربر باید وجود داشته باشد و حسابش فعال باشد.
  *     tags:
  *       - Authentication
- *       - OTP
- *       - Email
  *     requestBody:
  *       required: true
  *       content:
@@ -2353,7 +2351,6 @@ userAuthRouter.get(
  *       کاربر نیازی به احراز هویت ندارد.
  *     tags:
  *       - Authentication
- *       - Password Recovery
  *     requestBody:
  *       required: true
  *       content:
