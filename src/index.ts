@@ -38,7 +38,7 @@ AppDataSource.initialize().then(() => {
         "/v1/follow/user/", followRouter
     )
     app.use(
-        "/v1/core/user/notification/",
+        "/v1/user/core/",
         coreRouter
     )
     app.use(

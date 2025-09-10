@@ -18,7 +18,7 @@ export const coreRouter = express.Router();
 // all public notification
 /**
  * @swagger
- * /v1/core/user/notification/public_notifications:
+ * /v1/user/core/notification/public_notifications:
  *   get:
  *     summary: دریافت لیست نوتیفیکیشن‌های عمومی
  *     description: |
@@ -156,7 +156,7 @@ coreRouter.get(
 // detail public notification
 /**
  * @swagger
- * /v1/core/user/notification/public_notifications/{id}:
+ * /v1/user/core/notification/public_notifications/{id}:
  *   get:
  *     summary: دریافت جزئیات نوتیفیکیشن عمومی
  *     description: |
@@ -277,7 +277,7 @@ coreRouter.get(
 // upload image
 /**
  * @swagger
- * /v1/core/upload_image/:
+ * /v1/user/core/upload_image/:
  *   post:
  *     summary: آپلود تصویر
  *     description: |
@@ -434,6 +434,106 @@ coreRouter.post(
 );
 
 // get image by user
+/**
+ * @swagger
+ * /v1/user/core/image_uploads_user:
+ *   get:
+ *     summary: دریافت تصاویر آپلود شده توسط کاربر
+ *     description: |
+ *       این endpoint برای دریافت لیست تصاویر آپلود شده توسط کاربر با قابلیت صفحه‌بندی استفاده می‌شود.
+ *       کاربر باید احراز هویت شده باشد.
+ *     tags:
+ *       - Core
+ *       - Images
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه برای صفحه‌بندی
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: تعداد آیتم‌ها در هر صفحه (حداکثر 100)
+ *         example: 20
+ *     responses:
+ *       200:
+ *         description: لیست تصاویر کاربر با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 take:
+ *                   type: integer
+ *                   description: تعداد آیتم‌ها در هر صفحه
+ *                   example: 20
+ *                 total:
+ *                   type: integer
+ *                   description: تعداد کل تصاویر
+ *                   example: 45
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/UserImage'
+ *                 page:
+ *                   type: integer
+ *                   description: شماره صفحه فعلی
+ *                   example: 1
+ *       401:
+ *         description: عدم احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *             example:
+ *               message: "Unauthorized"
+ *       404:
+ *         description: کاربر یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             example:
+ *               status: false
+ *               message: "user not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             example:
+ *               status: false
+ *               message: "server error"
+ */
 coreRouter.get(
     "/image_uploads_user/",
     authenticateJWT,
@@ -497,6 +597,8 @@ coreRouter.get(
 
     }
 )
+
+// delete image by user
 
 // upload audio
 /**
