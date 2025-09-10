@@ -944,7 +944,7 @@ coreRouter.post(
 // my upload audio
 /**
  * @swagger
- * /v1/core/user/notification/my_audio:
+ * /v1/user/core/my_audio:
  *   get:
  *     summary: دریافت لیست فایل‌های صوتی کاربر هنرمند
  *     description: این endpoint برای دریافت لیست فایل‌های صوتی کاربر هنرمند با قابلیت صفحه‌بندی استفاده می‌شود
@@ -1063,6 +1063,169 @@ coreRouter.get(
                     message: "server error"
                 }
             )
+        }
+    }
+);
+
+// delete route my_upload audio
+/**
+ * @swagger
+ * /v1/user/core/my_audio/{id}:
+ *   delete:
+ *     summary: حذف فایل صوتی کاربر هنرمند
+ *     description: |
+ *       این endpoint برای حذف یک فایل صوتی خاص کاربر هنرمند استفاده می‌شود.
+ *       کاربر باید هنرمند باشد و فقط می‌تواند فایل‌های صوتی خود را حذف کند.
+ *     tags: [Audio]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه فایل صوتی
+ *         example: 123
+ *     responses:
+ *       200:
+ *         description: فایل صوتی با موفقیت حذف شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Audio file deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 123
+ *       400:
+ *         description: شناسه فایل صوتی نامعتبر است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid audio ID"
+ *       403:
+ *         description: عدم دسترسی - کاربر هنرمند نیست یا مالک فایل نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You don't have permission to delete this audio"
+ *       404:
+ *         description: فایل صوتی پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Audio file not found"
+ *       500:
+ *         description: خطای سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ */
+coreRouter.delete(
+    "/my_audio/:id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            // get user
+            const userId = (req as any).user.user_id;
+            const audioId = parseInt(req.params.id);
+
+            // check valid params
+            if (isNaN(audioId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid audio ID"
+                });
+            }
+
+            const userRepository = AppDataSource.getRepository(User);
+            const getUser = await userRepository.findOne({
+                where: { id: userId, is_active: true, is_artist: true },
+                select: ['id']
+            });
+
+            if (!getUser) {
+                return res.status(403).json({
+                    status: false,
+                    message: "You do not have permission to access this route"
+                });
+            }
+
+            // find file
+            const audioRepository = AppDataSource.getRepository(Audio);
+            const audio = await audioRepository.findOne({
+                where: {
+                    id: audioId,
+                    user: { id: userId },
+                    is_active: true
+                },
+                relations: ['user']
+            });
+
+            if (!audio) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Audio file not found or you don't have permission to delete it"
+                });
+            }
+
+            // soft delete
+            audio.is_active = false;
+            await audioRepository.save(audio);
+
+            return res.status(200).json({
+                status: "success",
+                message: "Audio file deleted successfully",
+                data: {
+                    id: audio.id,
+                }
+            });
+
+        } catch (error) {
+            console.error("Delete audio error:", error);
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
         }
     }
 );
