@@ -8,7 +8,7 @@ import { funcCreateToken } from "../../../../utils/createJwtToken";
 import { authenticateJWT, notAuthenticateJwt } from "../../../../middlewares/authenticate";
 import { sendOtp } from "../../../../utils/sendOtpSmsIr";
 import { VerifyOtpRedis } from "../../../../utils/connectRedis";
-import { length, validate } from "class-validator";
+import { validate } from "class-validator";
 import { Profile } from "../../../../entity/Profile";
 import { funcCheckUserActive } from "../../../../middlewares/checkUserActive";
 import { ResetPasswordDto } from "../../../../dtos/auth/ResetPassword.dto";
@@ -2114,6 +2114,8 @@ userAuthRouter.get(
     authenticateJWT,
     async (req: Request, res: Response) => {
         try {
+            // get user_id
+            const userId = (req as any).user.user_id;
             // get data and pagination
             const page = (req.query.page as string) || 1; // current page
             const limit = parseInt(req.query.limit as string) || 20; // item in page
@@ -2121,8 +2123,14 @@ userAuthRouter.get(
             const notificationRepository = AppDataSource.getRepository(UserNotification);
             const [notification, totalCount] = await notificationRepository.findAndCount(
                 {
-                    where: {user: (req as any).user_id, is_active: true},
+                    where: {
+                        user: {
+                            id: userId
+                        }, 
+                        is_active: true
+                    },
                     select: {
+                        id: true,
                         title: true,
                         body: true,
                         notification_redirect_url: true,
