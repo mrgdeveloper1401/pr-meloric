@@ -22,10 +22,4 @@ export class Comment extends TimestampEntity{
   @Column({ default: true })
   is_active: boolean;
 
-  // @CreateDateColumn()
-  // createdAt: Date;
-
-  // @UpdateDateColumn()
-  // updatedAt: Date;
-
 }

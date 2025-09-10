@@ -14,6 +14,7 @@ import { musicRouter } from "./router/v1/user/music/music_router";
 import { favoriteRouter } from "./router/v1/user/music/FavoritRouter";
 import { CorsOptionsMiddleware } from "./middlewares/CorsMiddlewere";
 import cors from "cors";
+import { commentMusicRouter } from "./router/v1/user/music/CommentRouter";
 
 dotenv.config()
 
@@ -69,6 +70,10 @@ AppDataSource.initialize().then(() => {
     app.use(
         "/v1/user/favorite/",
         favoriteRouter
+    )
+    app.use(
+        "/v1/user/comment_music/",
+        commentMusicRouter
     )
     // listen
     app.listen(port)

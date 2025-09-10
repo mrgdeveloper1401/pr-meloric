@@ -1,0 +1,528 @@
+// src/router/v1/user/music/CommentRouter.ts
+import { Router, Request, Response } from "express";
+import { AppDataSource } from "../../../../data-source";
+import { Comment } from "../../../../entity/Comment";
+import { User } from "../../../../entity/User";
+import { Song } from "../../../../entity/Song";
+import { authenticateJWT } from "../../../../middlewares/authenticate";
+
+const router = Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: Comments
+ *   description: مدیریت نظرات آهنگ‌ها
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Comment:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           description: شناسه نظر
+ *         body:
+ *           type: string
+ *           description: متن نظر
+ *         is_active:
+ *           type: boolean
+ *           description: وضعیت فعال بودن نظر
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: تاریخ ایجاد
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *           description: تاریخ به‌روزرسانی
+ *         user:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: integer
+ *             username:
+ *               type: string
+ *         song:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: integer
+ *             title:
+ *               type: string
+ * 
+ *     CreateCommentRequest:
+ *       type: object
+ *       required:
+ *         - song_id
+ *         - body
+ *       properties:
+ *         song_id:
+ *           type: integer
+ *           description: شناسه آهنگ
+ *         body:
+ *           type: string
+ *           description: متن نظر
+ * 
+ *     UpdateCommentRequest:
+ *       type: object
+ *       properties:
+ *         body:
+ *           type: string
+ *           description: متن نظر
+ *         is_active:
+ *           type: boolean
+ *           description: وضعیت فعال بودن نظر
+ */
+
+/**
+ * @swagger
+ * /v1/user/comment_music/comments:
+ *   post:
+ *     summary: ایجاد نظر جدید
+ *     description: ایجاد یک نظر جدید برای آهنگ
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateCommentRequest'
+ *     responses:
+ *       201:
+ *         description: نظر با موفقیت ایجاد شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   $ref: '#/components/schemas/Comment'
+ *       400:
+ *         description: داده‌های ورودی نامعتبر
+ *       404:
+ *         description: آهنگ پیدا نشد
+ *       500:
+ *         description: خطای سرور
+ */
+router.post("/comments", authenticateJWT, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.user_id;
+    const { song_id, body } = req.body;
+
+    if (!song_id || !body) {
+      return res.status(400).json({
+        status: false,
+        message: "Song ID and body are required"
+      });
+    }
+
+    const userRepository = AppDataSource.getRepository(User);
+    const songRepository = AppDataSource.getRepository(Song);
+    const commentRepository = AppDataSource.getRepository(Comment);
+
+    const user = await userRepository.findOne({ where: { id: userId } });
+    const song = await songRepository.findOne({ where: { id: song_id, is_active: true } });
+
+    if (!song) {
+      return res.status(404).json({
+        status: false,
+        message: "Song not found"
+      });
+    }
+
+    const comment = commentRepository.create({
+      user,
+      song,
+      body,
+      is_active: true
+    });
+
+    const savedComment = await commentRepository.save(comment);
+
+    const commentWithRelations = await commentRepository.findOne({
+      where: { id: savedComment.id },
+      relations: ["user", "song"],
+      select: {
+        user: { id: true, username: true },
+        song: { id: true, title: true }
+      }
+    });
+
+    res.status(201).json({
+      status: "success",
+      data: commentWithRelations
+    });
+
+  } catch (error) {
+    console.error("Create comment error:", error);
+    res.status(500).json({
+      status: false,
+      message: "Server error"
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /v1/user/comment_music/comments/{id}:
+ *   get:
+ *     summary: دریافت نظر خاص
+ *     description: دریافت اطلاعات یک نظر خاص
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه نظر
+ *     responses:
+ *       200:
+ *         description: اطلاعات نظر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   $ref: '#/components/schemas/Comment'
+ *       404:
+ *         description: نظر پیدا نشد
+ *       500:
+ *         description: خطای سرور
+ */
+router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response) => {
+  try {
+    const commentId = parseInt(req.params.id);
+    const commentRepository = AppDataSource.getRepository(Comment);
+
+    const comment = await commentRepository.findOne({
+      where: { id: commentId, is_active: true },
+      relations: ["user", "song"],
+      select: {
+        user: { id: true, username: true },
+        song: { id: true, title: true }
+      }
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        status: false,
+        message: "Comment not found"
+      });
+    }
+
+    res.json({
+      status: "success",
+      data: comment
+    });
+
+  } catch (error) {
+    console.error("Get comment error:", error);
+    res.status(500).json({
+      status: false,
+      message: "Server error"
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /v1/user/comment_music/songs/{songId}/comments:
+ *   get:
+ *     summary: دریافت نظرات یک آهنگ
+ *     description: دریافت لیست نظرات یک آهنگ خاص با صفحه‌بندی
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: songId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه آهنگ
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *         description: تعداد آیتم در صفحه
+ *     responses:
+ *       200:
+ *         description: لیست نظرات
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Comment'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalItems:
+ *                       type: integer
+ *                     itemsPerPage:
+ *                       type: integer
+ *       500:
+ *         description: خطای سرور
+ */
+router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res: Response) => {
+  try {
+    const songId = parseInt(req.params.songId);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    const commentRepository = AppDataSource.getRepository(Comment);
+
+    const [comments, total] = await commentRepository.findAndCount({
+      where: { song: { id: songId }, is_active: true },
+      relations: ["user", "song"],
+      select: {
+        user: { id: true, username: true },
+        song: { id: true, title: true }
+      },
+      skip,
+      take: limit
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      status: "success",
+      data: comments,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: total,
+        itemsPerPage: limit
+      }
+    });
+
+  } catch (error) {
+    console.error("Get comments error:", error);
+    res.status(500).json({
+      status: false,
+      message: "Server error"
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /v1/user/comment_music/comments/{id}:
+ *   put:
+ *     summary: به‌روزرسانی نظر
+ *     description: به‌روزرسانی یک نظر خاص (فقط مالک نظر می‌تواند ویرایش کند)
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه نظر
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateCommentRequest'
+ *     responses:
+ *       200:
+ *         description: نظر با موفقیت به‌روزرسانی شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   $ref: '#/components/schemas/Comment'
+ *       403:
+ *         description: عدم دسترسی - کاربر مالک نظر نیست
+ *       404:
+ *         description: نظر پیدا نشد
+ *       500:
+ *         description: خطای سرور
+ */
+router.put("/comments/:id", authenticateJWT, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.user_id;
+    const commentId = parseInt(req.params.id);
+    const { body, is_active } = req.body;
+
+    const commentRepository = AppDataSource.getRepository(Comment);
+
+    const comment = await commentRepository.findOne({
+      where: { id: commentId },
+      relations: ["user"]
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        status: false,
+        message: "Comment not found"
+      });
+    }
+
+    // بررسی مالکیت نظر
+    if (comment.user.id !== userId) {
+      return res.status(403).json({
+        status: false,
+        message: "You are not the owner of this comment"
+      });
+    }
+
+    // به‌روزرسانی فیلدها
+    if (body !== undefined) comment.body = body;
+    if (is_active !== undefined) comment.is_active = is_active;
+
+    const updatedComment = await commentRepository.save(comment);
+
+    // بازگرداندن داده با relations
+    const commentWithRelations = await commentRepository.findOne({
+      where: { id: updatedComment.id },
+      relations: ["user", "song"],
+      select: {
+        user: { id: true, username: true },
+        song: { id: true, title: true }
+      }
+    });
+
+    res.json({
+      status: "success",
+      data: commentWithRelations
+    });
+
+  } catch (error) {
+    console.error("Update comment error:", error);
+    res.status(500).json({
+      status: false,
+      message: "Server error"
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /v1/user/comment_music/comments/{id}:
+ *   delete:
+ *     summary: حذف نظر
+ *     description: حذف یک نظر خاص (فقط مالک نظر یا ادمین می‌تواند حذف کند)
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه نظر
+ *     responses:
+ *       200:
+ *         description: نظر با موفقیت حذف شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Comment deleted successfully
+ *       403:
+ *         description: عدم دسترسی
+ *       404:
+ *         description: نظر پیدا نشد
+ *       500:
+ *         description: خطای سرور
+ */
+router.delete("/comments/:id", authenticateJWT, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.user_id;
+    const userRole = (req as any).user.role; // فرض می‌کنیم role در JWT وجود دارد
+    const commentId = parseInt(req.params.id);
+
+    const commentRepository = AppDataSource.getRepository(Comment);
+
+    const comment = await commentRepository.findOne({
+      where: { id: commentId },
+      relations: ["user"]
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        status: false,
+        message: "Comment not found"
+      });
+    }
+
+    // بررسی مالکیت یا نقش ادمین
+    if (comment.user.id !== userId && userRole !== 'admin') {
+      return res.status(403).json({
+        status: false,
+        message: "You don't have permission to delete this comment"
+      });
+    }
+
+    // حذف نرم (soft delete)
+    comment.is_active = false;
+    await commentRepository.save(comment);
+
+    res.json({
+      status: "success",
+      message: "Comment deleted successfully"
+    });
+
+  } catch (error) {
+    console.error("Delete comment error:", error);
+    res.status(500).json({
+      status: false,
+      message: "Server error"
+    });
+  }
+});
+
+export const commentMusicRouter = router;
