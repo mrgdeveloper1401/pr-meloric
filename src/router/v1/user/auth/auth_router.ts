@@ -25,7 +25,6 @@ import { UserNotification } from "../../../../entity/UserNotification";
 import { confirmForgetPasswordDto } from "../../../../dtos/auth/ConfirmForgetPassword";
 import { requestEmailDto } from "../../../../dtos/auth/RequestEmail";
 import { ProfileDto } from "../../../../dtos/auth/ProfileDto";
-import { error } from "console";
 import { Image } from "../../../../entity/Image";
 // import { checkImageOwnership } from "../../../../middlewares/CheckOwnerImage";
 
@@ -2167,6 +2166,178 @@ userAuthRouter.get(
                     message: "server error"
                 }
             )
+        }
+    }
+);
+
+// detail user notification
+/**
+ * @swagger
+ * /v1/auth/user/notifications/{id}:
+ *   get:
+ *     summary: دریافت جزئیات یک نوتیفیکیشن خاص
+ *     description: |
+ *       این endpoint برای دریافت جزئیات یک نوتیفیکیشن خاص بر اساس شناسه آن استفاده می‌شود.
+ *       کاربر باید لاگین کرده باشد و فقط می‌تواند نوتیفیکیشن‌های خود را مشاهده کند.
+ *     tags:
+ *       - Notifications
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه نوتیفیکیشن
+ *         example: 123
+ *     responses:
+ *       200:
+ *         description: جزئیات نوتیفیکیشن با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: شناسه نوتیفیکیشن
+ *                       example: 123
+ *                     title:
+ *                       type: string
+ *                       description: عنوان نوتیفیکیشن
+ *                       example: "به روزرسانی جدید"
+ *                     body:
+ *                       type: string
+ *                       description: محتوای نوتیفیکیشن
+ *                       example: "یک به روزرسانی جدید برای اپلیکیشن موجود است"
+ *                     notification_redirect_url:
+ *                       type: string
+ *                       nullable: true
+ *                       description: URL جهت redirect نوتیفیکیشن
+ *                       example: "https://example.com/update"
+ *                     notification_type:
+ *                       type: string
+ *                       description: نوع نوتیفیکیشن
+ *                       example: "system_update"
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       description: تاریخ ایجاد نوتیفیکیشن
+ *                       example: "2023-10-05T12:34:56.789Z"
+ *       400:
+ *         description: شناسه نوتیفیکیشن نامعتبر است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid notification ID"
+ *       401:
+ *         description: عدم احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *             example:
+ *               message: "Unauthorized"
+ *       404:
+ *         description: نوتیفیکیشن پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Notification not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *             example:
+ *               status: false
+ *               message: "server error"
+ */
+userAuthRouter.get(
+    "/notifications/:id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const notificationId = parseInt(req.params.id);
+
+            if (isNaN(notificationId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid notification ID"
+                });
+            }
+
+            const notificationRepository = AppDataSource.getRepository(UserNotification);
+            
+            // find user notification
+            const notification = await notificationRepository.findOne({
+                where: {
+                    id: notificationId,
+                    user: { id: userId },
+                    is_active: true
+                },
+                select: {
+                    id: true,
+                    title: true,
+                    body: true,
+                    notification_redirect_url: true,
+                    notification_type: true,
+                    createdAt: true,
+                    updatedAt: true
+                }
+            });
+
+            // check notification dose exists
+            if (!notification) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Notification not found"
+                });
+            }
+
+            return res.status(200).json({
+                status: "success",
+                data: notification
+            });
+
+        } catch (error) {
+            console.error("Get notification detail error:", error);
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
         }
     }
 );
