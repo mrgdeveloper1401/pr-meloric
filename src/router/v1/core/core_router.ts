@@ -18,7 +18,7 @@ export const coreRouter = express.Router();
 // all public notification
 /**
  * @swagger
- * /v1/user/core/notification/public_notifications:
+ * /v1/user/core/public_notifications:
  *   get:
  *     summary: دریافت لیست نوتیفیکیشن‌های عمومی
  *     description: |
