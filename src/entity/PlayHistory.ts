@@ -1,4 +1,4 @@
-import { CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { User } from "./User";
 import { Song } from "./Song";
 import { TimestampEntity } from "./Abstract";
@@ -19,10 +19,6 @@ export class PlayHistory extends TimestampEntity{
   @CreateDateColumn()
   played_at: Date;
 
-  // @CreateDateColumn()
-  // createdAt: Date;
-
-  // @UpdateDateColumn()
-  // updatedAt: Date;
-
+  @Column({default: true})
+  is_active: boolean;
 }

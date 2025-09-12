@@ -1,0 +1,596 @@
+import { plainToClass } from "class-transformer";
+import { validate } from "class-validator";
+import { AppDataSource } from "../../../../data-source";
+import { PlayHistory } from "../../../../entity/PlayHistory";
+import { Song } from "../../../../entity/Song";
+import { User } from "../../../../entity/User";
+import { authenticateJWT } from "../../../../middlewares/authenticate";
+import { Router, Request, Response } from "express";
+import { CreatePlayHistoryDto } from "../../../../dtos/music/CreatePlayHistoryDto";
+import { Playlist } from "../../../../entity/Playlist";
+
+
+export const playHistoryRouter = Router()
+
+// create play history
+/**
+ * @swagger
+ * /v1/user/play/{play_list_id}/play_music:
+ *   post:
+ *     summary: افزودن آهنگ به تاریخچه پخش از طریق پلی‌لیست
+ *     description: وقتی کاربر یک آهنگ را از طریق پلی‌لیست پخش می‌کند، این endpoint فراخوانی می‌شود
+ *     tags: [PlayHistory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: play_list_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه پلی‌لیست
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - song_id
+ *               - played_at
+ *             properties:
+ *               song_id:
+ *                 type: integer
+ *                 description: شناسه آهنگ
+ *                 example: 123
+ *               played_at:
+ *                 type: string
+ *                 format: date-time
+ *                 description: تاریخ و زمان پخش
+ *                 example: "2023-12-01T10:30:00.000Z"
+ *
+ *     responses:
+ *       201:
+ *         description: آهنگ با موفقیت به تاریخچه پخش اضافه شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: شناسه رکورد تاریخچه پخش
+ *                     played_at:
+ *                       type: string
+ *                       format: date-time
+ *                       description: تاریخ و زمان پخش
+ *       400:
+ *         description: داده‌های ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Validation error
+ *                 error:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         description: نام فیلد دارای خطا
+ *                       value:
+ *                         type: object
+ *                         description: محدودیت‌های اعتبارسنجی
+ *       403:
+ *         description: کاربر دسترسی به این پلی‌لیست ندارد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: You don't have permission to access this playlist
+ *       404:
+ *         description: پلی‌لیست یا آهنگ پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Playlist or song not found
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Server error
+ */
+playHistoryRouter.post(
+    "/:play_list_id/play_music/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const playListId = Number(req.params.play_list_id)
+
+            // check params
+            if (isNaN(playListId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid PlayListId"
+                });
+            }
+
+            // check playListId with await
+            const playListRepository = AppDataSource.getRepository(Playlist);
+            const getPlayList = await playListRepository.findOne({
+                where: {
+                    id: playListId, 
+                    is_active: true,
+                    user: { id: userId }
+                },
+                select: ['id'],
+                relations: ['user']
+            });
+
+            if (!getPlayList) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Playlist does not exist or you don't have permission"
+                });
+            }
+
+            // check request body
+            if (!req.body) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Request body is required"
+                });
+            }
+
+            // validate DTO
+            const playHistoryDto = plainToClass(CreatePlayHistoryDto, req.body);
+            const errors = await validate(playHistoryDto);
+            
+            if (errors.length > 0) {
+                return res.status(400).json({
+                    status: false,
+                    error: errors.map(err => ({
+                        field: err.property,
+                        value: err.constraints
+                    }))
+                });
+            }
+
+            // check music if exists
+            const songRepository = AppDataSource.getRepository(Song);
+            const song = await songRepository.findOne({
+                where: { id: playHistoryDto.song_id, is_active: true },
+                select: ['id']
+            });
+
+            if (!song) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Song not found"
+                });
+            }
+
+            // Create a playback history record
+            const playHistoryRepository = AppDataSource.getRepository(PlayHistory);
+            const playHistory = new PlayHistory();
+            
+            playHistory.user = { id: Number(userId) } as User;
+            playHistory.song = { id: playHistoryDto.song_id } as Song;
+            
+            // تبدیل تاریخ به فرمت صحیح
+            const playedAtDate = new Date(playHistoryDto.played_at);
+            if (isNaN(playedAtDate.getTime())) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid date format for played_at"
+                });
+            }
+            
+            playHistory.played_at = playedAtDate;
+            await playHistoryRepository.save(playHistory);
+
+            return res.status(201).json({
+                status: true,
+                data: {
+                    id: playHistory.id,
+                    played_at: playHistory.played_at
+                }
+            });
+
+        } catch (error) {
+            console.error("Play history error:", error);
+            return res.status(500).json({
+                status: false,
+                message: "Server error"
+            });
+        }
+    }
+);
+
+// get play history
+/**
+ * @swagger
+ * /v1/user/play/{play_list_id}/play_history:
+ *   get:
+ *     summary: دریافت تاریخچه پخش کاربر
+ *     description: دریافت لیست آهنگ‌های پخش شده توسط کاربر با امکان صفحه‌بندی
+ *     tags: [PlayHistory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: play_list_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه پلی‌لیست
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *         description: تعداد آیتم در صفحه
+ *     responses:
+ *       200:
+ *         description: لیست تاریخچه پخش با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/PlayHistory'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalItems:
+ *                       type: integer
+ *                     itemsPerPage:
+ *                       type: integer
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+playHistoryRouter.get(
+    "/:play_list_id/play_history",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const playListId = req.params.play_list_id;
+
+            // pagination
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 20;
+            const skip = (page - 1) * limit;
+
+            const playHistoryRepository = AppDataSource.getRepository(PlayHistory);
+            
+            // get playlist
+            const [playHistory, total] = await playHistoryRepository.findAndCount({
+                where: { 
+                    user: { id: Number(userId) },
+                    is_active: true 
+                },
+                skip,
+                take: limit,
+            });
+
+            const totalPages = Math.ceil(total / limit);
+
+            return res.status(200).json({
+                status: true,
+                data: playHistory,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalItems: total,
+                    itemsPerPage: limit
+                }
+            });
+
+        } catch (error) {
+            console.error("Get play history error:", error);
+            return res.status(500).json({
+                status: false,
+                message: "Server error"
+            });
+        }
+    }
+);
+
+// update play history
+/**
+ * @swagger
+ * /v1/user/play/play_history/{id}:
+ *   patch:
+ *     summary: بروزرسانی رکورد تاریخچه پخش
+ *     description: بروزرسانی یک رکورد خاص در تاریخچه پخش
+ *     tags: [PlayHistory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه رکورد تاریخچه پخش
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *              type: object
+ *              properties:
+ *                played_at:
+ *                    type: string
+ *                    description: تاریخ اخرین پخش       
+ *     responses:
+ *       200:
+ *         description: رکورد تاریخچه پخش با موفقیت بروزرسانی شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/PlayHistory'
+ *       400:
+ *         description: داده‌های ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: کاربر مجوز ویرایش این رکورد را ندارد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: رکورد تاریخچه پخش پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+playHistoryRouter.patch(
+    "/play_history/:id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const playHistoryId = parseInt(req.params.id);
+
+            if (isNaN(playHistoryId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid play history ID"
+                });
+            }
+
+            const playHistoryRepository = AppDataSource.getRepository(PlayHistory);
+            
+            // find playhistory
+            const playHistory = await playHistoryRepository.findOne({
+                where: { id: playHistoryId, is_active: true },
+                relations: ["user"]
+            });
+
+            if (!playHistory) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Play history record not found"
+                });
+            }
+
+            //  check owner play history
+            if (playHistory.user.id !== Number(userId)) {
+                return res.status(403).json({
+                    status: false,
+                    message: "You don't have permission to update this record"
+                });
+            }
+
+            // check field
+            if (req.body.played_at !== undefined) {
+                playHistory.played_at = new Date(req.body.played_at);
+            }
+
+            await playHistoryRepository.save(playHistory);
+
+            return res.status(200).json({
+                status: "success",
+                data: {
+                    id: playHistory.id,
+                    played_at: playHistory.played_at
+                }
+            });
+
+        } catch (error) {
+            console.error("Update play history error:", error);
+            return res.status(500).json({
+                status: false,
+                message: "Server error"
+            });
+        }
+    }
+);
+
+// delete play history
+/**
+ * @swagger
+ * /v1/user/play/play_history/{id}:
+ *   delete:
+ *     summary: حذف رکورد از تاریخچه پخش
+ *     description: حذف نرم یک رکورد از تاریخچه پخش (is_active = false)
+ *     tags: [PlayHistory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه رکورد تاریخچه پخش
+ *     responses:
+ *       200:
+ *         description: رکورد با موفقیت حذف شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Play history record deleted successfully
+ *       400:
+ *         description: شناسه نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: کاربر مجوز حذف این رکورد را ندارد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: رکورد پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+playHistoryRouter.delete(
+    "/play_history/:id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const playHistoryId = parseInt(req.params.id);
+
+            if (isNaN(playHistoryId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid play history ID"
+                });
+            }
+
+            const playHistoryRepository = AppDataSource.getRepository(PlayHistory);
+            
+            // find playhistory
+            const playHistory = await playHistoryRepository.findOne({
+                where: { id: playHistoryId, is_active: true },
+                relations: ["user"]
+            });
+
+            if (!playHistory) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Play history record not found"
+                });
+            }
+
+            // check owner
+            if (playHistory.user.id !== Number(userId)) {
+                return res.status(403).json({
+                    status: false,
+                    message: "You don't have permission to delete this record"
+                });
+            }
+
+            // delete
+            playHistory.is_active = false;
+            await playHistoryRepository.save(playHistory);
+
+            return res.status(200).json({
+                status: true,
+                message: "Play history record deleted successfully"
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "Server error"
+            });
+        }
+    }
+);
