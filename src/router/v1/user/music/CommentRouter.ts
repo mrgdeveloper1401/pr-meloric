@@ -5,6 +5,10 @@ import { Comment } from "../../../../entity/Comment";
 import { User } from "../../../../entity/User";
 import { Song } from "../../../../entity/Song";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
+import { plainToClass } from "class-transformer";
+import { CreateCommentDTO } from "../../../../dtos/music/CommentDto";
+import { validate } from "class-validator";
+import { error } from "console";
 
 const router = Router();
 
@@ -78,6 +82,7 @@ const router = Router();
  *           description: وضعیت فعال بودن نظر
  */
 
+// create comment
 /**
  * @swagger
  * /v1/user/comment_music/comments:
@@ -116,61 +121,76 @@ const router = Router();
 router.post("/comments", authenticateJWT, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.user_id;
-    const { song_id, body } = req.body;
 
-    if (!song_id || !body) {
-      return res.status(400).json({
-        status: false,
-        message: "Song ID and body are required"
-      });
+    if (!req.body) {
+      return res.status(400).json(
+        {
+          status: false,
+          message: "request body is required"
+        }
+      );
     }
 
-    const userRepository = AppDataSource.getRepository(User);
+    const createCommentDto = plainToClass(CreateCommentDTO, req.body);
+    const errors = await validate(createCommentDto);
+    if (errors.length > 0) {
+      return res.status(400).json(
+        {
+          status: false,
+          error: errors.map(
+            error => (
+              {
+                field: error.property,
+                value: error.constraints
+              }
+            )
+          )
+        }
+      );
+    }
+
+    // check song dose exits
     const songRepository = AppDataSource.getRepository(Song);
-    const commentRepository = AppDataSource.getRepository(Comment);
-
-    const user = await userRepository.findOne({ where: { id: userId } });
-    const song = await songRepository.findOne({ where: { id: song_id, is_active: true } });
-
-    if (!song) {
-      return res.status(404).json({
-        status: false,
-        message: "Song not found"
-      });
+    const getSong = await songRepository.findOne(
+      {
+        where: {id: createCommentDto.song_id, is_active: true},
+        select: ['id']
+      }
+    );
+    if (!getSong) {
+      return res.status(404).json(
+        {
+          status: false,
+          message: "song not found"
+        }
+      );
     }
 
-    const comment = commentRepository.create({
-      user,
-      song,
-      body,
-      is_active: true
-    });
+    // create comment
+    const createComment = new Comment();
+    createComment.body = createCommentDto.body;
+    createComment.song = getSong;
+    createComment.user.id = (req as any).user.user_id;
+    await createComment.save();
 
-    const savedComment = await commentRepository.save(comment);
-
-    const commentWithRelations = await commentRepository.findOne({
-      where: { id: savedComment.id },
-      relations: ["user", "song"],
-      select: {
-        user: { id: true, username: true },
-        song: { id: true, title: true }
+    return res.status(201).json(
+      {
+        status: "success",
+        data: {
+          id: createComment.id,
+          body: createComment.body
+        }
       }
-    });
-
-    res.status(201).json({
-      status: "success",
-      data: commentWithRelations
-    });
-
-  } catch (error) {
-    console.error("Create comment error:", error);
-    res.status(500).json({
+    );
+    }catch (error) {
+    return res.status(500).json({
       status: false,
       message: "Server error"
     });
   }
 });
 
+// read detail comment
 /**
  * @swagger
  * /v1/user/comment_music/comments/{id}:
@@ -240,6 +260,7 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
   }
 });
 
+// read detail by song_id
 /**
  * @swagger
  * /v1/user/comment_music/songs/{songId}/comments:
@@ -342,6 +363,7 @@ router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res:
   }
 });
 
+// update comment
 /**
  * @swagger
  * /v1/user/comment_music/comments/{id}:
@@ -442,6 +464,7 @@ router.put("/comments/:id", authenticateJWT, async (req: Request, res: Response)
   }
 });
 
+// delete comment
 /**
  * @swagger
  * /v1/user/comment_music/comments/{id}:

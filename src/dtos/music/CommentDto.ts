@@ -1,6 +1,13 @@
-// src/dtos/CommentDTO.ts
-export interface CreateCommentDTO {
+import { IsNotEmpty, IsNumber, IsString } from "class-validator";
+
+
+export class CreateCommentDTO{
+  @IsNumber()
+  @IsNotEmpty()
   song_id: number;
+
+  @IsString()
+  @IsNotEmpty()
   body: string;
 }
 

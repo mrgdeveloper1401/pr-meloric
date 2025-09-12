@@ -156,7 +156,7 @@ coreRouter.get(
 // detail public notification
 /**
  * @swagger
- * /v1/user/core/notification/public_notifications/{id}:
+ * /v1/user/core/public_notifications/{id}:
  *   get:
  *     summary: دریافت جزئیات نوتیفیکیشن عمومی
  *     description: |
