@@ -158,4 +158,4 @@
  *         banner_galery_image_id:
  *           type: integer
  *           nullable: true
- *//**
+ */
