@@ -159,3 +159,50 @@
  *           type: integer
  *           nullable: true
  */
+
+// base user
+/**
+ * @swagger
+ * components:
+ *   schemas:    
+ *     BaseUserResponse:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           description: شناسه کاربر
+ *         mobile_phone:
+ *           type: string
+ *           nullable: true
+ *           description: شماره موبایل
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: آدرس ایمیل
+ *         username:
+ *           type: string
+ *           description: نام کاربری
+ *         is_active:
+ *           type: boolean
+ *           description: وضعیت فعال بودن حساب
+ *         is_staff:
+ *           type: boolean
+ *           description: وضعیت کارمند بودن
+ *         is_superuser:
+ *           type: boolean
+ *           description: وضعیت ابرکاربر بودن
+ *         is_artist:
+ *           type: boolean
+ *           description: وضعیت هنرمند بودن
+ *         is_public:
+ *           type: boolean
+ *           description: وضعیت عمومی بودن پروفایل
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: تاریخ ایجاد حساب
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *           description: تاریخ آخرین بروزرسانی
+ */

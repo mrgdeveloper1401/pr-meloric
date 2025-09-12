@@ -2499,7 +2499,7 @@ userAuthRouter.get(
     }
 );
 
-// verify change password
+// confirm change password
 /**
  * @swagger
  * /v1/auth/user/confirm_forget_password:
