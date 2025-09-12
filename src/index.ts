@@ -15,6 +15,7 @@ import { favoriteRouter } from "./router/v1/user/music/FavoritRouter";
 import { CorsOptionsMiddleware } from "./middlewares/CorsMiddlewere";
 import cors from "cors";
 import { commentMusicRouter } from "./router/v1/user/music/CommentRouter";
+import { playListRouter } from "./router/v1/user/music/PlayList";
 
 dotenv.config()
 
@@ -40,41 +41,45 @@ AppDataSource.initialize().then(() => {
         "/", (req: Request, res: Response) => {
             res.send("rest api music");
         }
-    )
+    );
     app.use(
         "/v1/auth/user/", userAuthRouter
-    )
+    );
     app.use(
         "/v1/follow/user/", followRouter
-    )
+    );
     app.use(
         "/v1/user/core/",
         coreRouter
-    )
+    );
     app.use(
         "/v1/user/story/",
         storyRouter
-    )
+    );
     app.use(
         "/v1/user/genre/",
         genreRouter
-    )
+    );
     app.use(
         "/v1/user/album/",
         albumRouter
-    )
+    );
     app.use(
         "/v1/user/music/",
         musicRouter
-    )
+    );
     app.use(
         "/v1/user/favorite/",
         favoriteRouter
-    )
+    );
     app.use(
         "/v1/user/comment_music/",
         commentMusicRouter
-    )
+    );
+    app.use(
+        "/v1/user/play_list/",
+        playListRouter
+    );
     // listen
     app.listen(port)
 
