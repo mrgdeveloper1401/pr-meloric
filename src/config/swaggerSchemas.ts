@@ -206,3 +206,53 @@
  *           format: date-time
  *           description: تاریخ آخرین بروزرسانی
  */
+
+// request update base user
+/**
+ * @swagger
+ * components:
+ *     UpdateMobilePhoneRequest:
+ *       type: object
+ *       required:
+ *         - mobile_phone
+ *       properties:
+ *         mobile_phone:
+ *           type: string
+ *           description: شماره موبایل جدید
+ *           example: "09123456789"
+ * 
+ *     ConfirmMobilePhoneRequest:
+ *       type: object
+ *       required:
+ *         - mobile_phone
+ *         - code
+ *       properties:
+ *         mobile_phone:
+ *           type: string
+ *           description: شماره موبایل جدید
+ *           example: "09123456789"
+ *         code:
+ *           type: integer
+ *           description: کد OTP دریافتی
+ *           example: 123456
+ * 
+ *     OtpSuccessResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: boolean
+ *           example: true
+ *         message:
+ *           type: string
+ *           example: "code send!"
+ * 
+ *     MobilePhoneSuccessResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         message:
+ *           type: string
+ *           example: "successfully update mobile_phone"
+ */

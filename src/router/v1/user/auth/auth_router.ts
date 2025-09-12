@@ -1030,7 +1030,6 @@ userAuthRouter.post(
  *       کاربر باید وجود داشته باشد و حسابش فعال باشد.
  *     tags:
  *       - Authentication
- *       - OTP
  *     requestBody:
  *       required: true
  *       content:
@@ -1193,7 +1192,6 @@ userAuthRouter.post(
  *       در صورت موفقیت، توکن دسترسی و توکن رفرش بازگردانده می‌شود.
  *     tags:
  *       - Authentication
- *       - OTP
  *     requestBody:
  *       required: true
  *       content:
