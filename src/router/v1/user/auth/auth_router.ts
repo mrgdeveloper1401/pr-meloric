@@ -26,7 +26,6 @@ import { confirmForgetPasswordDto } from "../../../../dtos/auth/ConfirmForgetPas
 import { requestEmailDto } from "../../../../dtos/auth/RequestEmail";
 import { ProfileDto } from "../../../../dtos/auth/ProfileDto";
 import { Image } from "../../../../entity/Image";
-// import { checkImageOwnership } from "../../../../middlewares/CheckOwnerImage";
 
 const userAuthRouter = express.Router()
 
@@ -1565,6 +1564,47 @@ userAuthRouter.post(
 
 
 // get profile
+/**
+ * @swagger
+ * /v1/auth/user/profile:
+ *   get:
+ *     summary: دریافت پروفایل کاربر
+ *     description: دریافت اطلاعات کامل پروفایل کاربر احراز هویت شده
+ *     tags: [User-Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: اطلاعات پروفایل با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   $ref: '#/components/schemas/ProfileResponse'
+ *       403:
+ *         description: حساب کاربری مسدود شده است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: پروفایل پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 userAuthRouter.get(
     "/profile/",
     authenticateJWT,
@@ -1644,11 +1684,130 @@ userAuthRouter.get(
 
 
 // update profile
+/**
+ * @swagger
+ * /v1/user/auth/profile:
+ *   patch:
+ *     summary: بروزرسانی پروفایل کاربر
+ *     description: بروزرسانی اطلاعات پروفایل کاربر احراز هویت شده
+ *     tags: [User-Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               first_name:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "جان"
+ *               last_name:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "دو"
+ *               birth_date:
+ *                 type: string
+ *                 format: date
+ *                 nullable: true
+ *                 example: "1990-01-01"
+ *               bio:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "این یک بیوگرافی نمونه است"
+ *               jobs:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["برنامه نویس", "موسیقیدان"]
+ *               social:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["instagram.com/johndoe", "twitter.com/johndoe"]
+ *               profile_image_id:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 1
+ *               banner_image_id:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *               banner_galery_image_id:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 3
+ *     responses:
+ *       200:
+ *         description: پروفایل با موفقیت بروزرسانی شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: ok
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     first_name:
+ *                       type: string
+ *                     last_name:
+ *                       type: string
+ *                     birth_date:
+ *                       type: string
+ *                       format: date
+ *                     bio:
+ *                       type: string
+ *                     jobs:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     social:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     profile_image:
+ *                       $ref: '#/components/schemas/ImageResponse'
+ *                     banner_image:
+ *                       $ref: '#/components/schemas/ImageResponse'
+ *                     banner_galery_image:
+ *                       $ref: '#/components/schemas/ImageResponse'
+ *       400:
+ *         description: داده‌های ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: حساب کاربری مسدود شده است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: پروفایل یا تصویر پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 userAuthRouter.patch(
     "/profile/",
     authenticateJWT,
     funcCheckUserActive,
-    // checkImageOwnership,
     async (req: Request, res: Response) => {
         try {
             // check json
