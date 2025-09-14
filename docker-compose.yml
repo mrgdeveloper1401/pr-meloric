@@ -78,6 +78,7 @@ services:
 
 volumes:
   music_volume:
+  static_files:
   # nginx-ui-data:
   # nginx:
   # certs:
