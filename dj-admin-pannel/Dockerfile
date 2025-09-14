@@ -4,4 +4,4 @@ WORKDIR /home/app
 
 COPY ./dj-admin ./dj-admin/
 
-ENTRYPOINT ["./start.bash"]
+ENTRYPOINT ["./dj-admin/start.bash"]
