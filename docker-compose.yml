@@ -64,7 +64,7 @@ services:
     build:
       context: dj-admin-pannel
       dockerfile: Dockerfile
-    env_file: ".env"
+    env_file: "/home/app/dj-admin/.env"
     restart: always
     expose:
       - 8000
