@@ -4,4 +4,6 @@ WORKDIR /home/app
 
 COPY ./dj-admin ./dj-admin/
 
+RUN chmod +x ./dj-admin/start.bash
+
 ENTRYPOINT ["./dj-admin/start.bash"]
