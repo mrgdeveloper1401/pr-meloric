@@ -9,3 +9,5 @@ test.ts
 google_oauth_mysum.json
 uploads
 nginx/certbot
+dj-admin-pannel/.env
+dj-admin-pannel/dj-admin

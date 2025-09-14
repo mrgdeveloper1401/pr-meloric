@@ -42,24 +42,42 @@ services:
       - "80:80"
       - "443:443"
     restart: always
+    depends_on:
+      - dj-admin-pannel
     # command: ["nginx", "-g", "daemon off;"]
     build:
       context: nginx
       dockerfile: Dockerfile
   
-  ui-nginx:
-    image: docker.arvancloud.ir/uozi/nginx-ui:latest
-    container_name: music-nginx-ui
-    ports:
-      - "8080:8080"
-      - "8443:8443"
+  # ui-nginx:
+  #   image: docker.arvancloud.ir/uozi/nginx-ui:latest
+  #   container_name: music-nginx-ui
+  #   ports:
+  #     - "8080:8080"
+  #     - "8443:8443"
+  #   volumes:
+  #     - nginx-ui-data:/etc/nginx-ui
+  #     - nginx:/etc/nginx
+  #     - certs:/ets/ssl/private
+
+  dj-admin-pannel:
+    depends_on:
+      - db
+    image: melo_dj_admin:1.1.0
+    env_file: ".env"
+    restart: always
+    expose:
+      - 8000
     volumes:
-      - nginx-ui-data:/etc/nginx-ui
-      - nginx:/etc/nginx
-      - certs:/ets/ssl/private
+      - static_files:/home/app/dj-admin/staticfiles
+    ports:
+      - "8000:8000"
+    build:
+      context: dj-admin-pannel
+      dockerfile: Dockerfile
 
 volumes:
   music_volume:
-  nginx-ui-data:
-  nginx:
-  certs:
+  # nginx-ui-data:
+  # nginx:
+  # certs:
