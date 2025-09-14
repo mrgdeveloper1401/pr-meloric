@@ -60,3 +60,6 @@ services:
 
 volumes:
   music_volume:
+  nginx-ui-data:
+  nginx:
+  certs:
