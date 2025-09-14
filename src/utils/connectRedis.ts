@@ -6,7 +6,7 @@ const envPath = path.resolve(process.cwd(), "../../.env"); // config env path
 dotenv.config({ path: envPath });
 
 // url redis
-const DEBUG = process.env.DEBUG;
+const DEBUG = process.env.DEBUG_MODE;
 
 const redisEnv = (debugMode = DEBUG) => {
     if (debugMode === 'true') {
