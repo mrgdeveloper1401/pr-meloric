@@ -1,4 +1,4 @@
-FROM melo_dj_admin:1.1.0
+FROM melo_dj_admin:1.2.0
 
 WORKDIR /home/app
 
