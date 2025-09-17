@@ -1612,7 +1612,11 @@ userAuthRouter.get(
             const userRepository = AppDataSource.getRepository(Profile);
             const getProfile = await userRepository.findOne(
                 {
-                    where: {user: (req as any).user.user_id},
+                    where: {
+                        user: {
+                            id: (req as any).user.user_id
+                        }
+                    },
                     relations: ['user', 'profile_image', 'banner_image', 'banner_galery_image'],
                     select: {
                         id: true,
