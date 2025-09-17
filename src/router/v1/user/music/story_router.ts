@@ -7,6 +7,8 @@ import { MoreThan } from "typeorm";
 import { Image } from "../../../../entity/Image";
 import { plainToClass } from "class-transformer";
 import { CreateStoryDto } from "../../../../dtos/music/CreateStory";
+import { validate } from "class-validator";
+import { User } from "../../../../entity/User";
 
 
 export const storyRouter = express.Router();
@@ -74,7 +76,7 @@ storyRouter.get(
             const [stories, count] = await userStoryRepository.findAndCount(
                 {
                     where: {is_active: true, createdAt: MoreThan(twentyFourHoursAgo)},
-                    relations: ['user', "image_story"],
+                    relations: ['user', "user.profile", "user.profile.profile_image", "image_story"],
                     select: {
                         id: true,
                         caption: true,
@@ -82,6 +84,12 @@ storyRouter.get(
                         user: {
                             id: true,
                             username: true,
+                            profile: {
+                                id: true,
+                                profile_image: {
+                                    image_path: true
+                                }
+                            }
                         },
                         image_story: {
                             id: true,
@@ -116,10 +124,9 @@ storyRouter.get(
     }
 )
 
-// create story
 /**
  * @swagger
- * /v1/user/music/create_story:
+ * /v1/user/story/create_story:
  *   post:
  *     summary: ایجاد استوری جدید
  *     description: |
@@ -133,16 +140,49 @@ storyRouter.get(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/dtos/music/create_story'
+ *             type: object
+ *             required:
+ *               - image_id
+ *             properties:
+ *               image_id:
+ *                 type: integer
+ *                 description: شناسه تصویر آپلود شده
+ *                 example: 1
+ *               caption:
+ *                 type: string
+ *                 description: توضیحات اختیاری استوری
+ *                 example: "این یک استوری تست است!"
+ *                 nullable: true
  *     responses:
  *       201:
  *         description: استوری با موفقیت ایجاد شد
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/StoryCreateResponse'
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "successfully create image story"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     caption:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "این یک استوری تست است!"
+ *                     image_path:
+ *                       type: string
+ *                       example: "/path/to/story.jpg"
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-09-17T01:07:00.000Z"
  *       400:
- *         description: درخواست نامعتبر - بدنه درخواست ضروری است
+ *         description: درخواست نامعتبر
  *         content:
  *           application/json:
  *             schema:
@@ -153,7 +193,27 @@ storyRouter.get(
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "request body is required"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                       value:
+ *                         type: object
+ *               examples:
+ *                 missingBody:
+ *                   value:
+ *                     status: false
+ *                     message: "request body is required"
+ *                 invalidData:
+ *                   value:
+ *                     status: false
+ *                     message: "Invalid Data"
+ *                     errors:
+ *                       - field: "image_id"
+ *                         value: { isNumber: "image_id must be a number" }
  *       404:
  *         description: تصویر یافت نشد
  *         content:
@@ -187,68 +247,75 @@ storyRouter.post(
         try {
             // check request body
             if (!req.body) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "request body is required"
-                    }
-                );
+                return res.status(400).json({
+                    status: false,
+                    message: "request body is required",
+                });
             }
 
+            // validate dto
             const imageStoryDto = plainToClass(CreateStoryDto, req.body);
+            const errors = await validate(imageStoryDto);
+            if (errors.length > 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid Data",
+                    errors: errors.map((err) => ({
+                        field: err.property,
+                        value: err.constraints,
+                    })),
+                });
+            }
+
+            // check image
             const imageStoryRepository = AppDataSource.getRepository(Image);
-            const checkImageUserUpload = await imageStoryRepository.findOne(
-                {
-                    where: {id: imageStoryDto.image_id, user: (req as any).user.user_id},
-                    select: {
-                        id: true,
-                        user: {
-                            id: true
-                        }
-                    }
-                }
-            )
+            const checkImageUserUpload = await imageStoryRepository.findOne({
+                where: {is_active: true ,id: imageStoryDto.image_id, user: { id: (req as any).user.user_id } },
+                select: {
+                    id: true,
+                    image_path: true,
+                },
+            });
 
             if (!checkImageUserUpload) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "image not found"
-                    }
-                )
+                return res.status(404).json({
+                    status: false,
+                    message: "image not found",
+                });
             }
 
+            // create story
+            const storyRepository = AppDataSource.getRepository(Story);
             const createStoryImage = new Story();
             createStoryImage.caption = imageStoryDto.caption;
             createStoryImage.image_story = checkImageUserUpload;
-            createStoryImage.user = (req as any).user.user_id;
-            await createStoryImage.save();
+            createStoryImage.user = { id: (req as any).user.user_id } as User;
+            await storyRepository.save(createStoryImage);
 
-            return res.status(201).json(
-                {
-                    status: "success",
-                    message: "successfully create image story",
-                    data: {
-                        caption: createStoryImage.caption,
-                        image_story: createStoryImage.image_story,
-                        created_at: createStoryImage.createdAt
-                    }
-                }
-            )
-
-
-
+            // response
+            return res.status(201).json({
+                status: "success",
+                message: "successfully create image story",
+                data: {
+                    caption: createStoryImage.caption,
+                    image_path: checkImageUserUpload.image_path,
+                    created_at: createStoryImage.createdAt,
+                },
+            });
         } catch (error) {
-            
-        }   
+            return res.status(500).json({
+                status: false,
+                message: "server error",
+                error: error.message || error,
+            });
+        }
     }
 );
-
 
 // delete story
 /**
  * @swagger
- * /v1/user/music/story/{story_id}:
+ * /v1/user/story/{story_id}:
  *   delete:
  *     summary: حذف استوری
  *     description: |
@@ -337,7 +404,7 @@ storyRouter.post(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.delete(
-  "/story/:story_id",
+  "/:story_id/",
   authenticateJWT,
   async (req: Request, res: Response) => {
     try {
