@@ -11,8 +11,8 @@ export class ProfileDto {
     last_name?: string
 
     @IsOptional()
-    @IsDate()
-    birth_date?: Date
+    @IsString()
+    birth_date?: string
 
     @IsOptional()
     @IsString()
@@ -28,14 +28,14 @@ export class ProfileDto {
     
     @IsOptional()
     @IsNumber()
-    profile_image?: number;
+    profile_image_id?: number;
 
     @IsOptional()
     @IsNumber()
-    banner_image?: number;
+    banner_image_id?: number;
 
     @IsOptional()
     @IsNumber()
-    banner_galery_image?: number;
+    banner_galery_image_id?: number;
     
 }

@@ -26,6 +26,7 @@ import { confirmForgetPasswordDto } from "../../../../dtos/auth/ConfirmForgetPas
 import { requestEmailDto } from "../../../../dtos/auth/RequestEmail";
 import { ProfileDto } from "../../../../dtos/auth/ProfileDto";
 import { Image } from "../../../../entity/Image";
+import { profile } from "console";
 
 const userAuthRouter = express.Router()
 
@@ -1683,11 +1684,10 @@ userAuthRouter.get(
         }
 });
 
-
 // update profile
 /**
  * @swagger
- * /v1/user/auth/profile:
+ * /v1/auth/user/profile/:
  *   patch:
  *     summary: بروزرسانی پروفایل کاربر
  *     description: بروزرسانی اطلاعات پروفایل کاربر احراز هویت شده
@@ -1813,138 +1813,172 @@ userAuthRouter.patch(
         try {
             // check json
             if (!req.body) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "request body is required"
-                    }
-                );
+                return res.status(400).json({
+                    status: false,
+                    message: "request body is required"
+                });
             }
 
             // get user_id by authenticate jwt
-            const userId = (req as any).user_id;
+            const userId = (req as any).user.user_id;
             
             // get repo and user profile
             const profileRepository = AppDataSource.getRepository(Profile);
-            const getProfile = await profileRepository.findOne(
-                {
-                    where: {user: userId},
-                    relations: ["profile_image", "banner_image", "banner_galery_image"],
-                    select: {
+            const getProfile = await profileRepository.findOne({
+                where: { user: { id: userId } },
+                relations: ["profile_image", "banner_image", "banner_galery_image"],
+                select: {
+                    id: true,
+                    first_name: true,
+                    last_name: true,
+                    jobs: true,
+                    social: true,
+                    bio: true,
+                    birth_date: true,
+                    profile_image: {
                         id: true,
-                        first_name: true,
-                        last_name: true,
-                        jobs: true,
-                        social: true,
-                        bio: true,
-                        birth_date: true,
-                        profile_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        banner_galery_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        banner_image: {
-                            id: true,
-                            image_path: true
-                        }
+                        image_path: true
+                    },
+                    banner_galery_image: {
+                        id: true,
+                        image_path: true
+                    },
+                    banner_image: {
+                        id: true,
+                        image_path: true
                     }
                 }
-            );
+            });
 
             // check profile
             if (!getProfile) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "profile not found"
-                    }
-                );
+                return res.status(404).json({
+                    status: false,
+                    message: "profile not found"
+                });
             }
 
-            // get data on request body abd validate data
+            // get data on request body and validate data
             const profileDto = plainToClass(ProfileDto, req.body);
             const errors = await validate(profileDto);
             if (errors.length > 0) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "Invalid Data",
-                        error: errors.map(
-                            error => (
-                                {
-                                    field: error.constraints,
-                                    value: error.constraints
-                                }
-                            )
-                        )
-                    }
-                );
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid Data",
+                    error: errors.map(error => ({
+                        field: Object.keys(error.constraints || {})[0],
+                        message: Object.values(error.constraints || {})[0]
+                    }))
+                });
             }
             
-            // validate id image
-            const imageId = req.body.profile_image_id || req.body.banner_image_id || req.body.banner_galery_image_id;
+            // validate images if provided
             const imageRepository = AppDataSource.getRepository(Image);
-            const image = await imageRepository.findOne(
-                {
-                    where: {id: imageId, user: userId},
-                    select: {
-                        id: true,
-                        user: {
-                            id: true
-                        }
-                    }
-                }
-            )
-
-            if (!image) {
-                return res.status(404).json(
-                    {
+            
+            // Check profile image
+            if (profileDto.profile_image_id !== undefined) {
+                const profileImage = await imageRepository.findOne({
+                    where: { 
+                        id: profileDto.profile_image_id, 
+                        user: { id: userId }, 
+                        is_active: true 
+                    },
+                    select: ['id']
+                });
+                if (!profileImage) {
+                    return res.status(404).json({
                         status: false,
-                        message: "image not found"
-                    }
-                )
+                        message: "Profile image not found"
+                    });
+                }
+                getProfile.profile_image = profileImage;
             }
 
-            // update profile
-            const allowedFields = ['first_name', 'last_name', 'birth_date', 'bio', 'jobs', 'social', 'profile_image', 'banner_image', 'banner_galery_image'];
-            const updateData: Partial<Profile> = {};
-            Object.keys(req.body).forEach((key) => {
-                    if (allowedFields.includes(key) && req.body[key] !== undefined) {
-                    // Handle jobs and social explicitly to ensure array format
-                    if (key === "jobs" || key === "social") {
-                        if (Array.isArray(req.body[key]) && req.body[key].every((item: any) => typeof item === "string")) {
-                        updateData[key] = req.body[key];
-                        } else {
-                        updateData[key] = getProfile[key]; // Retain existing value if invalid
-                        }
-                    } else {
-                        updateData[key] = req.body[key];
-                    }
-                    }
+            // Check banner image
+            if (profileDto.banner_image_id !== undefined) {
+                const bannerImage = await imageRepository.findOne({
+                    where: { id: profileDto.banner_image_id, user: { id: userId }, is_active:true },
+                    select: ['id']
                 });
-            Object.assign(getProfile, updateData)
+                if (!bannerImage) {
+                    return res.status(404).json({
+                        status: false,
+                        message: "Banner image not found"
+                    });
+                }
+                getProfile.banner_image = bannerImage;
+            }
 
+            // Check banner gallery image
+            if (profileDto.banner_galery_image_id !== undefined) {
+                const bannerGalleryImage = await imageRepository.findOne({
+                    where: { id: profileDto.banner_galery_image_id, user: { id: userId }, is_active: true },
+                    select: ['id']
+                });
+                if (!bannerGalleryImage) {
+                    return res.status(404).json({
+                        status: false,
+                        message: "Banner gallery image not found"
+                    });
+                }
+                getProfile.banner_galery_image = bannerGalleryImage;
+            }
+
+            // update profile fields
+            if (profileDto.first_name !== undefined) {
+                getProfile.first_name = profileDto.first_name;
+            }
+
+            if (profileDto.last_name !== undefined) {
+                getProfile.last_name = profileDto.last_name;
+            }
+
+            if (profileDto.birth_date !== undefined) {
+                getProfile.birth_date = new Date(profileDto.birth_date);
+            }
+
+            if (profileDto.bio !== undefined) {
+                getProfile.bio = profileDto.bio;
+            }
+
+            if (profileDto.jobs !== undefined) {
+                if (Array.isArray(profileDto.jobs) && profileDto.jobs.every((item) => typeof item === 'string')) {
+                    getProfile.jobs = profileDto.jobs;
+                }
+            }
+
+            if (profileDto.social !== undefined) {
+                if (Array.isArray(profileDto.social) && profileDto.social.every((item) => typeof item === 'string')) {
+                    getProfile.social = profileDto.social;
+                }
+            }
+
+            // Save updated profile
             await profileRepository.save(getProfile);
-    
-            // return data
-            return res.status(200).json(
-                {
-                    status: "success",
-                    message: "ok",
-                    data: updateData
+
+            // Return the actual updated data, not the DTO
+            return res.status(200).json({
+                status: "success",
+                message: "ok",
+                data: {
+                    first_name: getProfile.first_name,
+                    last_name: getProfile.last_name,
+                    birth_date: getProfile.birth_date,
+                    bio: getProfile.bio,
+                    jobs: getProfile.jobs,
+                    social: getProfile.social,
+                    profile_image: getProfile.profile_image,
+                    banner_image: getProfile.banner_image,
+                    banner_galery_image: getProfile.banner_galery_image
                 }
-            );
+            });
         } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error",
-                    errors: error
-                }
-            );
+            console.error("Profile update error:", error);
+            return res.status(500).json({
+                status: false,
+                message: "server error",
+                errors: error.message
+            });
         }
     }
 );
