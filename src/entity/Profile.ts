@@ -26,6 +26,9 @@ export class Profile extends TimestampEntity{
   @Column('varchar', {array: true, nullable: true })
   social: string[];
 
+  @Column({default: true})
+  is_active: boolean;
+
   @OneToOne(() => User, (user_id) => user_id.profile, {onDelete: "RESTRICT", nullable: false})
   @JoinColumn({name: "user_id"})
   user: User;

@@ -22,7 +22,7 @@ export const funcCreateToken = (userId: number, isActive: boolean) => {
             uuid_name: uuidV4()
         },
         secretKey as string,
-        {expiresIn: "1h"}
+        {expiresIn: "30d"}
     );
     const refreshToken = jwt.sign(
         {
@@ -32,7 +32,7 @@ export const funcCreateToken = (userId: number, isActive: boolean) => {
             uuid_name: uuidV4()
         },
         refreshSecretKey as string,
-        {expiresIn: "365d"}
+        {expiresIn: "30d"}
     );
     return {accessToken, refreshToken}   
 }
