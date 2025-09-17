@@ -14,7 +14,7 @@ export const storyRouter = express.Router();
 // get all story
 /**
  * @swagger
- * /v1/user/music/all_user_story/:
+ * /v1/user/story/all_user_story/:
  *   get:
  *     summary: دریافت لیست استوری‌های کاربران
  *     description: |
