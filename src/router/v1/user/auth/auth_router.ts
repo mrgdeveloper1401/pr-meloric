@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
 import { User } from "../../../../entity/User";
 import { AppDataSource } from "../../../../data-source";
-import { funcCreateHashPassword } from "../../../../utils/createHashPassword";
+import { funcCreateHashPassword, funcVerifyPassword } from "../../../../utils/createHashPassword";
 import { funcCreateToken } from "../../../../utils/createJwtToken";
 import { authenticateJWT, notAuthenticateJwt } from "../../../../middlewares/authenticate";
 import { sendOtp } from "../../../../utils/sendOtpSmsIr";
@@ -786,14 +786,13 @@ userAuthRouter.post(
                 { 
                     where: {username: loginByUsername.username}, select: ["id", 'username', "password", "is_active", "is_staff", "is_artist"]}
                 ) ;
-            const hashPassword = funcCreateHashPassword(loginByUsername.password);
-            const isMatch = user.password === hashPassword
+            const isMatch = funcVerifyPassword(loginByUsername.password, user.password);
 
             if (!user) {
                 return res.status(400).json({message: "username or password is invalid"})
             }
 
-            if (isMatch === false) {
+            if (!isMatch) {
                 return res.status(400).json({message: "username or password is invalid"})
             }
             // check user is_active
