@@ -437,12 +437,7 @@ storyRouter.delete(
 
       return res.status(200).json({
         status: "success",
-        message: "Story deleted successfully",
-        data: {
-          id: story.id,
-          caption: story.caption,
-          is_active: story.is_active
-        }
+        message: "Story deleted successfully"
       });
 
     } catch (error) {
