@@ -978,8 +978,8 @@ userAuthRouter.post(
             }
 
             // compare password
-            const isValidPassword = funcCreateHashPassword(loginByEmail.password)
-            if (isValidPassword !== getUser.password) {
+            const isMatchPassword = funcVerifyPassword(loginByEmail.password, getUser.password)
+            if (!isMatchPassword) {
                 return res.status(400).json(
                     {
                         status: false,
