@@ -1,8 +1,8 @@
 FROM melo_dj_admin:1.2.0
 
-WORKDIR /home/app
+WORKDIR /home/app/dj-admin
 
-COPY ./dj-admin ./dj-admin/
+COPY ./dj-admin ./
 
 RUN chmod +x ./dj-admin/start.bash
 
