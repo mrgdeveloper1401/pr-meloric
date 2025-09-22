@@ -76,7 +76,6 @@ services:
       - static_files:/home/app/dj-admin/staticfiles
     depends_on:
       - db
-      - app
 
 volumes:
   music_volume:
