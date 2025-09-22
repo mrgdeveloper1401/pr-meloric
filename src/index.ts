@@ -18,6 +18,7 @@ import { commentMusicRouter } from "./router/v1/user/music/CommentRouter";
 import { playListRouter } from "./router/v1/user/music/PlayList";
 import { playHistoryRouter } from "./router/v1/user/music/PlayHistory";
 import { informationUserRouter } from "./router/v1/user/auth/InformationUser";
+import { suggestRouter } from "./router/v1/user/music/SuggestionRouter";
 
 dotenv.config()
 
@@ -89,6 +90,10 @@ AppDataSource.initialize().then(() => {
     app.use(
         "/v1/user/information/",
         informationUserRouter
+    )
+    app.use(
+        "/v1/suggestion/music/",
+        suggestRouter
     )
     // listen
     app.listen(port)
