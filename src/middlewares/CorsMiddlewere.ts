@@ -21,9 +21,9 @@ interface CorsOptions {
 // }
 
 export const CorsOptionsMiddleware: CorsOptions = {
-    origin: process.env.CORS_ORIGIN.split(","),
-    method: process.env.CORS_ORIGIN_METHOD.split(","),
-    allowedHeaders: process.env.CORS_ORIGIN_ALLOWED_HEADER.split(","),
-    credentials: Boolean(process.env.CREDENTIALS),
+    origin: process.env.APP_CORS_ORIGIN.split(","),
+    method: process.env.APP_CORS_ORIGIN_METHOD.split(","),
+    allowedHeaders: process.env.APP_CORS_ORIGIN_ALLOWED_HEADER.split(","),
+    credentials: Boolean(process.env.APP_CREDENTIALS),
     optionsSuccessStatus: Number(process.env.OPTION_SUCCESS_STATUS)
 }
