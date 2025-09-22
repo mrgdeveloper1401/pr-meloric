@@ -6,4 +6,4 @@ COPY ./dj-admin ./
 
 RUN chmod +x ./dj-admin/start.bash
 
-ENTRYPOINT ["./dj-admin/start.bash"]
+ENTRYPOINT ["/home/app/dj-admin/start.bash"]
