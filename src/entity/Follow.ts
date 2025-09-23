@@ -11,6 +11,7 @@ export class Follow extends TimestampEntity{
   @JoinColumn({name: "from_user_id"})
   from_user: User;
 
+  // follower
   @ManyToOne(() => User, {onDelete: "RESTRICT"})
   @JoinColumn({name: "to_user_id"})
   to_user: User;

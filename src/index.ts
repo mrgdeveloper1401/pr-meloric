@@ -46,10 +46,12 @@ AppDataSource.initialize().then(() => {
         }
     );
     app.use(
-        "/v1/auth/user/", userAuthRouter
+        "/v1/auth/user/", 
+        userAuthRouter
     );
     app.use(
-        "/v1/follow/user/", followRouter
+        "/v1/follow/user/", 
+        followRouter
     );
     app.use(
         "/v1/user/core/",
