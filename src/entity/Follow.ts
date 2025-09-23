@@ -7,6 +7,7 @@ export class Follow extends TimestampEntity{
   @PrimaryGeneratedColumn()
   id: number;
 
+  // following
   @ManyToOne(() => User, {onDelete: "RESTRICT"})
   @JoinColumn({name: "from_user_id"})
   from_user: User;
