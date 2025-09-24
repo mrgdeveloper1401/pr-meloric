@@ -2,18 +2,18 @@
    "compilerOptions": {
       "lib": [
          "ES2024"
-      ],
-      "target": "es2024",
-      "module": "node20",
-      "moduleResolution": "node16",
-      "rootDir": "./src",
-      "esModuleInterop": true,
-      "outDir": "./build",
-      "emitDecoratorMetadata": true,
-      "experimentalDecorators": true,
-      "sourceMap": true,
-      "strictPropertyInitialization": false,
-      "resolveJsonModule": true,
+      ], // use feture javascript
+      "target": "es2024", // complie code into version js
+      "module": "node20", // choose module (node or es or amd)
+      "moduleResolution": "node16", // find module (import)
+      "rootDir": "./src", // directory project root
+      "esModuleInterop": true, // compatibility between esjs and commonjs
+      "outDir": "./build", // dir complie project
+      "emitDecoratorMetadata": true, // save metadata related decorator
+      "experimentalDecorators": true, // use decorator
+      "sourceMap": true, //  map for compile code, usefull debugging
+      "strictPropertyInitialization": false, // All properties in classes are initialized correctly
+      "resolveJsonModule": true, // use json file by import
    },
    "include": ["src/**/*"],
    "exclude": ["node_modules"]
