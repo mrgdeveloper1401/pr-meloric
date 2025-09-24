@@ -120,7 +120,23 @@ const router = Router();
  */
 router.post("/comments", authenticateJWT, async (req: Request, res: Response) => {
   try {
+    // check get user
     const userId = (req as any).user.user_id;
+    // const userRepository = AppDataSource.getRepository(User)
+    // const getUser = await userRepository.findOne(
+    //   {
+    //     where: {id: userId, is_active: true},
+    //     select: ['id']
+    //   }
+    // );
+    // if (!getUser) {
+    //   return res.status(404).json(
+    //     {
+    //       status: false,
+    //       message: "user not found"
+    //     }
+    //   )
+    // }
 
     if (!req.body) {
       return res.status(400).json(
@@ -170,7 +186,7 @@ router.post("/comments", authenticateJWT, async (req: Request, res: Response) =>
     const createComment = new Comment();
     createComment.body = createCommentDto.body;
     createComment.song = getSong;
-    createComment.user.id = (req as any).user.user_id;
+    createComment.user = {id: userId} as User;
     await createComment.save();
 
     return res.status(201).json(
@@ -345,17 +361,16 @@ router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res:
 
     res.json({
       status: "success",
-      data: comments,
       pagination: {
         currentPage: page,
         totalPages,
         totalItems: total,
         itemsPerPage: limit
-      }
+      },
+      data: comments,
     });
 
   } catch (error) {
-    console.error("Get comments error:", error);
     res.status(500).json({
       status: false,
       message: "Server error"
@@ -505,16 +520,25 @@ router.put("/comments/:id", authenticateJWT, async (req: Request, res: Response)
 router.delete("/comments/:id", authenticateJWT, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.user_id;
-    const userRole = (req as any).user.role; // فرض می‌کنیم role در JWT وجود دارد
     const commentId = parseInt(req.params.id);
 
     const commentRepository = AppDataSource.getRepository(Comment);
-
     const comment = await commentRepository.findOne({
-      where: { id: commentId },
-      relations: ["user"]
+      where: { 
+        id: commentId,
+        is_active: true,
+        user: {
+          id: userId
+        }
+      },
+      relations: ['user'],
+      select: {
+        id: true,
+        user: {
+          id: true
+        }
+      }
     });
-
     if (!comment) {
       return res.status(404).json({
         status: false,
@@ -522,15 +546,15 @@ router.delete("/comments/:id", authenticateJWT, async (req: Request, res: Respon
       });
     }
 
-    // بررسی مالکیت یا نقش ادمین
-    if (comment.user.id !== userId && userRole !== 'admin') {
+    // check owner comment
+    if (comment.user.id !== userId) {
       return res.status(403).json({
         status: false,
         message: "You don't have permission to delete this comment"
       });
     }
 
-    // حذف نرم (soft delete)
+    // (soft delete)
     comment.is_active = false;
     await commentRepository.save(comment);
 
@@ -540,7 +564,6 @@ router.delete("/comments/:id", authenticateJWT, async (req: Request, res: Respon
     });
 
   } catch (error) {
-    console.error("Delete comment error:", error);
     res.status(500).json({
       status: false,
       message: "Server error"
