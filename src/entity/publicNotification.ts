@@ -16,7 +16,7 @@ export class PublicNotification extends TimestampEntity{
   @Column({nullable: true})
   notification_redirect_url: string;
 
-  @Column()
+  @Column({nullable: true})
   notification_type: string;
 
   @Column({default: true})
