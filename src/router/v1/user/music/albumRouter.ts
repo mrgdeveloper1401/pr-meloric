@@ -149,7 +149,7 @@ albumRouter.get(
 // create album
 /**
  * @swagger
- * v1/album/user/create_album:
+ * /v1/album/user/create_album:
  *   post:
  *     summary: ایجاد آلبوم جدید
  *     description: |
@@ -683,7 +683,7 @@ albumRouter.patch(
 // get my albums
 /**
  * @swagger
- * v1/album/user/my_album:
+ * /v1/album/user/my_album:
  *   get:
  *     summary: دریافت آلبوم‌های کاربر هنرمند
  *     description: |
