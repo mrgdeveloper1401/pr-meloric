@@ -13,7 +13,7 @@ export class PublicNotification extends TimestampEntity{
   @Column()
   body: string;
 
-  @Column()
+  @Column({nullable: true})
   notification_redirect_url: string;
 
   @Column()
