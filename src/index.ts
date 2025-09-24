@@ -66,7 +66,7 @@ AppDataSource.initialize().then(() => {
         genreRouter
     );
     app.use(
-        "/v1/user/album/",
+        "/v1/album/user/",
         albumRouter
     );
     app.use(

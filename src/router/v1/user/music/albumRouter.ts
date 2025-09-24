@@ -16,7 +16,7 @@ export const albumRouter = Router();
 
 /**
  * @swagger
- * /v1/user/album/{genre_id}/albums/:
+ * /v1/album/user/{genre_id}/albums/:
  *   get:
  *     summary: دریافت آلبوم‌های یک ژانر خاص
  *     description: |
@@ -149,7 +149,7 @@ albumRouter.get(
 // create album
 /**
  * @swagger
- * v1/user/album/create_album:
+ * v1/album/user/create_album:
  *   post:
  *     summary: ایجاد آلبوم جدید
  *     description: |
@@ -400,7 +400,7 @@ albumRouter.post(
 // update album
 /**
  * @swagger
- * /v1/user/album/update_album/{id}:
+ * /v1/album/user/update_album/{id}:
  *   patch:
  *     summary: به‌روزرسانی آلبوم
  *     description: |
@@ -683,7 +683,7 @@ albumRouter.patch(
 // get my albums
 /**
  * @swagger
- * v1/user/album/my_album:
+ * v1/album/user/my_album:
  *   get:
  *     summary: دریافت آلبوم‌های کاربر هنرمند
  *     description: |
