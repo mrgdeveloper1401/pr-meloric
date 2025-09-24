@@ -763,7 +763,7 @@ coreRouter.delete(
 // upload audio
 /**
  * @swagger
- * /api/upload_audio/:
+ * /v1/user/core/upload_audio/:
  *   post:
  *     summary: آپلود فایل صوتی
  *     description: کاربران هنرمند می‌توانند فایل صوتی آپلود کنند
