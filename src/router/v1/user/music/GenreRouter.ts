@@ -43,6 +43,8 @@ export const genreRouter = Router();
  *                         type: string
  *                         description: توضیحات ژانر
  *                         example: "موسیقی پاپ ایرانی"
+ *                       image_path:
+ *                          type: string
  *       500:
  *         description: خطای سرور داخلی
  *         content:
