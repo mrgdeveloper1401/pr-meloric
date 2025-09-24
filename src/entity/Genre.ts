@@ -1,5 +1,6 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { TimestampEntity } from "./Abstract";
+import { Image } from "./Image";
 
 @Entity()
 export class Genre extends TimestampEntity{
@@ -15,4 +16,7 @@ export class Genre extends TimestampEntity{
   @Column({ default: true })
   is_active: boolean;
 
+  @ManyToOne(() => Image, {nullable: true})
+  @JoinColumn({name: "genre_image_id"})
+  image: Image
 }

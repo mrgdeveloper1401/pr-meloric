@@ -65,10 +65,17 @@ genreRouter.get(
             const allGenre = await genreRepository.find(
                 {
                     where: {is_active: true},
+                    relations: {
+                        image: true
+                    },
                     select: {
                         id: true,
                         name: true,
-                        description: true
+                        description: true,
+                        image: {
+                            id: true,
+                            image_path: true
+                        }
                     }
                 },
             )
