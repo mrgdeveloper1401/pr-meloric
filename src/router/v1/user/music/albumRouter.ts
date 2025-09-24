@@ -806,6 +806,7 @@ albumRouter.get(
             const queryBuilder = albumRepository
                 .createQueryBuilder("album")
                 .leftJoinAndSelect("album.genres", "genre")
+                .leftJoinAndSelect("album.cover_image", "cover_image")
                 .where("album.user_id = :userId", { userId: getUser.id })
                 .andWhere("album.is_active = :isActive", { isActive: true })
                 .select([
@@ -817,6 +818,7 @@ albumRouter.get(
                     "genre.id",
                     "genre.name",
                     "genre.description",
+                    "cover_image.image_path"
                 ])
                 .skip(skip)
                 .take(limit);
