@@ -1,4 +1,4 @@
-import {Entity, ManyToOne, JoinColumn, PrimaryGeneratedColumn } from "typeorm";
+import {Entity, ManyToOne, JoinColumn, PrimaryGeneratedColumn, Column } from "typeorm";
 import { User } from "./User";
 import { TimestampEntity } from "./Abstract";
 
@@ -17,6 +17,6 @@ export class Follow extends TimestampEntity{
   @JoinColumn({name: "to_user_id"})
   to_user: User;
 
-  // @CreateDateColumn()
-  // createdAt: Date;
+  @Column({default: true})
+  is_active: boolean
 }

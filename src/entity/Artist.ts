@@ -8,7 +8,7 @@ export class Artist extends TimestampEntity{
   @PrimaryGeneratedColumn()
   id: number;
 
-  @OneToOne(() => User, {onDelete: "RESTRICT"})
+  @OneToOne(() => User, {onDelete: "RESTRICT", nullable: false})
   @JoinColumn({name: "user_id"})
   user: User;
 
