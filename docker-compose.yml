@@ -62,21 +62,21 @@ services:
   #     - nginx:/etc/nginx
   #     - certs:/ets/ssl/private
 
-  dj-admin-pannel:
-    build:
-      context: dj-admin-pannel
-      dockerfile: Dockerfile
-    env_file: ".env"
-    restart: always
-    expose:
-      - 8000
-    ports:
-      - "8000:8000"
-    volumes:
-      - static_files:/home/app/dj-admin/staticfiles
-    depends_on:
-      - db
-      - app
+  # dj-admin-pannel:
+  #   build:
+  #     context: dj-admin-pannel
+  #     dockerfile: Dockerfile
+  #   env_file: ".env"
+  #   restart: always
+  #   expose:
+  #     - 8000
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - static_files:/home/app/dj-admin/staticfiles
+  #   depends_on:
+  #     - db
+  #     - app
 
 volumes:
   music_volume:
