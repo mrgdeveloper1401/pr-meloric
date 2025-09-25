@@ -44,8 +44,8 @@ services:
       - "80:80"
       - "443:443"
     restart: always
-    depends_on:
-      - dj-admin-pannel
+    # depends_on:
+    #   - dj-admin-pannel
     # command: ["nginx", "-g", "daemon off;"]
     build:
       context: nginx
