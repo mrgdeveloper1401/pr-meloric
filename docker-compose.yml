@@ -44,8 +44,6 @@ services:
       - "80:80"
       - "443:443"
     restart: always
-    # depends_on:
-    #   - dj-admin-pannel
     # command: ["nginx", "-g", "daemon off;"]
     build:
       context: nginx
@@ -62,21 +60,23 @@ services:
   #     - nginx:/etc/nginx
   #     - certs:/ets/ssl/private
 
-  # dj-admin-pannel:
-  #   build:
-  #     context: dj-admin-pannel
-  #     dockerfile: Dockerfile
-  #   env_file: ".env"
-  #   restart: always
-  #   expose:
-  #     - 8000
-  #   ports:
-  #     - "8000:8000"
-  #   volumes:
-  #     - static_files:/home/app/dj-admin/staticfiles
-  #   depends_on:
-  #     - db
-  #     - app
+  dj-admin-pannel:
+    build:
+      context: /root/online-melo
+      dockerfile: Dockerfile
+    env_file: "/root/online-melo/.env"
+    restart: always
+    expose:
+      - 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - static_files:/home/app/staticfiles
+    depends_on:
+      - db
+      - app
+      - redis
+      - nginx
 
 volumes:
   music_volume:
