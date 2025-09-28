@@ -524,3 +524,264 @@ storyRouter.post(
         }
     }
 );
+
+// Get user media with pagination
+/**
+ * @swagger
+ * /v1/user/story/my_media/:
+ *   get:
+ *     summary: دریافت لیست مدیاهای آپلود شده توسط کاربر
+ *     description: |
+ *       این endpoint برای دریافت لیست مدیاهای آپلود شده توسط کاربر جاری استفاده می‌شود.
+ *       نیاز به احراز هویت دارد.
+ *     tags: [Story]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه برای صفحه‌بندی
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *         description: تعداد آیتم‌ها در هر صفحه (حداکثر 50)
+ *         example: 20
+ *     responses:
+ *       200:
+ *         description: لیست مدیاها با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/StoryMedia'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     current_page:
+ *                       type: integer
+ *                       example: 1
+ *                     total_pages:
+ *                       type: integer
+ *                       example: 5
+ *                     total_items:
+ *                       type: integer
+ *                       example: 95
+ *                     items_per_page:
+ *                       type: integer
+ *                       example: 20
+ *                     has_next:
+ *                       type: boolean
+ *                       example: true
+ *                     has_previous:
+ *                       type: boolean
+ *                       example: false
+ *       401:
+ *         description: عدم احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UnauthorizedError'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ServerError'
+ */
+storyRouter.get(
+    "/my_media/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 20;
+            const skip = (page - 1) * limit;
+
+            const mediaRepository = AppDataSource.getRepository(StoryMedia);
+            
+            const [mediaList, totalCount] = await mediaRepository.findAndCount({
+                where: {
+                    user: { id: userId },
+                    is_active: true
+                },
+                select: {
+                    id: true,
+                    file_path: true,
+                    mime_type: true,
+                    size: true,
+                    duration: true,
+                    media_type: true,
+                    createdAt: true
+                },
+                order: {
+                    createdAt: "DESC"
+                },
+                take: limit,
+                skip: skip
+            });
+
+            const totalPages = Math.ceil(totalCount / limit);
+
+            return res.status(200).json({
+                status: "success",
+                data: mediaList,
+                pagination: {
+                    current_page: page,
+                    total_pages: totalPages,
+                    total_items: totalCount,
+                    items_per_page: limit,
+                    has_next: page < totalPages,
+                    has_previous: page > 1
+                }
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
+    }
+);
+
+// Delete media
+/**
+ * @swagger
+ * /v1/user/story/media/{media_id}:
+ *   delete:
+ *     summary: حذف مدیا
+ *     description: |
+ *       این endpoint برای حذف مدیا توسط کاربر ایجادکننده آن استفاده می‌شود.
+ *       نیاز به احراز هویت دارد.
+ *     tags: [Story]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: media_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه مدیا
+ *     responses:
+ *       200:
+ *         description: مدیا با موفقیت حذف شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Media deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 123
+ *                     file_path:
+ *                       type: string
+ *                       example: "https://example.com/uploads/image.jpg"
+ *                     is_active:
+ *                       type: boolean
+ *                       example: false
+ *       403:
+ *         description: دسترسی غیرمجاز - کاربر مالک مدیا نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You don't have permission to delete this media"
+ *       404:
+ *         description: مدیا یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Media not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ServerError'
+ */
+storyRouter.delete(
+    "/media/:media_id/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const mediaId = parseInt(req.params.media_id);
+
+            // Check if media exists and user has permission
+            const mediaRepository = AppDataSource.getRepository(StoryMedia);
+            const media = await mediaRepository.findOne({
+                where: {
+                    id: mediaId,
+                    user: { id: userId },
+                    is_active: true
+                },
+                relations: ["user"]
+            });
+
+            if (!media) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Media not found or you don't have permission to delete it"
+                });
+            }
+
+            // Soft delete the media (set is_active to false)
+            media.is_active = false;
+            await mediaRepository.save(media);
+
+            return res.status(200).json({
+                status: "success",
+                message: "Media deleted successfully",
+                data: {
+                    id: media.id,
+                }
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
+    }
+);
