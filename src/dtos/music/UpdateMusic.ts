@@ -16,4 +16,8 @@ export class UpdateMusicDto {
     @IsNumber()
     @IsOptional()
     audio_id?: number;
+
+    @IsNumber()
+    @IsOptional()
+    image_id?: number;
 }

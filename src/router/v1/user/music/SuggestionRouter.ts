@@ -162,6 +162,7 @@ suggestRouter.get(
                 .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
                 .leftJoinAndSelect("song.album", "album")
                 .leftJoinAndSelect("song.audio", "audio")
+                .leftJoinAndSelect("song.image", "image")
                 .where("song.is_active = :isActive", { isActive: true })
                 .andWhere("audio.is_active = :audioIsActive", { audioIsActive: true })
                 .orderBy("RANDOM()")
@@ -181,6 +182,9 @@ suggestRouter.get(
                 release_date: randomMusic.release_date,
                 play_count: randomMusic.play_count,
                 music_lyrics: randomMusic.music_lyrics,
+                image: {
+                    image_path: randomMusic.image?.image_path
+                },
                 album: {
                     id: randomMusic.album?.id,
                     title: randomMusic.album?.title,
@@ -202,7 +206,7 @@ suggestRouter.get(
                     audio_file_path: randomMusic.audio?.audio_file_path,
                     duration: randomMusic.audio?.duration,
                     audio_format: randomMusic.audio?.audio_format
-                }
+                },
             }));
 
             res.json({

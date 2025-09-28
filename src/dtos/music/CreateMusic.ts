@@ -17,4 +17,8 @@ export class CreateMusicDto {
     @IsString()
     @IsNotEmpty()
     release_date: string
+
+    @IsNumber()
+    @IsOptional()
+    image_id ?: number;
 }

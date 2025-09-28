@@ -10,6 +10,7 @@ import { CreateMusicDto } from "../../../../dtos/music/CreateMusic";
 import { validate } from "class-validator";
 import { Artist } from "../../../../entity/Artist";
 import { UpdateMusicDto } from "../../../../dtos/music/UpdateMusic";
+import { Image } from "../../../../entity/Image";
 
 
 export const musicRouter = Router();
@@ -143,11 +144,15 @@ musicRouter.get(
                       music_lyrics: true,
                       audio: {
                         audio_file_path: true
+                      },
+                      image: {
+                        image_path: true
                       }
 
                     },
                     relations: {
-                      audio: true
+                      audio: true,
+                      image: true
                     },
                     skip: skip
                 }
@@ -217,6 +222,10 @@ musicRouter.get(
  *                 type: string
  *                 description: متن موزیک
  *                 nullable: true
+ *               image_id:
+ *                  type: number
+ *                  descrption: شناسه عکس
+ *                  example: 1
  *     responses:
  *       201:
  *         description: موسیقی با موفقیت ایجاد شد
@@ -375,6 +384,23 @@ musicRouter.post(
                     }
                 );
             }
+
+            // check image
+            const imageRepository = AppDataSource.getRepository(Image);
+            const getImageId = await imageRepository.findOne(
+              {
+                where: {id: createMusicDto.image_id, is_active: true, user: getUser},
+                select: ['id']
+              }
+            );
+            if (!getImageId) {
+              return res.status(404).json(
+                {
+                  status: false,
+                  message: "image not found"
+                }
+              )
+            }
             // create music
             const music = new Song();
             music.album = getAlbum;
@@ -384,6 +410,7 @@ musicRouter.post(
             music.audio = getAudio;
             music.play_count = 0;
             music.music_lyrics = createMusicDto.music_lyrics;
+            music.image = getImageId;
             await music.save()
 
             return res.status(201).json(
@@ -452,6 +479,10 @@ musicRouter.post(
  *                 description: شناسه فایل صوتی جدید
  *                 example: 456
  *                 nullable: true
+ *               image_id:
+ *                  type: integer
+ *                  descrption: شناسه عکس
+ *                  example: 1
  *     responses:
  *       200:
  *         description: موسیقی با موفقیت به‌روزرسانی شد
@@ -568,7 +599,7 @@ musicRouter.patch(
         }
         music.audio = audio;
       }
-
+    
       // Update fields if provided
       if (updateMusicDto.title !== undefined) {
         music.title = updateMusicDto.title;
@@ -580,6 +611,24 @@ musicRouter.patch(
 
       if (updateMusicDto.music_lyrics !== undefined) {
         music.music_lyrics = updateMusicDto.music_lyrics;
+      }
+
+      if (updateMusicDto.image_id !== undefined) {
+        const imageRepository = AppDataSource.getRepository(Image);
+        const getImage = await imageRepository.findOne(
+          {
+            where: {id: updateMusicDto.image_id, is_active: true, user: {id: userId}},
+            select: ['id']
+          });
+          if (!getImage) {
+            return res.status(404).json(
+              {
+                status: false,
+                message: "image not found"
+              }
+            );
+          }
+        music.image = getImage;
       }
 
       // Save updated music
@@ -974,6 +1023,7 @@ musicRouter.get(
         relations: {
           audio: true,
           album: true,
+          image: true,
           artist: {
             cover_image: true,
             user: {
@@ -984,6 +1034,9 @@ musicRouter.get(
         select: {
           id: true,
           title: true,
+          image: {
+            image_path: true
+          },
           audio: {
             audio_file_path: true
           },

@@ -3,6 +3,7 @@ import { Album } from "./Album";
 import { Artist } from "./Artist";
 import { TimestampEntity } from "./Abstract";
 import { Audio } from "./Audio";
+import { Image } from "./Image";
 
 @Entity()
 export class Song extends TimestampEntity{
@@ -35,5 +36,9 @@ export class Song extends TimestampEntity{
   @ManyToOne(() => Audio)
   @JoinColumn({name: "audio_id"})
   audio: Audio
+
+  @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
+  @JoinColumn({name: "image_id"})
+  image: Image
 
 }
