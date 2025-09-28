@@ -44,21 +44,9 @@ services:
       - "80:80"
       - "443:443"
     restart: always
-    # command: ["nginx", "-g", "daemon off;"]
     build:
       context: nginx
       dockerfile: Dockerfile
-  
-  # ui-nginx:
-  #   image: docker.arvancloud.ir/uozi/nginx-ui:latest
-  #   container_name: music-nginx-ui
-  #   ports:
-  #     - "8080:8080"
-  #     - "8443:8443"
-  #   volumes:
-  #     - nginx-ui-data:/etc/nginx-ui
-  #     - nginx:/etc/nginx
-  #     - certs:/ets/ssl/private
 
   dj-admin-pannel:
     build:
@@ -81,6 +69,3 @@ services:
 volumes:
   music_volume:
   static_files:
-  # nginx-ui-data:
-  # nginx:
-  # certs:

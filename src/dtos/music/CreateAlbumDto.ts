@@ -137,10 +137,10 @@ export class UpdateAlbumDto {
     @IsNotEmpty()
     release_date?: string;
 
-    @IsArray()
+    @IsNumber()
     @IsOptional()
     @IsNotEmpty()
-    genre_ids?: number[];
+    genre_id?: number;
 
     @IsBoolean()
     @IsOptional()

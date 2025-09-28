@@ -715,3 +715,300 @@ musicRouter.delete(
     }
   }
 );
+
+// show music by genre id
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ProfileImage:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         image_path:
+ *           type: string
+ *           example: "https://example.com/images/profile.jpg"
+ *     Profile:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         first_name:
+ *           type: string
+ *           example: "John"
+ *         last_name:
+ *           type: string
+ *           example: "Doe"
+ *         profile_image:
+ *           $ref: '#/components/schemas/ProfileImage'
+ *     User:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         profile:
+ *           $ref: '#/components/schemas/Profile'
+ *     Artist:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         user:
+ *           $ref: '#/components/schemas/User'
+ *     Album:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         title:
+ *           type: string
+ *           example: "Greatest Hits"
+ *     Audio:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         audio_file_path:
+ *           type: string
+ *           example: "https://storage.com/music/song.mp3"
+ *     SongResponse:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         title:
+ *           type: string
+ *           example: "Beautiful Song"
+ *         release_date:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-09-28T11:57:16.000Z"
+ *         artist:
+ *           $ref: '#/components/schemas/Artist'
+ *         album:
+ *           $ref: '#/components/schemas/Album'
+ *         audio:
+ *           $ref: '#/components/schemas/Audio'
+ *     PaginatedSongsResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         total:
+ *           type: integer
+ *           example: 50
+ *         page:
+ *           type: integer
+ *           example: 1
+ *         skip:
+ *           type: integer
+ *           example: 0
+ *         data:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/SongResponse'
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "error"
+ *         message:
+ *           type: string
+ *           example: "Internal server error"
+ *   parameters:
+ *     GenreIdParam:
+ *       name: genreId
+ *       in: path
+ *       required: true
+ *       description: آیدی ژانر مورد نظر
+ *       schema:
+ *         type: integer
+ *         example: 1
+ *     PageQueryParam:
+ *       name: page
+ *       in: query
+ *       required: false
+ *       description: شماره صفحه (پیش‌فرض 1)
+ *       schema:
+ *         type: integer
+ *         minimum: 1
+ *         default: 1
+ *         example: 1
+ *     LimitQueryParam:
+ *       name: limit
+ *       in: query
+ *       required: false
+ *       description: تعداد آیتم‌ها در هر صفحه (پیش‌فرض 20)
+ *       schema:
+ *         type: integer
+ *         minimum: 1
+ *         maximum: 100
+ *         default: 20
+ *         example: 20
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *       description: "JWT Token برای احراز هویت"
+ * 
+ * /v1/user/music/show_music_by_genre/{genreId}:
+ *   get:
+ *     tags:
+ *       - Music
+ *     summary: دریافت آهنگ‌های بر اساس ژانر
+ *     description: دریافت لیست آهنگ‌های مرتبط با یک ژانر خاص با قابلیت صفحه‌بندی
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/GenreIdParam'
+ *       - $ref: '#/components/parameters/PageQueryParam'
+ *       - $ref: '#/components/parameters/LimitQueryParam'
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - لیست آهنگ‌های ژانر مورد نظر بازگردانده می‌شود
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaginatedSongsResponse'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: "success"
+ *                   total: 50
+ *                   page: 1
+ *                   skip: 0
+ *                   data:
+ *                     - id: 1
+ *                       title: "Beautiful Song"
+ *                       release_date: "2025-09-28T11:57:16.000Z"
+ *                       artist:
+ *                         id: 1
+ *                         user:
+ *                           id: 1
+ *                           profile:
+ *                             id: 1
+ *                             first_name: "John"
+ *                             last_name: "Doe"
+ *                             profile_image:
+ *                               id: 1
+ *                               image_path: "https://example.com/images/profile.jpg"
+ *                       album:
+ *                         id: 1
+ *                         title: "Greatest Hits"
+ *                       audio:
+ *                         id: 1
+ *                         audio_file_path: "https://storage.com/music/song.mp3"
+ *       '400':
+ *         description: پارامترهای ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده یا منقضی شده است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: ژانر مورد نظر یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+musicRouter.get(
+  "/show_music_by_genre/:genreId",
+  authenticateJWT,
+  async(req: Request, res: Response) => {
+    try {
+      const genreId = Number(req.params.genreId);
+      const limit = Number(req.query.limit) || 20;
+      const page = Number(req.query.page) || 1;
+      const skip = (page - 1) * limit;
+      const musicRepository = AppDataSource.getRepository(Song);
+      const [musics, total] = await musicRepository.findAndCount({
+        skip: skip,
+        take: limit,
+        where: {
+          is_active: true,
+          album: {
+            is_active: true,
+            genre: {
+              id: genreId
+            }
+          }
+        },
+        relations: {
+          audio: true,
+          album: true,
+          artist: {
+            cover_image: true,
+            user: {
+              profile: true
+            }
+          }
+        },
+        select: {
+          id: true,
+          title: true,
+          audio: {
+            audio_file_path: true
+          },
+          album: {
+            id: true,
+            title: true
+          },
+          artist: {
+            id: true,
+            user: {
+              id: true,
+              profile: {
+                id: true,
+                first_name: true,
+                last_name: true
+              }
+            },
+            cover_image: {
+              id: true,
+              image_path: true
+            }
+          }
+          
+        }
+      })
+
+      return res.status(200).json({
+        status: "success",
+        total: total,
+        page: page,
+        skip: skip,
+        data: musics
+      });
+    } catch (error) {
+      console.error("Error in show_music_by_genre:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Internal server error"
+      });
+    }
+  }
+);

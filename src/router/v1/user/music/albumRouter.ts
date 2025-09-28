@@ -349,14 +349,14 @@ albumRouter.post(
 
             // check genre
             const genreRepository = AppDataSource.getRepository(Genre);
-            const genres = await genreRepository.find({
+            const genre = await genreRepository.find({
                 where: {
                     id: In(createAlbumDto.genre_ids),
                     is_active: true
                 },
                 select: ['id']
             });
-            if (!genres) {
+            if (!genre) {
                 return res.status(404).json(
                     {
                         status: false,
@@ -371,7 +371,7 @@ albumRouter.post(
             album.bio = createAlbumDto.bio;
             album.cover_image = getImage;
             album.release_date = new Date(createAlbumDto.release_date);
-            album.genres = genres;
+            // album.genre = genre;
             album.user = getUser;
 
             // save album
@@ -593,7 +593,7 @@ albumRouter.patch(
             const albumRepository = AppDataSource.getRepository(Album);
             const existingAlbum = await albumRepository.findOne({
                 where: { id: albumId, user: { id: getUser.id } },
-                relations: ['genres', 'cover_image']
+                relations: ['genre', 'cover_image']
             });
 
             if (!existingAlbum) {
@@ -638,23 +638,23 @@ albumRouter.patch(
             }
 
             // update genres if provided
-            if (updateAlbumDto.genre_ids !== undefined) {
+            if (updateAlbumDto.genre_id !== undefined) {
                 const genreRepository = AppDataSource.getRepository(Genre);
-                const genres = await genreRepository.find({
+                const genre = await genreRepository.find({
                     where: {
-                        id: In(updateAlbumDto.genre_ids),
+                        id: updateAlbumDto.genre_id,
                         is_active: true
                     },
                     select: ['id']
                 });
 
-                if (genres.length === 0) {
+                if (!genre) {
                     return res.status(404).json({
                         status: false,
                         message: "genre not found"
                     });
                 }
-                existingAlbum.genres = genres;
+                // existingAlbum.genre = genre
             }
 
             // save updated album

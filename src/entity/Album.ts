@@ -29,21 +29,24 @@ export class Album extends TimestampEntity{
   @JoinColumn({name: "user_id"})
   user: User;
 
-  @ManyToMany(() => Genre, {eager: true})
-  @JoinTable(
-    {
-      name: "album_genres",
-      joinColumn: {
-        name: "album_id",
-        referencedColumnName: "id"
-      },
-      inverseJoinColumn: {
-        name: "genre_id",
-        referencedColumnName: "id"
-      }
-    }
-  )
-  genres: Genre[];
+  // @ManyToMany(() => Genre, {eager: true})
+  // @JoinTable(
+  //   {
+  //     name: "album_genres",
+  //     joinColumn: {
+  //       name: "album_id",
+  //       referencedColumnName: "id"
+  //     },
+  //     inverseJoinColumn: {
+  //       name: "genre_id",
+  //       referencedColumnName: "id"
+  //     }
+  //   }
+  // )
+  // genres: Genre[];
+  @ManyToOne(() => Genre, {onDelete: "RESTRICT"})
+  @JoinColumn({name: "genre_id"})
+  genre: Genre
 
 
 //   @DeleteDateColumn()
