@@ -23,7 +23,7 @@ export class Story extends TimestampEntity {
   @Column({ default: true })
   is_active: boolean;
 
-  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
+  @Column({ type: "timestamp"})
   expires_at: Date;
 
   @Column({ default: 0 })

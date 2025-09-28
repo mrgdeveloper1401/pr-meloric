@@ -124,6 +124,7 @@ storyRouter.get(
     }
 )
 
+// create story
 /**
  * @swagger
  * /v1/user/story/create_story:
@@ -290,6 +291,7 @@ storyRouter.post(
             createStoryImage.caption = imageStoryDto.caption;
             createStoryImage.image_story = checkImageUserUpload;
             createStoryImage.user = { id: (req as any).user.user_id } as User;
+            createStoryImage.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000); 
             await storyRepository.save(createStoryImage);
 
             // response
