@@ -4,14 +4,20 @@ import { AppDataSource } from "../../../../data-source";
 import { Story } from "../../../../entity/Story";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { MoreThan } from "typeorm";
-import { Image } from "../../../../entity/Image";
 import { plainToClass } from "class-transformer";
 import { CreateStoryDto } from "../../../../dtos/music/CreateStory";
 import { validate } from "class-validator";
 import { User } from "../../../../entity/User";
-
+import { s3ClientConfig, videoUploaded } from "../../../../utils/amazon_s3/S3Config";
+import fs from "fs";
+import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
+import { MediaTypeEnum, StoryMedia } from "../../../../entity/StoryMedia";
+import dotenv from "dotenv"
+import { getVideoDurationInSeconds } from 'get-video-duration';
 
 export const storyRouter = express.Router();
+dotenv.config()
+
 
 // get all story
 /**
@@ -75,8 +81,8 @@ storyRouter.get(
             const userStoryRepository = AppDataSource.getRepository(Story);
             const [stories, count] = await userStoryRepository.findAndCount(
                 {
-                    where: {is_active: true, createdAt: MoreThan(twentyFourHoursAgo)},
-                    relations: ['user', "user.profile", "user.profile.profile_image", "image_story"],
+                    where: { is_active: true, createdAt: MoreThan(twentyFourHoursAgo) },
+                    relations: ['user', "user.profile", "user.profile.profile_image"],
                     select: {
                         id: true,
                         caption: true,
@@ -91,10 +97,6 @@ storyRouter.get(
                                 }
                             }
                         },
-                        image_story: {
-                            id: true,
-                            image_path: true
-                        }
                     },
                     order: {
                         createdAt: "DESC"
@@ -142,13 +144,7 @@ storyRouter.get(
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - image_id
  *             properties:
- *               image_id:
- *                 type: integer
- *                 description: شناسه تصویر آپلود شده
- *                 example: 1
  *               caption:
  *                 type: string
  *                 description: توضیحات اختیاری استوری
@@ -167,7 +163,7 @@ storyRouter.get(
  *                   example: "success"
  *                 message:
  *                   type: string
- *                   example: "successfully create image story"
+ *                   example: "successfully create story"
  *                 data:
  *                   type: object
  *                   properties:
@@ -175,9 +171,6 @@ storyRouter.get(
  *                       type: string
  *                       nullable: true
  *                       example: "این یک استوری تست است!"
- *                     image_path:
- *                       type: string
- *                       example: "/path/to/story.jpg"
  *                     created_at:
  *                       type: string
  *                       format: date-time
@@ -208,26 +201,6 @@ storyRouter.get(
  *                   value:
  *                     status: false
  *                     message: "request body is required"
- *                 invalidData:
- *                   value:
- *                     status: false
- *                     message: "Invalid Data"
- *                     errors:
- *                       - field: "image_id"
- *                         value: { isNumber: "image_id must be a number" }
- *       404:
- *         description: تصویر یافت نشد
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "image not found"
  *       401:
  *         description: عدم احراز هویت
  *         content:
@@ -255,60 +228,40 @@ storyRouter.post(
             }
 
             // validate dto
-            const imageStoryDto = plainToClass(CreateStoryDto, req.body);
-            const errors = await validate(imageStoryDto);
+            const StoryDto = plainToClass(CreateStoryDto, req.body);
+            const errors = await validate(StoryDto);
             if (errors.length > 0) {
                 return res.status(400).json({
                     status: false,
                     message: "Invalid Data",
-                    errors: errors.map((err) => ({
+                    errors: errors.map(err => ({
                         field: err.property,
                         value: err.constraints,
                     })),
                 });
             }
 
-            // check image
-            const imageStoryRepository = AppDataSource.getRepository(Image);
-            const checkImageUserUpload = await imageStoryRepository.findOne({
-                where: {is_active: true ,id: imageStoryDto.image_id, user: { id: (req as any).user.user_id } },
-                select: {
-                    id: true,
-                    image_path: true,
-                },
-            });
-
-            if (!checkImageUserUpload) {
-                return res.status(404).json({
-                    status: false,
-                    message: "image not found",
-                });
-            }
-
             // create story
             const storyRepository = AppDataSource.getRepository(Story);
-            const createStoryImage = new Story();
-            createStoryImage.caption = imageStoryDto.caption;
-            createStoryImage.image_story = checkImageUserUpload;
-            createStoryImage.user = { id: (req as any).user.user_id } as User;
-            createStoryImage.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000); 
-            await storyRepository.save(createStoryImage);
+            const createStory = new Story();
+            createStory.caption = StoryDto.caption;
+            createStory.user = { id: (req as any).user.user_id } as User;
+            createStory.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            await storyRepository.save(createStory);
 
             // response
             return res.status(201).json({
                 status: "success",
-                message: "successfully create image story",
+                message: "successfully create story",
                 data: {
-                    caption: createStoryImage.caption,
-                    image_path: checkImageUserUpload.image_path,
-                    created_at: createStoryImage.createdAt,
+                    caption: createStory.caption,
+                    created_at: createStory.createdAt,
                 },
             });
         } catch (error) {
             return res.status(500).json({
                 status: false,
                 message: "server error",
-                error: error.message || error,
             });
         }
     }
@@ -359,19 +312,6 @@ storyRouter.post(
  *                     is_active:
  *                       type: boolean
  *                       example: false
- *       400:
- *         description: استوری قبلاً حذف شده است
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Story is already deleted"
  *       403:
  *         description: دسترسی غیرمجاز - کاربر مالک استوری نیست
  *         content:
@@ -406,48 +346,181 @@ storyRouter.post(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.delete(
-  "/:story_id/",
-  authenticateJWT,
-  async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user.user_id;
-      const storyId = parseInt(req.params.story_id);
+    "/:story_id/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const storyId = parseInt(req.params.story_id);
 
-      // Check if story exists and user has permission
-      const storyRepository = AppDataSource.getRepository(Story);
-      const story = await storyRepository.findOne({
-        where: {
-            is_active: true,
-          id: storyId,
-          user: {
-            id: userId
-          }
-        },
-        relations: ["user", "image_story"]
-      });
+            // Check if story exists and user has permission
+            const storyRepository = AppDataSource.getRepository(Story);
+            const story = await storyRepository.findOne({
+                where: {
+                    is_active: true,
+                    id: storyId,
+                    user: {
+                        id: userId
+                    }
+                },
+                relations: ["user"]
+            });
 
-      if (!story) {
-        return res.status(404).json({
-          status: false,
-          message: "Story not found or you don't have permission to delete it"
-        });
-      }
+            if (!story) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Story not found or you don't have permission to delete it"
+                });
+            }
 
-      // Soft delete the story (set is_active to false)
-      story.is_active = false;
-      await storyRepository.save(story);
+            // Soft delete the story (set is_active to false)
+            story.is_active = false;
+            await storyRepository.save(story);
 
-      return res.status(200).json({
-        status: "success",
-        message: "Story deleted successfully"
-      });
+            return res.status(200).json({
+                status: "success",
+                message: "Story deleted successfully"
+            });
 
-    } catch (error) {
-      console.error("Delete story error:", error);
-      return res.status(500).json({
-        status: false,
-        message: "server error"
-      });
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
     }
-  }
+);
+
+// Create media
+/**
+ * @swagger
+ * /v1/user/story/create_media/:
+ *   post:
+ *     summary: آپلود مدیا برای استوری
+ *     description: |
+ *       این endpoint برای آپلود فایل‌های ویدیویی و تصویری برای استوری استفاده می‌شود.
+ *       نیاز به احراز هویت دارد.
+ *     tags: [Story]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: فایل ویدیو یا تصویر
+ *     responses:
+ *       201:
+ *         description: مدیا با موفقیت آپلود شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Media created successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/StoryMedia'
+ *       400:
+ *         description: درخواست نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "request body is required"
+ *       401:
+ *         description: عدم احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UnauthorizedError'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ServerError'
+ */
+storyRouter.post(
+    "/create_media/",
+    authenticateJWT,
+    videoUploaded.single("file"),
+    async (req: Request, res: Response) => {
+        try {
+            // check request body
+            if (!req.body || !req.file) {
+                return res.status(400).json({
+                    status: false,
+                    message: "request body is required"
+                });
+            }
+
+            // read file
+            const fileContent = fs.readFileSync(req.file.path);
+            const userId = (req as any).user.user_id;
+            
+            // calc duration video
+            let videoDuration = 0;
+            if (req.file.mimetype.startsWith('video/')) {
+                videoDuration = await getVideoDurationInSeconds(req.file.path);
+            }
+
+            const params: PutObjectCommandInput = {
+                ACL: "public-read",
+                Bucket: process.env.AWS_BUCKET_NAME,
+                Key: `uploads/${userId}/${req.file.filename}.${req.file.mimetype.split('/')[1]}`,
+                Body: fileContent,
+                ContentType: req.file.mimetype
+            };
+
+            // upload in s3
+            const command = new PutObjectCommand(params);
+            await s3ClientConfig.send(command);
+
+            // remove file in memory
+            fs.unlinkSync(req.file.path);
+
+            // save in database
+            const file = req.file;
+            const mediaRepository = AppDataSource.getRepository(StoryMedia);
+            const newStoryMedia = new StoryMedia();
+            newStoryMedia.file_path = `https://${process.env.AWS_BUCKET_NAME}.s3.ir-thr-at1.arvanstorage.ir/${params.Key}`;
+            newStoryMedia.mime_type = file.mimetype;
+            newStoryMedia.size = file.size;
+            newStoryMedia.user = { id: userId } as User;
+            newStoryMedia.duration = videoDuration; // مقدار عددی
+            newStoryMedia.media_type = file.mimetype.split("/")[0] === "image" ? MediaTypeEnum.IMAGE : MediaTypeEnum.VIDEO;
+
+            // save in database
+            await mediaRepository.save(newStoryMedia);
+
+            return res.status(201).json({
+                status: "success",
+                message: "Media created successfully",
+                data: newStoryMedia
+            });
+
+        } catch (error) {
+            console.error("Error creating media:", error);
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
+    }
 );

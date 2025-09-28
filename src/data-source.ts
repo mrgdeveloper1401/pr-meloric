@@ -28,6 +28,7 @@ import { UserSubscriber } from "./utils/Subscriber/UserSubscriber";
 import { TokenBlock } from "./entity/TokenBlock";
 import { Story } from "./entity/Story";
 import dotenv from "dotenv";
+import { StoryMedia } from "./entity/StoryMedia";
 
 dotenv.config();
 
@@ -68,7 +69,8 @@ export const AppDataSource = new DataSource({
         UserLog,
         Gateway,
         TokenBlock,
-        Story
+        Story,
+        StoryMedia
     ],
     migrations: [],
     subscribers: [UserSubscriber],

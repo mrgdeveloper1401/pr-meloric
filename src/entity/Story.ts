@@ -13,9 +13,9 @@ export class Story extends TimestampEntity {
   @JoinColumn({ name: "user_id" })
   user: User;
 
-   @ManyToOne(() => Image, {onDelete: "RESTRICT"})
-   @JoinColumn({name: "image_story_id"})
-   image_story: Image;
+  //  @ManyToOne(() => Image, {onDelete: "RESTRICT"})
+  //  @JoinColumn({name: "image_story_id"})
+  //  image_story: Image;
 
   @Column({ type: "varchar", length: 500, nullable: true })
   caption: string;
