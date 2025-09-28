@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 /**
  * @swagger
@@ -61,9 +61,9 @@ export class CreateAlbumDto {
     @IsNotEmpty()
     release_date: string;
 
-    @IsArray()
+    @IsNumber()
     @IsNotEmpty()
-    genre_ids: number[];
+    genre_id: number;
 
 }
 

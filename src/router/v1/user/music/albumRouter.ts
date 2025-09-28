@@ -117,7 +117,7 @@ albumRouter.get(
             
             const albums = await albumRepository
                 .createQueryBuilder("album")
-                .innerJoin("album.genres", "genre", "genre.id = :genreId", { genreId })
+                .innerJoin("album.genre", "genre", "genre.id = :genreId", { genreId })
                 .leftJoinAndSelect("album.cover_image", "cover_image")
                 .where("album.is_active = :isActive", { isActive: true })
                 .select([
@@ -170,7 +170,7 @@ albumRouter.get(
  *             bio: "این یک آلبوم جدید است"
  *             cover_image: 1
  *             release_date: "2023-12-01"
- *             genre_ids: [1, 2, 3]
+ *             genre_id: 1
  *             is_active: true
  *     responses:
  *       201:
@@ -349,9 +349,9 @@ albumRouter.post(
 
             // check genre
             const genreRepository = AppDataSource.getRepository(Genre);
-            const genre = await genreRepository.find({
+            const genre = await genreRepository.findOne({
                 where: {
-                    id: In(createAlbumDto.genre_ids),
+                    id: createAlbumDto.genre_id,
                     is_active: true
                 },
                 select: ['id']
@@ -371,7 +371,7 @@ albumRouter.post(
             album.bio = createAlbumDto.bio;
             album.cover_image = getImage;
             album.release_date = new Date(createAlbumDto.release_date);
-            // album.genre = genre;
+            album.genre = genre;
             album.user = getUser;
 
             // save album
@@ -640,7 +640,7 @@ albumRouter.patch(
             // update genres if provided
             if (updateAlbumDto.genre_id !== undefined) {
                 const genreRepository = AppDataSource.getRepository(Genre);
-                const genre = await genreRepository.find({
+                const genre = await genreRepository.findOne({
                     where: {
                         id: updateAlbumDto.genre_id,
                         is_active: true
@@ -654,7 +654,7 @@ albumRouter.patch(
                         message: "genre not found"
                     });
                 }
-                // existingAlbum.genre = genre
+                existingAlbum.genre = genre
             }
 
             // save updated album
@@ -805,7 +805,7 @@ albumRouter.get(
             
             const queryBuilder = albumRepository
                 .createQueryBuilder("album")
-                .leftJoinAndSelect("album.genres", "genre")
+                .leftJoinAndSelect("album.genre", "genre")
                 .leftJoinAndSelect("album.cover_image", "cover_image")
                 .where("album.user_id = :userId", { userId: getUser.id })
                 .andWhere("album.is_active = :isActive", { isActive: true })
