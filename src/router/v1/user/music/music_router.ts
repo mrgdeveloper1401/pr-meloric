@@ -135,6 +135,20 @@ musicRouter.get(
                 {
                     where: {album: getAlbum, is_active: true},
                     take: limit,
+                    select: {
+                      id: true,
+                      title: true,
+                      release_date: true,
+                      play_count: true,
+                      music_lyrics: true,
+                      audio: {
+                        audio_file_path: true
+                      }
+
+                    },
+                    relations: {
+                      audio: true
+                    },
                     skip: skip
                 }
             );
