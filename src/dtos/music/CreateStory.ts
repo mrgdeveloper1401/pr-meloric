@@ -7,6 +7,5 @@ export class CreateStoryDto {
     @IsArray()
     @IsNotEmpty()
     @ArrayMinSize(1)
-    @IsNumber({}, {each: true})
     media_ids: number[]
 }

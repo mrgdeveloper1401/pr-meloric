@@ -179,7 +179,18 @@ storyRouter.post(
                     }
                 )
             }
-
+            const foundMediaIds = checkStoryMedia.map(media => media.id);
+            const missingMediaIds = createStoryDto.media_ids.filter(id => !foundMediaIds.includes(id));
+            if (missingMediaIds.length > 0) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "Some media files not found",
+                        missing_media_ids: missingMediaIds,
+                        found_media_ids: foundMediaIds
+                    }
+                )
+            }
             // create story
             const storyRepository = AppDataSource.getRepository(Story);
             const newStory = new Story();
@@ -196,7 +207,7 @@ storyRouter.post(
             const updatePromises = checkStoryMedia.map(
                 async (media) => {
                     media.story = newStory;
-                    return await storyMediaRepository.save(media);
+                    await storyMediaRepository.save(media);
                 }
             )
             await Promise.all(updatePromises);
@@ -343,12 +354,12 @@ storyRouter.get(
 );
 
 
-// Delete story with media deactivation
+// Delete story 
 /**
  * @swagger
- * /v1/user/story/story/{story_id}/with_media/:
+ * /v1/user/story/story/{story_id}/:
  *   delete:
- *     summary: حذف استوری همراه با غیرفعال کردن مدیاهای مرتبط
+ *     summary: حذف استوری 
  *     description: |
  *       این endpoint برای حذف نرم استوری و غیرفعال کردن تمام مدیاهای مرتبط با آن استفاده می‌شود.
  *       فقط کاربر ایجادکننده استوری می‌تواند آن را حذف کند.
@@ -423,7 +434,7 @@ storyRouter.get(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.delete(
-    "/story/:story_id/with_media/",
+    "/story/:story_id/",
     authenticateJWT,
     async (req: Request, res: Response) => {
         try {
