@@ -1102,3 +1102,194 @@ playListRouter.post(
         }
     }
 );
+
+/**
+ * @swagger
+ * /v1/user/play_list/{playlist_id}/remove_song/:
+ *   delete:
+ *     summary: حذف آهنگ از پلی‌لیست (غیرفعال کردن)
+ *     description: |
+ *       این endpoint برای حذف منطقی یک آهنگ از پلی‌لیست با تنظیم is_active=false استفاده می‌شود.
+ *       نیاز به احراز هویت JWT دارد و کاربر فقط می‌تواند از پلی‌لیست‌های خودش آهنگ حذف کند.
+ *     tags:
+ *       - Playlists
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: playlist_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: شناسه پلی‌لیست
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - song_id
+ *             properties:
+ *               song_id:
+ *                 type: integer
+ *                 description: شناسه آهنگ برای حذف از پلی‌لیست
+ *                 example: 123
+ *     responses:
+ *       200:
+ *         description: آهنگ با موفقیت از پلی‌لیست حذف شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Song removed from playlist successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     playlist_id:
+ *                       type: integer
+ *                       example: 1
+ *                     song_id:
+ *                       type: integer
+ *                       example: 123
+ *                     is_active:
+ *                       type: boolean
+ *                       example: false
+ *       400:
+ *         description: داده‌های ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid input data"
+ *       403:
+ *         description: دسترسی غیرمجاز
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You don't have permission to remove songs from this playlist"
+ *       404:
+ *         description: پلی‌لیست یا آهنگ یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Playlist or song not found in playlist"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ */
+playListRouter.delete(
+    "/:playlist_id/remove_song/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const playlistId = Number(req.params.playlist_id);
+            const userId = (req as any).user.user_id;
+            const { song_id } = req.body;
+
+            // check playlist_id
+            if (isNaN(playlistId) || playlistId <= 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid playlist ID"
+                });
+            }
+
+            // check song_id
+            if (!song_id || isNaN(Number(song_id)) || Number(song_id) <= 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid song ID"
+                });
+            }
+
+            const songId = Number(song_id);
+
+            // find PlaylistSong
+            const playlistSongRepository = AppDataSource.getRepository(PlaylistSong);
+            const playlistSong = await playlistSongRepository.findOne({
+                where: {
+                    playlist: {
+                        id: playlistId,
+                        user: { id: userId },
+                        is_active: true
+                    },
+                    song: {
+                        id: songId,
+                        is_active: true
+                    },
+                    is_active: true
+                },
+                relations: ['playlist']
+            });
+
+            if (!playlistSong) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Playlist or song not found in playlist"
+                });
+            }
+
+            // delete
+            playlistSong.is_active = false;
+            await playlistSongRepository.save(playlistSong);
+
+            return res.status(200).json({
+                status: "success",
+                message: "Song removed from playlist successfully",
+                data: {
+                    id: playlistSong.id,
+                    playlist_id: playlistId,
+                    song_id: songId
+                }
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
+    }
+);
