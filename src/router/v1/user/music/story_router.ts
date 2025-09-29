@@ -303,6 +303,7 @@ storyRouter.get(
                     media: true,
                     view_count: true,
                     user: {
+                        id: true,
                         username: true,
                         profile: {
                             id: true,
@@ -341,6 +342,141 @@ storyRouter.get(
     }
 );
 
+
+// Delete story with media deactivation
+/**
+ * @swagger
+ * /v1/user/story/story/{story_id}/with_media/:
+ *   delete:
+ *     summary: حذف استوری همراه با غیرفعال کردن مدیاهای مرتبط
+ *     description: |
+ *       این endpoint برای حذف نرم استوری و غیرفعال کردن تمام مدیاهای مرتبط با آن استفاده می‌شود.
+ *       فقط کاربر ایجادکننده استوری می‌تواند آن را حذف کند.
+ *       نیاز به احراز هویت دارد.
+ *     tags: [Story]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: story_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه استوری
+ *     responses:
+ *       200:
+ *         description: استوری و مدیاهای مرتبط با موفقیت حذف شدند
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Story and related media deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     story_id:
+ *                       type: integer
+ *                       example: 1
+ *       403:
+ *         description: دسترسی غیرمجاز - کاربر مالک استوری نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You don't have permission to delete this story"
+ *       404:
+ *         description: استوری یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Story not found"
+ *       401:
+ *         description: عدم احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UnauthorizedError'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ServerError'
+ */
+storyRouter.delete(
+    "/story/:story_id/with_media/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const storyId = parseInt(req.params.story_id);
+            const userId = (req as any).user.user_id;
+
+            // check storyId
+            if (isNaN(storyId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid story ID"
+                });
+            }
+
+            const storyRepository = AppDataSource.getRepository(Story);
+            const mediaRepository = AppDataSource.getRepository(StoryMedia);
+            
+            // find story 
+            const story = await storyRepository.findOne({
+                where: { 
+                    id: storyId,
+                    is_active: true,
+                    user: {id: userId}
+                },
+            });
+
+            if (!story) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Story not found"
+                });
+            }
+
+            // delete story
+            story.is_active = false;
+            await storyRepository.save(story);
+
+            return res.status(200).json({
+                status: "success",
+                message: "Story and related media deleted successfully",
+                data: {
+                    story_id: story.id,
+                }
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
+    }
+);
 
 // Get all stories with pagination (آپدیت شده)
 /**
@@ -426,44 +562,59 @@ storyRouter.get(
     authenticateJWT,
     async (req: Request, res: Response) => {
         try {
-            // const limit = parseInt(req.query.limit as string) || 20;
-            // const page = parseInt(req.query.page as string) || 1;
-            // const skip = (page - 1) * limit;
-            // const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const limit = parseInt(req.query.limit as string) || 20;
+            const page = parseInt(req.query.page as string) || 1;
+            const skip = (page - 1) * limit;
+            const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
             
-            // const storyRepository = AppDataSource.getRepository(Story);
-            // const [stories, totalCount] = await storyRepository.findAndCount({
-            //     where: { 
-            //         is_active: true, 
-            //         createdAt: MoreThan(twentyFourHoursAgo) 
-            //     },
-            //     select: {
-            //         id: true,
-            //         caption: true
-            //     },
-                // relations: [
-                //     "media",
-                //     "user", 
-                //     "user.profile", 
-                //     "user.profile.profile_image"
-                // ],
-                // take: limit,
-                // skip: skip
-            // });
+            const storyRepository = AppDataSource.getRepository(Story);
+            const [stories, totalCount] = await storyRepository.findAndCount({
+                where: { 
+                    is_active: true, 
+                    createdAt: MoreThan(twentyFourHoursAgo) 
+                },
+                select: {
+                    id: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    caption: true,
+                    media: true,
+                    view_count: true,
+                    user: {
+                        id: true,
+                        username: true,
+                        profile: {
+                            id: true,
+                            profile_image: {
+                                id: true,
+                                image_path: true
+                            }
+                        }
+                    }
+                },
+                relations: [
+                    "media",
+                    "user", 
+                    "user.profile", 
+                    "user.profile.profile_image"
+                ],
+                take: limit,
+                skip: skip
+            });
 
-            // const totalPages = Math.ceil(totalCount / limit);
+            const totalPages = Math.ceil(totalCount / limit);
 
             return res.status(200).json({
                 status: "success",
-                daya: "ok",
-                // pagination: {
-                //     current_page: page,
-                //     total_pages: totalPages,
-                //     total_items: totalCount,
-                //     items_per_page: limit,
-                //     has_next: page < totalPages,
-                //     has_previous: page > 1
-                // }
+                pagination: {
+                    current_page: page,
+                    total_pages: totalPages,
+                    total_items: totalCount,
+                    items_per_page: limit,
+                    has_next: page < totalPages,
+                    has_previous: page > 1
+                },
+                data:stories,
             });
 
         } catch (error) {
