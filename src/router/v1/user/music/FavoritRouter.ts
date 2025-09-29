@@ -9,6 +9,7 @@ import { Song } from "../../../../entity/Song";
 
 export const favoriteRouter = Router();
 
+
 // create favorite music
 /**
  * @swagger
@@ -178,6 +179,197 @@ favoriteRouter.post(
 
 );
 
+// get favorit music
+/**
+ * @swagger
+ * /v1/user/favorite/my_favorit_music/:
+ *   get:
+ *     summary: دریافت لیست آهنگ‌های موردعلاقه کاربر
+ *     description: |
+ *       این endpoint برای دریافت لیست آهنگ‌های موردعلاقه کاربر جاری با قابلیت صفحه‌بندی استفاده می‌شود.
+ *       نیاز به احراز هویت JWT دارد.
+ *     tags:
+ *       - Favorite
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه (پیش‌فرض 1)
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: تعداد آیتم‌ها در هر صفحه (حداکثر 100)
+ *         example: 20
+ *     responses:
+ *       200:
+ *         description: لیست آهنگ‌های موردعلاقه با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 limit:
+ *                   type: integer
+ *                   description: تعداد آیتم‌ها در هر صفحه
+ *                   example: 20
+ *                 skip:
+ *                   type: integer
+ *                   description: تعداد آیتم‌های رد شده
+ *                   example: 0
+ *                 page:
+ *                   type: integer
+ *                   description: شماره صفحه فعلی
+ *                   example: 1
+ *                 total:
+ *                   type: integer
+ *                   description: تعداد کل آهنگ‌های موردعلاقه
+ *                   example: 45
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/FavoriteSongResponse'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: "success"
+ *                   limit: 20
+ *                   skip: 0
+ *                   page: 1
+ *                   total: 45
+ *                   data:
+ *                     - id: 1
+ *                       song:
+ *                         id: 123
+ *                         title: "آهنگ نمونه ۱"
+ *                         image:
+ *                           image_path: "https://example.com/images/song1.jpg"
+ *                     - id: 2
+ *                       song:
+ *                         id: 124
+ *                         title: "آهنگ نمونه ۲"
+ *                         image:
+ *                           image_path: "https://example.com/images/song2.jpg"
+ *                     - id: 3
+ *                       song:
+ *                         id: 125
+ *                         title: "آهنگ نمونه ۳"
+ *                         image:
+ *                           image_path: null
+ *       401:
+ *         description: عدم احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UnauthorizedError'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *             examples:
+ *               server_error:
+ *                 summary: خطای سرور
+ *                 value:
+ *                   status: false
+ *                   message: "server error"
+ */
+favoriteRouter.get(
+    "/my_favorit_music/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const limit = Number(req.query.limit) || 20;
+            const page = Number(req.query.page) || 1;
+            const skip = (page - 1) * limit;
+            const favoritMusicRepository = AppDataSource.getRepository(FavoriteSong);
+            const [favoritMusics, total] = await favoritMusicRepository.findAndCount(
+                {
+                    where: {
+                        user: {id: userId},
+                        is_active: true
+                    },
+                    select: {
+                        id: true,
+                        song: {
+                            id: true,
+                            title: true,
+                            audio: {
+                                audio_file_path: true
+                            },
+                            image: {
+                                image_path: true
+                            }
+                        }
+                    },
+                    relations: {
+                        song: {
+                            image: true,
+                            audio: true
+                        }
+                    },
+                    take: limit,
+                    skip: skip
+                }
+            );
+
+            // show data
+            const simpleData = favoritMusics.map(
+                item => (
+                    {
+                        id: item.id,
+                        song_id: item.song.id,
+                        title: item.song.title,
+                        audio_path: item.song.audio.audio_file_path,
+                        image_path: item.song.image?.image_path || null
+                    }
+                )
+            )
+            return res.status(200).json(
+                {
+                    status: "success",
+                    limit: limit,
+                    skip: skip,
+                    page: page,
+                    total: total,
+                    data: simpleData
+                }
+            )
+        } catch (error) {
+            console.error("Get favorite music error:", error);
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            );
+        }
+    }
+);
+
+
 // delete favorite music
 /**
  * @swagger
@@ -269,4 +461,3 @@ favoriteRouter.delete(
         }
     }
 );
-

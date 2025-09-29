@@ -1,4 +1,4 @@
-import {Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
+import {Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
 import { User } from "./User";
 import { Song } from "./Song";
 import { TimestampEntity } from "./Abstract";
@@ -17,4 +17,7 @@ export class FavoriteSong extends TimestampEntity{
   @ManyToOne(() => Song, {onDelete: "RESTRICT"})
   @JoinColumn({name: "song_id"})
   song: Song;
+
+  @Column({type: "boolean", default: true})
+  is_active: boolean;
 };
