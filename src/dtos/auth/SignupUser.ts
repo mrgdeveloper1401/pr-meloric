@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsNotEmpty, IsString } from "class-validator";
+import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 /**
  * @swagger
@@ -45,8 +45,8 @@ class SignUpUserDto {
     username: string;
 
     @IsBoolean()
-    @IsNotEmpty()
-    is_artist: boolean
+    @IsOptional()
+    is_artist?: boolean
 
 }
 
