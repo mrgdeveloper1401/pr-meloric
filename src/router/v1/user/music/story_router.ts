@@ -298,7 +298,10 @@ storyRouter.get(
             const story = await storyRepository.findOne({
                 where: { 
                     id: storyId,
-                    is_active: true 
+                    is_active: true,
+                    media: {
+                        is_active: true
+                    }
                 },
                 relations: [
                     "media", 
@@ -311,8 +314,12 @@ storyRouter.get(
                     createdAt: true,
                     updatedAt: true,
                     caption: true,
-                    media: true,
                     view_count: true,
+                    media: {
+                        id: true,
+                        file_path: true,
+                        media_type: true
+                    },
                     user: {
                         id: true,
                         username: true,
@@ -334,7 +341,7 @@ storyRouter.get(
                 });
             }
 
-            // افزایش تعداد بازدیدها
+            // incress view count
             story.view_count += 1;
             await storyRepository.save(story);
 
@@ -582,14 +589,21 @@ storyRouter.get(
             const [stories, totalCount] = await storyRepository.findAndCount({
                 where: { 
                     is_active: true, 
-                    createdAt: MoreThan(twentyFourHoursAgo) 
+                    createdAt: MoreThan(twentyFourHoursAgo),
+                    media: {
+                        is_active: true
+                    }
                 },
                 select: {
                     id: true,
                     createdAt: true,
                     updatedAt: true,
                     caption: true,
-                    media: true,
+                    media: {
+                        id: true,
+                        file_path: true,
+                        media_type: true
+                    },
                     view_count: true,
                     user: {
                         id: true,
