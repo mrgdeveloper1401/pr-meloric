@@ -16,16 +16,10 @@ export class PlaylistSong extends TimestampEntity{
   @JoinColumn({name: "song_id"})
   song: Song;
 
-  @Column({default: 0})
-  position: number;
+  // @Column({default: 0})
+  // position: number;
 
   @Column({ default: true })
   is_active: boolean;
-
-  // @CreateDateColumn()
-  // createdAt: Date;
-
-  // @UpdateDateColumn()
-  // updatedAt: Date;
 
 }
