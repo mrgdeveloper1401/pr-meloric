@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../../../../data-source";
 import { Story } from "../../../../entity/Story";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
-import { MoreThan } from "typeorm";
+import { In, MoreThan } from "typeorm";
 import { User } from "../../../../entity/User";
 import { s3ClientConfig, videoUploaded } from "../../../../utils/amazon_s3/S3Config";
 import fs from "fs";
@@ -11,6 +11,9 @@ import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { MediaTypeEnum, StoryMedia } from "../../../../entity/StoryMedia";
 import dotenv from "dotenv"
 import { getVideoDurationInSeconds } from 'get-video-duration';
+import { plainToClass } from "class-transformer";
+import { CreateStoryDto } from "../../../../dtos/music/CreateStory";
+import { validate } from "class-validator";
 
 export const storyRouter = express.Router();
 dotenv.config()
@@ -19,11 +22,12 @@ dotenv.config()
 // Create story with multiple media
 /**
  * @swagger
- * /v1/user/story/create_story_with_media/:
+ * /v1/user/story/story/create_story_with_media/:
  *   post:
- *     summary: ایجاد استوری جدید با چندین مدیا
+ *     summary: ایجاد استوری جدید با استفاده از مدیاهای آپلود شده
  *     description: |
- *       این endpoint برای ایجاد یک استوری جدید همراه با چندین فایل مدیا استفاده می‌شود.
+ *       این endpoint برای ایجاد یک استوری جدید با استفاده از مدیاهای از قبل آپلود شده استفاده می‌شود.
+ *       کاربر باید مدیاها را قبلاً آپلود کرده و شناسه‌های آنها را ارسال کند.
  *       نیاز به احراز هویت دارد.
  *     tags: [Story]
  *     security:
@@ -31,21 +35,24 @@ dotenv.config()
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - media_ids
  *             properties:
  *               caption:
  *                 type: string
  *                 description: توضیحات اختیاری استوری
  *                 example: "این یک استوری تست است!"
  *                 nullable: true
- *               media_files:
+ *               media_ids:
  *                 type: array
  *                 items:
- *                   type: string
- *                   format: binary
- *                 description: آرایه‌ای از فایل‌های مدیا (تصاویر یا ویدیوها)
+ *                   type: integer
+ *                 description: آرایه‌ای از شناسه‌های مدیاهای آپلود شده
+ *                 example: [1, 2, 3, 4]
+ *                 minItems: 1
  *     responses:
  *       201:
  *         description: استوری با مدیاها با موفقیت ایجاد شد
@@ -61,7 +68,7 @@ dotenv.config()
  *                   type: string
  *                   example: "Story with media created successfully"
  *                 data:
- *       $ref: '#/components/schemas/StoryWithMedia'
+ *                   $ref: '#/components/schemas/StoryWithMedia'
  *       400:
  *         description: درخواست نامعتبر
  *         content:
@@ -74,7 +81,31 @@ dotenv.config()
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Media files are required"
+ *                   example: "request body is required"
+ *                 error:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "media_ids"
+ *                       value:
+ *                         type: object
+ *                         example: { "isNumber": "each value in media_ids must be a number" }
+ *       404:
+ *         description: مدیا یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "story media dose not exits"
  *       401:
  *         description: عدم احراز هویت
  *         content:
@@ -89,88 +120,96 @@ dotenv.config()
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.post(
-    "/create_story_with_media/",
+    "/story/create_story_with_media/",
     authenticateJWT,
-    videoUploaded.array("media_files", 10), // حداکثر 10 فایل
     async (req: Request, res: Response) => {
         try {
+            // get user by request
             const userId = (req as any).user.user_id;
-            
-            if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "At least one media file is required"
-                });
+
+            // check request body
+            if (!req.body) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "request body is required"
+                    }
+                )
             }
 
-            const files = req.files as Express.Multer.File[];
-            const { caption } = req.body;
+            // validate dto
+            const createStoryDto = plainToClass(CreateStoryDto, req.body)
+            const errors = await validate(createStoryDto)
+            if (errors.length > 0) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "invalid data",
+                        error: errors.map(
+                            err => (
+                                {
+                                    field: err.property,
+                                    value: err.constraints
+                                }
+                            )
+                        )
+                    }
+                );
+            }
 
-            // ایجاد استوری
+            // check media
+            const storyMediaRepository = AppDataSource.getRepository(StoryMedia);
+            const checkStoryMedia = await storyMediaRepository.find(
+                {
+                    where: {
+                        id: In(createStoryDto.media_ids),
+                        is_active: true,
+                        user: {id: userId}
+                    },
+                    select: {
+                        id: true
+                    }
+                }
+            );
+            if (!checkStoryMedia) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "story media dose not exits"
+                    }
+                )
+            }
+
+            // create story
             const storyRepository = AppDataSource.getRepository(Story);
-            const mediaRepository = AppDataSource.getRepository(StoryMedia);
-
             const newStory = new Story();
-            newStory.caption = caption;
-            newStory.user = { id: userId } as User;
+            newStory.caption = createStoryDto.caption;
+            newStory.user = {id: userId} as User;
             newStory.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
-            
+            newStory.view_count = 0;
+            newStory.is_active = true;
+
+            // save story
             await storyRepository.save(newStory);
 
-            // آپلود و ایجاد مدیاها
-            const mediaPromises = files.map(async (file) => {
-                const fileContent = fs.readFileSync(file.path);
-                
-                // محاسبه مدت زمان ویدیو
-                let videoDuration = 0;
-                if (file.mimetype.startsWith('video/')) {
-                    videoDuration = await getVideoDurationInSeconds(file.path);
+            // update media
+            const updatePromises = checkStoryMedia.map(
+                async (media) => {
+                    media.story = newStory;
+                    return await storyMediaRepository.save(media);
                 }
-
-                // آپلود به S3
-                const params: PutObjectCommandInput = {
-                    ACL: "public-read",
-                    Bucket: process.env.AWS_BUCKET_NAME,
-                    Key: `uploads/${userId}/stories/${newStory.id}/${file.filename}.${file.mimetype.split('/')[1]}`,
-                    Body: fileContent,
-                    ContentType: file.mimetype
-                };
-
-                const command = new PutObjectCommand(params);
-                await s3ClientConfig.send(command);
-
-                // ایجاد مدیا
-                const newMedia = new StoryMedia();
-                newMedia.file_path = `https://${process.env.AWS_BUCKET_NAME}.s3.ir-thr-at1.arvanstorage.ir/${params.Key}`;
-                newMedia.mime_type = file.mimetype;
-                newMedia.size = file.size;
-                newMedia.user = { id: userId } as User;
-                newMedia.story = newStory;
-                newMedia.duration = videoDuration;
-                newMedia.media_type = file.mimetype.split("/")[0] === "image" ? MediaTypeEnum.IMAGE : MediaTypeEnum.VIDEO;
-
-                // حذف فایل موقت
-                fs.unlinkSync(file.path);
-
-                return await mediaRepository.save(newMedia);
-            });
-
-            const savedMedia = await Promise.all(mediaPromises);
-
-            // لود کردن استوری با مدیاها
-            const storyWithMedia = await storyRepository.findOne({
-                where: { id: newStory.id },
-                relations: ["media", "user", "user.profile"]
-            });
-
+            )
+            await Promise.all(updatePromises);
+    
             return res.status(201).json({
                 status: "success",
                 message: "Story with media created successfully",
-                data: storyWithMedia
+                data: {
+                    id: newStory.id
+                }
             });
 
         } catch (error) {
-            console.error("Error creating story with media:", error);
             return res.status(500).json({
                 status: false,
                 message: "server error"
@@ -182,7 +221,7 @@ storyRouter.post(
 // Get story detail
 /**
  * @swagger
- * /v1/user/story/{story_id}/:
+ * /v1/user/story/story/{story_id}/:
  *   get:
  *     summary: دریافت جزئیات استوری
  *     description: |
@@ -255,7 +294,25 @@ storyRouter.get(
                     "user", 
                     "user.profile",
                     "user.profile.profile_image"
-                ]
+                ],
+                select: {
+                    id: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    caption: true,
+                    media: true,
+                    view_count: true,
+                    user: {
+                        username: true,
+                        profile: {
+                            id: true,
+                            profile_image: {
+                                id: true,
+                                image_path: true
+                            }
+                        }
+                    }
+                }
             });
 
             if (!story) {
@@ -419,6 +476,7 @@ storyRouter.get(
     }
 );
 
+
 // Create media
 /**
  * @swagger
@@ -552,6 +610,7 @@ storyRouter.post(
         }
     }
 );
+
 
 // Get user media with pagination
 /**
