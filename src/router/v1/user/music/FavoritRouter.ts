@@ -437,17 +437,29 @@ favoriteRouter.delete(
             const userId = (req as any).user.user_id;
 
             const favoriteRepository = AppDataSource.getRepository(FavoriteSong);
-            const deleteResult = await favoriteRepository.delete({
-                user: { id: userId },
-                id: favoriteMusicId
-            });
+            const favortiSong = await favoriteRepository.findOne(
+                {
+                    where: {
+                        id: favoriteMusicId,
+                        is_active: true,
+                        user: {id: userId}
+                    },
+                    select: ['id']
+                }
+            )
 
-            if (deleteResult.affected === 0) {
-                return res.status(404).json({
-                    status: false,
-                    message: "music not found in favorites"
-                });
+            if (!favortiSong) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "favorit song not found"
+                    }
+                );
             }
+
+            // soft delete favorit song
+            favortiSong.is_active = false;
+            await favortiSong.save()
 
             return res.status(200).json({
                 status: "success",
