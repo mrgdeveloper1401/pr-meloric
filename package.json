@@ -47,8 +47,7 @@
    },
    "scripts": {
       "start": "ts-node src/index.ts",
-      "dev": "nodemon --watch src/index.ts --reload",
-      "debug": "ts-node-dev --inspect --respawn src/index.ts"
+      "dev": "nodemon --watch src/index.ts --reload"
    },
    "devDependencies": {
       "ts-node-dev": "^2.0.0"

@@ -1,6 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { TimestampEntity } from "./Abstract";
 import { User } from "./User";
+import { Story } from "./Story";
 
 export enum MediaTypeEnum {
     VIDEO = "video",
@@ -37,4 +38,8 @@ export class StoryMedia extends TimestampEntity {
         default: MediaTypeEnum.IMAGE
     })
     media_type: MediaTypeEnum;
+
+    @ManyToOne(() => Story, story => story.media, {onDelete: "RESTRICT"})
+    @JoinColumn({name: "story_id"})
+    story: Story;
 }
