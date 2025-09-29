@@ -1,4 +1,4 @@
-import {Request, Response, Router} from "express";
+import { Request, Response, Router } from "express";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { AppDataSource } from "../../../../data-source";
 import { Song } from "../../../../entity/Song";
@@ -117,7 +117,7 @@ musicRouter.get(
             const albumRepository = AppDataSource.getRepository(Album);
             const getAlbum = await albumRepository.findOne(
                 {
-                    where: {id: albumId},
+                    where: { id: albumId },
                     select: ['id']
                 }
             )
@@ -134,25 +134,25 @@ musicRouter.get(
             const musicRepository = AppDataSource.getRepository(Song);
             const [songs, count] = await musicRepository.findAndCount(
                 {
-                    where: {album: getAlbum, is_active: true},
+                    where: { album: getAlbum, is_active: true },
                     take: limit,
                     select: {
-                      id: true,
-                      title: true,
-                      release_date: true,
-                      play_count: true,
-                      music_lyrics: true,
-                      audio: {
-                        audio_file_path: true
-                      },
-                      image: {
-                        image_path: true
-                      }
+                        id: true,
+                        title: true,
+                        release_date: true,
+                        play_count: true,
+                        music_lyrics: true,
+                        audio: {
+                            audio_file_path: true
+                        },
+                        image: {
+                            image_path: true
+                        }
 
                     },
                     relations: {
-                      audio: true,
-                      image: true
+                        audio: true,
+                        image: true
                     },
                     skip: skip
                 }
@@ -176,6 +176,195 @@ musicRouter.get(
     }
 
 )
+
+
+// detail music
+/**
+ * @swagger
+ * /v1/user/music/music/{musicId}:
+ *   get:
+ *     summary: دریافت اطلاعات یک آهنگ
+ *     description: |
+ *       این endpoint برای دریافت اطلاعات کامل یک آهنگ خاص بر اساس شناسه آن استفاده می‌شود.
+ *       آهنگ باید فعال (is_active=true) باشد.
+ *     tags:
+ *       - Music
+ *     parameters:
+ *       - in: path
+ *         name: musicId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: شناسه یکتای آهنگ
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: اطلاعات آهنگ با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Song'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: true
+ *                   data:
+ *                     id: 1
+ *                     title: "آهنگ نمونه"
+ *                     release_date: "2024-01-15T00:00:00.000Z"
+ *                     is_active: true
+ *                     play_count: 150
+ *                     music_lyrics: "متن آهنگ نمونه..."
+ *                     created_at: "2024-01-15T10:30:00.000Z"
+ *                     updated_at: "2024-01-20T15:45:00.000Z"
+ *                     artist:
+ *                       id: 1
+ *                       name: "هنرمند نمونه"
+ *                     album:
+ *                       id: 1
+ *                       title: "آلبوم نمونه"
+ *                     audio:
+ *                       id: 1
+ *                       audio_file_path: "/audio/sample.mp3"
+ *                     image:
+ *                       id: 1
+ *                       image_path: "/images/sample.jpg"
+ *       404:
+ *         description: آهنگ یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "music not found"
+ *             examples:
+ *               not_found:
+ *                 summary: آهنگ وجود ندارد یا غیرفعال است
+ *                 value:
+ *                   status: false
+ *                   message: "music not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *             examples:
+ *               server_error:
+ *                 summary: خطای سرور
+ *                 value:
+ *                   status: false
+ *                   message: "server error"
+ */
+musicRouter.get(
+    "/music/:musicId/",
+    async (req: Request, res: Response) => {
+        const musicId = Number(req.params.musicId);
+
+        try {
+            const musicRepository = AppDataSource.getRepository(Song);
+            const getMusic = await musicRepository.findOne(
+                {
+                    where: {
+                        id: musicId,
+                        is_active: true
+                    },
+                    select: {
+                        id: true,
+                        title: true,
+                        release_date: true,
+                        play_count: true,
+                        music_lyrics: true,
+                        album: {
+                            title: true
+                        },
+                        image: {
+                            image_path: true
+                        },
+                        audio: {
+                            audio_file_path: true
+                        },
+                        artist: {
+                            id: true,
+                            user: {
+                                id: true,
+                                profile: {
+                                    id: true,
+                                    first_name: true,
+                                    last_name: true
+                                }
+                            }
+                        }
+                    },
+                    relations: {
+                        album: true,
+                        image: true,
+                        audio: true,
+                        artist: {
+                            user: {
+                                profile: true
+                            }
+                        }
+                    }
+                }
+            );
+            if (!getMusic) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "music not found"
+                    }
+                )
+            }
+
+            return res.status(200).json(
+                {
+                    status: "success",
+                    data: {
+                        id: getMusic.id,
+                        title: getMusic.title,
+                        album_title: getMusic.album.title,
+                        artist_first_name: getMusic.artist.user.profile.first_name,
+                        artist_last_name: getMusic.artist.user.profile.last_name,
+                        release_date: getMusic.release_date,
+                        play_count: getMusic.play_count,
+                        music_lyrics: getMusic.music_lyrics,
+                        audio: getMusic.audio.audio_file_path,
+                        image: getMusic.image?.image_path || null
+                    }
+                }
+            );
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+    }
+);
+
 
 // create song by artist
 /**
@@ -290,7 +479,7 @@ musicRouter.post(
             const userRepository = AppDataSource.getRepository(User);
             const getUser = await userRepository.findOne(
                 {
-                    where: {id: userId, is_active: true, is_artist: true},
+                    where: { id: userId, is_active: true, is_artist: true },
                     select: ["id"]
                 }
             );
@@ -328,10 +517,10 @@ musicRouter.post(
             const getAudio = await audioRepository.findOne(
                 {
                     where: {
-                        id: createMusicDto.audio_id, 
+                        id: createMusicDto.audio_id,
                         user: {
                             id: userId
-                        }, 
+                        },
                         is_active: true
                     },
                     select: ['id']
@@ -345,12 +534,12 @@ musicRouter.post(
                     }
                 );
             }
-            
+
             // check album
             const albumRepository = AppDataSource.getRepository(Album);
             const getAlbum = await albumRepository.findOne(
                 {
-                    where: {id: parseInt(req.params.album_id), is_active: true},
+                    where: { id: parseInt(req.params.album_id), is_active: true },
                     select: ['id']
                 }
             )
@@ -370,10 +559,10 @@ musicRouter.post(
                     where: {
                         user: {
                             id: userId
-                        }, 
+                        },
                         is_active: true
                     },
-                    select: ['id'] 
+                    select: ['id']
                 }
             )
             if (!getArtist) {
@@ -388,18 +577,18 @@ musicRouter.post(
             // check image
             const imageRepository = AppDataSource.getRepository(Image);
             const getImageId = await imageRepository.findOne(
-              {
-                where: {id: createMusicDto.image_id, is_active: true, user: getUser},
-                select: ['id']
-              }
+                {
+                    where: { id: createMusicDto.image_id, is_active: true, user: getUser },
+                    select: ['id']
+                }
             );
             if (!getImageId) {
-              return res.status(404).json(
-                {
-                  status: false,
-                  message: "image not found"
-                }
-              )
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "image not found"
+                    }
+                )
             }
             // create music
             const music = new Song();
@@ -536,122 +725,122 @@ musicRouter.post(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 musicRouter.patch(
-  "/:music_id",
-  authenticateJWT,
-  async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user.user_id;
-      const musicId = parseInt(req.params.music_id);
+    "/:music_id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const musicId = parseInt(req.params.music_id);
 
-      // Check if music exists and user has permission
-      const musicRepository = AppDataSource.getRepository(Song);
-      const music = await musicRepository.findOne({
-        where: {
-          id: musicId,
-          artist: {
-            user: {
-              id: userId
+            // Check if music exists and user has permission
+            const musicRepository = AppDataSource.getRepository(Song);
+            const music = await musicRepository.findOne({
+                where: {
+                    id: musicId,
+                    artist: {
+                        user: {
+                            id: userId
+                        }
+                    },
+                    is_active: true
+                },
+                relations: ["artist", "audio"]
+            });
+
+            if (!music) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Music not found or you don't have permission to update it"
+                });
             }
-          },
-          is_active: true
-        },
-        relations: ["artist", "audio"]
-      });
 
-      if (!music) {
-        return res.status(404).json({
-          status: false,
-          message: "Music not found or you don't have permission to update it"
-        });
-      }
+            // Validate request body
+            const updateMusicDto = plainToClass(UpdateMusicDto, req.body);
+            const errors = await validate(updateMusicDto);
 
-      // Validate request body
-      const updateMusicDto = plainToClass(UpdateMusicDto, req.body);
-      const errors = await validate(updateMusicDto);
-      
-      if (errors.length > 0) {
-        return res.status(400).json({
-          status: false,
-          message: "invalid data",
-          error: errors.map(error => ({
-            field: error.property,
-            constraints: error.constraints
-          }))
-        });
-      }
+            if (errors.length > 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "invalid data",
+                    error: errors.map(error => ({
+                        field: error.property,
+                        constraints: error.constraints
+                    }))
+                });
+            }
 
-      // Check if audio_id is provided and valid
-      if (updateMusicDto.audio_id) {
-        const audioRepository = AppDataSource.getRepository(Audio);
-        const audio = await audioRepository.findOne({
-          where: {
-            id: updateMusicDto.audio_id,
-            user: { id: userId },
-            is_active: true
-          }
-        });
+            // Check if audio_id is provided and valid
+            if (updateMusicDto.audio_id) {
+                const audioRepository = AppDataSource.getRepository(Audio);
+                const audio = await audioRepository.findOne({
+                    where: {
+                        id: updateMusicDto.audio_id,
+                        user: { id: userId },
+                        is_active: true
+                    }
+                });
 
-        if (!audio) {
-          return res.status(404).json({
-            status: false,
-            message: "Audio file not found or you don't have permission to use it"
-          });
-        }
-        music.audio = audio;
-      }
-    
-      // Update fields if provided
-      if (updateMusicDto.title !== undefined) {
-        music.title = updateMusicDto.title;
-      }
+                if (!audio) {
+                    return res.status(404).json({
+                        status: false,
+                        message: "Audio file not found or you don't have permission to use it"
+                    });
+                }
+                music.audio = audio;
+            }
 
-      if (updateMusicDto.release_date !== undefined) {
-        music.release_date = new Date(updateMusicDto.release_date);
-      }
+            // Update fields if provided
+            if (updateMusicDto.title !== undefined) {
+                music.title = updateMusicDto.title;
+            }
 
-      if (updateMusicDto.music_lyrics !== undefined) {
-        music.music_lyrics = updateMusicDto.music_lyrics;
-      }
+            if (updateMusicDto.release_date !== undefined) {
+                music.release_date = new Date(updateMusicDto.release_date);
+            }
 
-      if (updateMusicDto.image_id !== undefined) {
-        const imageRepository = AppDataSource.getRepository(Image);
-        const getImage = await imageRepository.findOne(
-          {
-            where: {id: updateMusicDto.image_id, is_active: true, user: {id: userId}},
-            select: ['id']
-          });
-          if (!getImage) {
-            return res.status(404).json(
-              {
+            if (updateMusicDto.music_lyrics !== undefined) {
+                music.music_lyrics = updateMusicDto.music_lyrics;
+            }
+
+            if (updateMusicDto.image_id !== undefined) {
+                const imageRepository = AppDataSource.getRepository(Image);
+                const getImage = await imageRepository.findOne(
+                    {
+                        where: { id: updateMusicDto.image_id, is_active: true, user: { id: userId } },
+                        select: ['id']
+                    });
+                if (!getImage) {
+                    return res.status(404).json(
+                        {
+                            status: false,
+                            message: "image not found"
+                        }
+                    );
+                }
+                music.image = getImage;
+            }
+
+            // Save updated music
+            await musicRepository.save(music);
+
+            return res.status(200).json({
+                status: "success",
+                data: {
+                    id: music.id,
+                    title: music.title,
+                    release_date: music.release_date.toISOString().split('T')[0],
+                    music_lyrics: music.music_lyrics
+                }
+            });
+
+        } catch (error) {
+            console.error("Update music error:", error);
+            return res.status(500).json({
                 status: false,
-                message: "image not found"
-              }
-            );
-          }
-        music.image = getImage;
-      }
-
-      // Save updated music
-      await musicRepository.save(music);
-
-      return res.status(200).json({
-        status: "success",
-        data: {
-          id: music.id,
-          title: music.title,
-          release_date: music.release_date.toISOString().split('T')[0],
-          music_lyrics: music.music_lyrics
+                message: "server error"
+            });
         }
-      });
-
-    } catch (error) {
-      console.error("Update music error:", error);
-      return res.status(500).json({
-        status: false,
-        message: "server error"
-      });
     }
-  }
 );
 
 // delete (soft delete) song by artist
@@ -717,66 +906,66 @@ musicRouter.patch(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 musicRouter.delete(
-  "/:music_id",
-  authenticateJWT,
-  async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user.user_id;
-      const musicId = parseInt(req.params.music_id);
+    "/:music_id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const musicId = parseInt(req.params.music_id);
 
-      // Check if music exists and user has permission
-      const musicRepository = AppDataSource.getRepository(Song);
-      const music = await musicRepository.findOne({
-        where: {
-          id: musicId,
-          is_active: true,
-          album: {
-            is_active: true
-          },
-          artist: {
-            user: {
-              id: userId
+            // Check if music exists and user has permission
+            const musicRepository = AppDataSource.getRepository(Song);
+            const music = await musicRepository.findOne({
+                where: {
+                    id: musicId,
+                    is_active: true,
+                    album: {
+                        is_active: true
+                    },
+                    artist: {
+                        user: {
+                            id: userId
+                        }
+                    }
+                },
+                relations: ["artist"]
+            });
+
+            if (!music) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Music not found or you don't have permission to delete it"
+                });
             }
-          }
-        },
-        relations: ["artist"]
-      });
 
-      if (!music) {
-        return res.status(404).json({
-          status: false,
-          message: "Music not found or you don't have permission to delete it"
-        });
-      }
+            //   if (!music.is_active) {
+            //     return res.status(400).json({
+            //       status: false,
+            //       message: "Music is already deleted"
+            //     });
+            //   }
 
-    //   if (!music.is_active) {
-    //     return res.status(400).json({
-    //       status: false,
-    //       message: "Music is already deleted"
-    //     });
-    //   }
+            music.is_active = false;
+            await musicRepository.save(music);
 
-      music.is_active = false;
-      await musicRepository.save(music);
+            return res.status(200).json({
+                status: "success",
+                message: "Music deleted successfully",
+                data: {
+                    id: music.id,
+                    title: music.title,
+                    is_active: music.is_active
+                }
+            });
 
-      return res.status(200).json({
-        status: "success",
-        message: "Music deleted successfully",
-        data: {
-          id: music.id,
-          title: music.title,
-          is_active: music.is_active
+        } catch (error) {
+            console.error("Delete music error:", error);
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
         }
-      });
-
-    } catch (error) {
-      console.error("Delete music error:", error);
-      return res.status(500).json({
-        status: false,
-        message: "server error"
-      });
     }
-  }
 );
 
 // show music by genre id
@@ -999,83 +1188,83 @@ musicRouter.delete(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 musicRouter.get(
-  "/show_music_by_genre/:genreId",
-  authenticateJWT,
-  async(req: Request, res: Response) => {
-    try {
-      const genreId = Number(req.params.genreId);
-      const limit = Number(req.query.limit) || 20;
-      const page = Number(req.query.page) || 1;
-      const skip = (page - 1) * limit;
-      const musicRepository = AppDataSource.getRepository(Song);
-      const [musics, total] = await musicRepository.findAndCount({
-        skip: skip,
-        take: limit,
-        where: {
-          is_active: true,
-          album: {
-            is_active: true,
-            genre: {
-              id: genreId
-            }
-          }
-        },
-        relations: {
-          audio: true,
-          album: true,
-          image: true,
-          artist: {
-            cover_image: true,
-            user: {
-              profile: true
-            }
-          }
-        },
-        select: {
-          id: true,
-          title: true,
-          image: {
-            image_path: true
-          },
-          audio: {
-            audio_file_path: true
-          },
-          album: {
-            id: true,
-            title: true
-          },
-          artist: {
-            id: true,
-            user: {
-              id: true,
-              profile: {
-                id: true,
-                first_name: true,
-                last_name: true
-              }
-            },
-            cover_image: {
-              id: true,
-              image_path: true
-            }
-          }
-          
-        }
-      })
+    "/show_music_by_genre/:genreId",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const genreId = Number(req.params.genreId);
+            const limit = Number(req.query.limit) || 20;
+            const page = Number(req.query.page) || 1;
+            const skip = (page - 1) * limit;
+            const musicRepository = AppDataSource.getRepository(Song);
+            const [musics, total] = await musicRepository.findAndCount({
+                skip: skip,
+                take: limit,
+                where: {
+                    is_active: true,
+                    album: {
+                        is_active: true,
+                        genre: {
+                            id: genreId
+                        }
+                    }
+                },
+                relations: {
+                    audio: true,
+                    album: true,
+                    image: true,
+                    artist: {
+                        cover_image: true,
+                        user: {
+                            profile: true
+                        }
+                    }
+                },
+                select: {
+                    id: true,
+                    title: true,
+                    image: {
+                        image_path: true
+                    },
+                    audio: {
+                        audio_file_path: true
+                    },
+                    album: {
+                        id: true,
+                        title: true
+                    },
+                    artist: {
+                        id: true,
+                        user: {
+                            id: true,
+                            profile: {
+                                id: true,
+                                first_name: true,
+                                last_name: true
+                            }
+                        },
+                        cover_image: {
+                            id: true,
+                            image_path: true
+                        }
+                    }
 
-      return res.status(200).json({
-        status: "success",
-        total: total,
-        page: page,
-        skip: skip,
-        data: musics
-      });
-    } catch (error) {
-      console.error("Error in show_music_by_genre:", error);
-      return res.status(500).json({
-        status: "error",
-        message: "Internal server error"
-      });
+                }
+            })
+
+            return res.status(200).json({
+                status: "success",
+                total: total,
+                page: page,
+                skip: skip,
+                data: musics
+            });
+        } catch (error) {
+            console.error("Error in show_music_by_genre:", error);
+            return res.status(500).json({
+                status: "error",
+                message: "Internal server error"
+            });
+        }
     }
-  }
 );

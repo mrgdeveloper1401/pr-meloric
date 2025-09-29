@@ -31,7 +31,7 @@ import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString } from "class-vali
  *           description: آیا کاربر هنرمند است؟
  *           example: true
  */
-class SignUpUserDto {
+export class SignUpUserDto {
     @IsEmail()
     @IsNotEmpty()
     email: string;
@@ -48,8 +48,4 @@ class SignUpUserDto {
     @IsOptional()
     is_artist?: boolean
 
-}
-
-export {
-    SignUpUserDto
 }

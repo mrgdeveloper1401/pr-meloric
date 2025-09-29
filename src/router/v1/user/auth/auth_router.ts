@@ -2340,7 +2340,6 @@ userAuthRouter.get(
         return res.status(200).json(
             {
                 status: "success",
-                data: notification,
                 pagination: {
                     currentPage: page,
                     totalPages: totalPage,
@@ -2348,7 +2347,8 @@ userAuthRouter.get(
                     itemPerPage: limit,
                     hasNext: hasNext,
                     hasPrev: hasPrev
-                }
+                },
+                data: notification,
             }
         );
         } catch (error) {
