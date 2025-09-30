@@ -28,6 +28,8 @@ services:
       - POSTGRES_PASSWORD=${PROD_POSTGRES_PASSWORD}
       - POSTGRES_USER=${PROD_POSTGRES_USER}
       - POSTGRES_DB=${PROD_POSTGRES_DB}
+      - shared_preload_libraries=pg_stat_statements
+      - pg_stat_statements.track=all
 
   redis:
     container_name: music_db_redis
@@ -68,6 +70,7 @@ services:
 
   pghere:
     container_name: music_pghere
+    restart: always
     image: docker pull docker.arvancloud.ir/ankane/pghero
     ports:
       - "8080:8080"
