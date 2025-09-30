@@ -80,8 +80,8 @@ services:
       - "8080:8080"
     expose:
      - 8080
-    environment:
-     - DATABASE_URL=${PG_HERO_DATABASE_URL}
+    # environment:
+    #  - DATABASE_URL=${PG_HERO_DATABASE_URL}
 
 volumes:
   music_volume:
