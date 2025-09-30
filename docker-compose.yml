@@ -70,6 +70,8 @@ services:
 
   pghero:
     container_name: music_pghero
+    volumes:
+     - ./pghero.yml:/app/config/pghero.yml
     depends_on:
      - db
     restart: always
