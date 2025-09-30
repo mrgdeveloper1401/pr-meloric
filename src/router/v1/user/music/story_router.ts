@@ -1053,3 +1053,437 @@ storyRouter.delete(
         }
     }
 );
+
+// append media into story
+/**
+ * @swagger
+ * /v1/user/story/story/{story_id}/add_media/:
+ *   post:
+ *     summary: اضافه کردن مدیا به استوری موجود
+ *     description: |
+ *       این endpoint برای اضافه کردن مدیاهای جدید به یک استوری موجود استفاده می‌شود.
+ *       نیاز به احراز هویت دارد و کاربر فقط می‌تواند به استوری‌های خودش مدیا اضافه کند.
+ *     tags: [Story]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: story_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: شناسه استوری
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - media_ids
+ *             properties:
+ *               media_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: آرایه‌ای از شناسه‌های مدیاهای آپلود شده
+ *                 example: [5, 6, 7]
+ *                 minItems: 1
+ *     responses:
+ *       200:
+ *         description: مدیاها با موفقیت به استوری اضافه شدند
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Media added to story successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     story_id:
+ *                       type: integer
+ *                       example: 1
+ *                     added_media_ids:
+ *                       type: array
+ *                       items:
+ *                         type: integer
+ *                       example: [5, 6, 7]
+ *                     total_media_count:
+ *                       type: integer
+ *                       example: 7
+ *       400:
+ *         description: درخواست نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid request data"
+ *       403:
+ *         description: دسترسی غیرمجاز - کاربر مالک استوری نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You don't have permission to modify this story"
+ *       404:
+ *         description: استوری یا مدیا یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Story or media not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ServerError'
+ */
+storyRouter.post(
+    "/story/:story_id/add_media/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const storyId = Number(req.params.story_id);
+            const { media_ids } = req.body;
+
+            // check story id
+            if (isNaN(storyId) || storyId <= 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid story ID"
+                });
+            }
+
+            // check request body
+            if (!req.body) {
+                return res.status(400).json({
+                    status: false,
+                    message: "request body is required"
+                });
+            }
+
+            // check media_ids
+            if (!media_ids || !Array.isArray(media_ids) || media_ids.length === 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "media_ids must be a non-empty array"
+                });
+            }
+
+            // check story
+            const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000); 
+            const storyRepository = AppDataSource.getRepository(Story);
+            const story = await storyRepository.findOne({
+                where: {
+                    id: storyId,
+                    user: { id: userId },
+                    expires_at: MoreThan(twentyFourHoursAgo),
+                    is_active: true
+                },
+                select: ['id']
+            });
+
+            if (!story) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Story not found or you don't have permission"
+                });
+            }
+
+            // بررسی مدیاها
+            const storyMediaRepository = AppDataSource.getRepository(StoryMedia);
+            const existingMedia = await storyMediaRepository.find({
+                where: {
+                    id: In(media_ids),
+                    is_active: true,
+                    user: { id: userId },
+                },
+                select: ['id']
+            });
+
+            const foundMediaIds = existingMedia.map(media => media.id);
+            const missingMediaIds = media_ids.filter(id => !foundMediaIds.includes(id));
+
+            if (missingMediaIds.length > 0) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Some media files not found or already assigned to another story",
+                    missing_media_ids: missingMediaIds
+                });
+            }
+
+            // append media into story
+            const updatePromises = existingMedia.map(async (media) => {
+                media.story = story;
+                await storyMediaRepository.save(media);
+            });
+
+            await Promise.all(updatePromises);
+
+            // count all media
+            const totalMediaCount = await storyMediaRepository.count({
+                where: {
+                    story: { id: storyId },
+                    is_active: true
+                }
+            });
+
+            return res.status(200).json({
+                status: "success",
+                message: "Media added to story successfully",
+                data: {
+                    story_id: storyId,
+                    added_media_ids: foundMediaIds,
+                    total_media_count: totalMediaCount
+                }
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
+    }
+);
+
+// getmy story
+/**
+ * @swagger
+ * /v1/user/story/my_story/:
+ *   get:
+ *     summary: دریافت استوری‌های کاربر جاری
+ *     description: |
+ *       این endpoint برای دریافت لیست استوری‌های کاربر جاری با قابلیت صفحه‌بندی استفاده می‌شود.
+ *       نیاز به احراز هویت JWT دارد و فقط استوری‌های فعال کاربر را بازمی‌گرداند.
+ *     tags: [Story]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه (پیش‌فرض 1)
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *         description: تعداد آیتم‌ها در هر صفحه (حداکثر 50)
+ *         example: 20
+ *     responses:
+ *       200:
+ *         description: لیست استوری‌های کاربر با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     current_page:
+ *                       type: integer
+ *                       example: 1
+ *                     total_pages:
+ *                       type: integer
+ *                       example: 5
+ *                     total_items:
+ *                       type: integer
+ *                       example: 95
+ *                     items_per_page:
+ *                       type: integer
+ *                       example: 20
+ *                     has_next:
+ *                       type: boolean
+ *                       example: true
+ *                     has_previous:
+ *                       type: boolean
+ *                       example: false
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/StoryWithMedia'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: "success"
+ *                   pagination:
+ *                     current_page: 1
+ *                     total_pages: 3
+ *                     total_items: 45
+ *                     items_per_page: 20
+ *                     has_next: true
+ *                     has_previous: false
+ *                   data:
+ *                     - id: 1
+ *                       caption: "استوری اول من"
+ *                       view_count: 150
+ *                       created_at: "2024-01-15T10:30:00.000Z"
+ *                       updated_at: "2024-01-15T10:30:00.000Z"
+ *                       expires_at: "2024-01-16T10:30:00.000Z"
+ *                       media:
+ *                         - id: 1
+ *                           file_path: "https://example.com/story1/image1.jpg"
+ *                           media_type: "image"
+ *                         - id: 2
+ *                           file_path: "https://example.com/story1/video1.mp4"
+ *                           media_type: "video"
+ *                       user:
+ *                         id: 123
+ *                         username: "user123"
+ *                         profile:
+ *                           id: 1
+ *                           profile_image:
+ *                             id: 1
+ *                             image_path: "https://example.com/profiles/user123.jpg"
+ *                     - id: 2
+ *                       caption: "استوری دوم من"
+ *                       view_count: 89
+ *                       created_at: "2024-01-14T15:45:00.000Z"
+ *                       updated_at: "2024-01-14T15:45:00.000Z"
+ *                       expires_at: "2024-01-15T15:45:00.000Z"
+ *                       media:
+ *                         - id: 3
+ *                           file_path: "https://example.com/story2/image2.jpg"
+ *                           media_type: "image"
+ *                       user:
+ *                         id: 123
+ *                         username: "user123"
+ *                         profile:
+ *                           id: 1
+ *                           profile_image:
+ *                             id: 1
+ *                             image_path: "https://example.com/profiles/user123.jpg"
+ *       401:
+ *         description: عدم احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UnauthorizedError'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ServerError'
+ */
+storyRouter.get(
+    "/my_story/",
+    authenticateJWT,
+    async(req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const limit = Number(req.query.limit) || 20;
+            const page = Number(req.query.page) || 1;
+            const skip = (page - 1) * limit;
+
+            const storyRepository = AppDataSource.getRepository(Story);
+            const [myStory, total] = await storyRepository.findAndCount(
+                {
+                    where: {
+                        is_active: true,
+                        user: {id: userId}
+                    },
+                    skip: skip,
+                    take: limit,
+                    select: {
+                        id: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        caption: true,
+                        expires_at: true,
+                        view_count: true,
+                        media: {
+                            id: true,
+                            file_path: true,
+                            media_type: true
+                        },
+                        user: {
+                            id: true,
+                            username: true,
+                            profile: {
+                                id: true,
+                                profile_image: {
+                                    id: true,
+                                    image_path: true
+                                }
+                            }
+                        }
+                    },
+                    relations: {
+                        media: true,
+                        user: {
+                            profile: {
+                                profile_image: true
+                            }
+                        }
+                    },
+                    order: {
+                        createdAt: "DESC"
+                    }
+                }
+            );
+
+            // محاسبه تعداد صفحات
+            const totalPages = Math.ceil(total / limit);
+            
+            return res.status(200).json({
+                status: "success",
+                pagination: {
+                    current_page: page,
+                    total_pages: totalPages,
+                    total_items: total,
+                    items_per_page: limit,
+                    has_next: page < totalPages,
+                    has_previous: page > 1
+                },
+                data: myStory,
+            });
+        } catch (error) {
+            console.error("Get my stories error:", error);
+            return res.status(500).json({
+                status: false,
+                message: "Server error"
+            });
+        }
+    }
+);
