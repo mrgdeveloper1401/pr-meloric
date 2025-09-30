@@ -208,7 +208,7 @@ playHistoryRouter.post(
 // get play history
 /**
  * @swagger
- * /v1/user/play/{play_list_id}/play_history:
+ * /v1/user/play/play_history:
  *   get:
  *     summary: دریافت تاریخچه پخش کاربر
  *     description: دریافت لیست آهنگ‌های پخش شده توسط کاربر با امکان صفحه‌بندی
@@ -216,12 +216,6 @@ playHistoryRouter.post(
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: play_list_id
- *         required: true
- *         schema:
- *           type: integer
- *         description: شناسه پلی‌لیست
  *       - in: query
  *         name: page
  *         schema:
@@ -271,12 +265,11 @@ playHistoryRouter.post(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 playHistoryRouter.get(
-    "/:play_list_id/play_history",
+    "/play_history",
     authenticateJWT,
     async (req: Request, res: Response) => {
         try {
             const userId = (req as any).user.user_id;
-            const playListId = req.params.play_list_id;
 
             // pagination
             const page = parseInt(req.query.page as string) || 1;
@@ -291,25 +284,80 @@ playHistoryRouter.get(
                     user: { id: Number(userId) },
                     is_active: true 
                 },
+                relations: {
+                    song: {
+                        image: true,
+                        audio: true,
+                        album: true,
+                        artist: {
+                            cover_image: true,
+                            user: {
+                                profile: true
+                            }
+                        }
+                    }
+                },
+                select: {
+                    id: true,
+                    played_at: true,
+                    song: {
+                        artist: {
+                            id: true,
+                            cover_image: {
+                                image_path: true
+                            },
+                            user: {
+                                id: true,
+                                profile: {
+                                    id: true,
+                                    first_name: true,
+                                    last_name: true
+                                },
+                            },
+                        },
+                        album: {
+                            title: true
+                        },
+                        title: true,
+                        image: {
+                            image_path: true
+                        },
+                        audio: {
+                            audio_file_path: true
+                        }
+                    }
+                },
                 skip,
                 take: limit,
             });
 
             const totalPages = Math.ceil(total / limit);
-
+            const simpleData = playHistory.map(
+                (item) => (
+                    {
+                        id: item.id,
+                        played_at: item.played_at,
+                        music_image: item.song.image?.image_path || null,
+                        music_file_path: item.song.audio.audio_file_path,
+                        artist_first_name: item.song.artist.user.profile?.first_name || null,
+                        artist_last_name: item.song.artist.user.profile?.last_name || null,
+                        album_title: item.song.album.title,
+                        song_title: item.song.title
+                    }
+                )
+            )
             return res.status(200).json({
                 status: true,
-                data: playHistory,
                 pagination: {
                     currentPage: page,
                     totalPages,
                     totalItems: total,
                     itemsPerPage: limit
-                }
+                },
+                data: simpleData,
             });
 
         } catch (error) {
-            console.error("Get play history error:", error);
             return res.status(500).json({
                 status: false,
                 message: "Server error"
