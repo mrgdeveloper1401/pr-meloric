@@ -560,22 +560,15 @@ playHistoryRouter.delete(
             
             // find playhistory
             const playHistory = await playHistoryRepository.findOne({
-                where: { id: playHistoryId, is_active: true },
-                relations: ["user"]
+                where: { id: playHistoryId, is_active: true, user: {id: userId} },
+                // relations: ["user"],
+                select: ['id']
             });
 
             if (!playHistory) {
                 return res.status(404).json({
                     status: false,
                     message: "Play history record not found"
-                });
-            }
-
-            // check owner
-            if (playHistory.user.id !== Number(userId)) {
-                return res.status(403).json({
-                    status: false,
-                    message: "You don't have permission to delete this record"
                 });
             }
 
