@@ -450,22 +450,14 @@ playHistoryRouter.patch(
             
             // find playhistory
             const playHistory = await playHistoryRepository.findOne({
-                where: { id: playHistoryId, is_active: true },
-                relations: ["user"]
+                where: { id: playHistoryId, is_active: true , user: {id: userId}},
+                select: ['id']
             });
 
             if (!playHistory) {
                 return res.status(404).json({
                     status: false,
                     message: "Play history record not found"
-                });
-            }
-
-            //  check owner play history
-            if (playHistory.user.id !== Number(userId)) {
-                return res.status(403).json({
-                    status: false,
-                    message: "You don't have permission to update this record"
                 });
             }
 
@@ -485,7 +477,6 @@ playHistoryRouter.patch(
             });
 
         } catch (error) {
-            console.error("Update play history error:", error);
             return res.status(500).json({
                 status: false,
                 message: "Server error"
