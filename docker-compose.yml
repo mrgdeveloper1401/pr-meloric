@@ -68,7 +68,7 @@ services:
       - redis
       - nginx
 
-  pghere:
+  pghero:
     container_name: music_pghere
     depends_on:
      - db
