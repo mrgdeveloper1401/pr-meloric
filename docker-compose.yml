@@ -70,6 +70,8 @@ services:
 
   pghere:
     container_name: music_pghere
+    depends_on:
+     - db
     restart: always
     image: docker pull docker.arvancloud.ir/ankane/pghero
     ports:
