@@ -1275,6 +1275,225 @@ storyRouter.post(
     }
 );
 
+/**
+ * @swagger
+ * /v1/user/story/story/{story_id}/remove_media/:
+ *   delete:
+ *     summary: حذف مدیا از استوری
+ *     description: |
+ *       این endpoint برای حذف مدیاها از یک استوری موجود استفاده می‌شود.
+ *       نیاز به احراز هویت دارد و کاربر فقط می‌تواند از استوری‌های خودش مدیا حذف کند.
+ *     tags: [Story]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: story_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: شناسه استوری
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - media_ids
+ *             properties:
+ *               media_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: آرایه‌ای از شناسه‌های مدیاها برای حذف از استوری
+ *                 example: [2, 3]
+ *                 minItems: 1
+ *     responses:
+ *       200:
+ *         description: مدیاها با موفقیت از استوری حذف شدند
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Media removed from story successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     story_id:
+ *                       type: integer
+ *                       example: 1
+ *                     removed_media_ids:
+ *                       type: array
+ *                       items:
+ *                         type: integer
+ *                       example: [2, 3]
+ *                     remaining_media_count:
+ *                       type: integer
+ *                       example: 5
+ *       400:
+ *         description: درخواست نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid request data"
+ *       403:
+ *         description: دسترسی غیرمجاز - کاربر مالک استوری نیست
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You don't have permission to modify this story"
+ *       404:
+ *         description: استوری یا مدیا یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Story or media not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ServerError'
+ */
+storyRouter.delete(
+    "/story/:story_id/remove_media/",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const storyId = Number(req.params.story_id);
+            const { media_ids } = req.body;
+
+            // story
+            if (isNaN(storyId) || storyId <= 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid story ID"
+                });
+            }
+
+            //  request body
+            if (!req.body) {
+                return res.status(400).json({
+                    status: false,
+                    message: "request body is required"
+                });
+            }
+
+            //  media_ids
+            if (!media_ids || !Array.isArray(media_ids) || media_ids.length === 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "media_ids must be a non-empty array"
+                });
+            }
+
+            // check story
+            const storyRepository = AppDataSource.getRepository(Story);
+            const story = await storyRepository.findOne({
+                where: {
+                    id: storyId,
+                    user: { id: userId },
+                    is_active: true
+                },
+                select: ['id']
+            });
+
+            if (!story) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Story not found or you don't have permission"
+                });
+            }
+
+            // check media in story
+            const storyMediaRepository = AppDataSource.getRepository(StoryMedia);
+            const existingMedia = await storyMediaRepository.find({
+                where: {
+                    id: In(media_ids),
+                    is_active: true,
+                    user: { id: userId },
+                    story: { id: storyId }
+                },
+                select: ['id']
+            });
+
+            const foundMediaIds = existingMedia.map(media => media.id);
+            const missingMediaIds = media_ids.filter(id => !foundMediaIds.includes(id));
+
+            if (missingMediaIds.length > 0) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Some media files not found in this story",
+                    missing_media_ids: missingMediaIds
+                });
+            }
+
+            // remove media in story
+            const updatePromises = existingMedia.map(async (media) => {
+                media.story = null;
+                await storyMediaRepository.save(media);
+            });
+
+            await Promise.all(updatePromises);
+
+            // count other media
+            const remainingMediaCount = await storyMediaRepository.count({
+                where: {
+                    story: { id: storyId },
+                    is_active: true
+                }
+            });
+
+            return res.status(200).json({
+                status: "success",
+                message: "Media removed from story successfully",
+                data: {
+                    story_id: storyId,
+                    removed_media_ids: foundMediaIds,
+                    remaining_media_count: remainingMediaCount
+                }
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
+    }
+);
+
 // getmy story
 /**
  * @swagger
