@@ -589,7 +589,7 @@ storyRouter.get(
             const [stories, totalCount] = await storyRepository.findAndCount({
                 where: { 
                     is_active: true, 
-                    createdAt: MoreThan(twentyFourHoursAgo),
+                    // createdAt: MoreThan(twentyFourHoursAgo),
                     media: {
                         is_active: true
                     }
