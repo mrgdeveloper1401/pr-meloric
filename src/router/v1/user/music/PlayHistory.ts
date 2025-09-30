@@ -15,20 +15,13 @@ export const playHistoryRouter = Router()
 // create play history
 /**
  * @swagger
- * /v1/user/play/{play_list_id}/play_music:
+ * /v1/user/play/play_music:
  *   post:
- *     summary: افزودن آهنگ به تاریخچه پخش از طریق پلی‌لیست
- *     description: وقتی کاربر یک آهنگ را از طریق پلی‌لیست پخش می‌کند، این endpoint فراخوانی می‌شود
+ *     summary: افزودن آهنگ به تاریخچه پخش 
+ *     description: وقتی این اندپوینت صدا زده میشه ابه اهنگ های اخیر گوش داده شده اضافه میشه
  *     tags: [PlayHistory]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: play_list_id
- *         required: true
- *         schema:
- *           type: integer
- *         description: شناسه پلی‌لیست
  *     requestBody:
  *       required: true
  *       content:
@@ -135,39 +128,11 @@ export const playHistoryRouter = Router()
  *                   example: Server error
  */
 playHistoryRouter.post(
-    "/:play_list_id/play_music/",
+    "/play_music/",
     authenticateJWT,
     async (req: Request, res: Response) => {
         try {
             const userId = (req as any).user.user_id;
-            const playListId = Number(req.params.play_list_id)
-
-            // check params
-            if (isNaN(playListId)) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid PlayListId"
-                });
-            }
-
-            // check playListId with await
-            const playListRepository = AppDataSource.getRepository(Playlist);
-            const getPlayList = await playListRepository.findOne({
-                where: {
-                    id: playListId, 
-                    is_active: true,
-                    user: { id: userId }
-                },
-                select: ['id'],
-                relations: ['user']
-            });
-
-            if (!getPlayList) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Playlist does not exist or you don't have permission"
-                });
-            }
 
             // check request body
             if (!req.body) {
@@ -228,12 +193,10 @@ playHistoryRouter.post(
                 status: true,
                 data: {
                     id: playHistory.id,
-                    played_at: playHistory.played_at
                 }
             });
 
         } catch (error) {
-            console.error("Play history error:", error);
             return res.status(500).json({
                 status: false,
                 message: "Server error"
