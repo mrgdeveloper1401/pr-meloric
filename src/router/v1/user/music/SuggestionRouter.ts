@@ -163,6 +163,7 @@ suggestRouter.get(
                 .leftJoinAndSelect("song.album", "album")
                 .leftJoinAndSelect("song.audio", "audio")
                 .leftJoinAndSelect("song.image", "image")
+                .leftJoinAndSelect("album.cover_image", "album_cover_image")
                 .where("song.is_active = :isActive", { isActive: true })
                 .andWhere("audio.is_active = :audioIsActive", { audioIsActive: true })
                 .orderBy("RANDOM()")
@@ -189,7 +190,8 @@ suggestRouter.get(
                     id: randomMusic.album?.id,
                     title: randomMusic.album?.title,
                     bio: randomMusic.album?.bio,
-                    release_date: randomMusic.album?.release_date
+                    release_date: randomMusic.album?.release_date,
+                    cover_image: randomMusic.album.cover_image?.image_path
                 },
                 artist: {
                     id: randomMusic.artist?.id,
