@@ -25,4 +25,7 @@ export class Artist extends TimestampEntity{
   @Column({ length: 400, nullable: true})
   bio: string;
 
+  @Column({nullable: true, length: 100})
+  nick_name: string
+
 }

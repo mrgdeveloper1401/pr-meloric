@@ -103,6 +103,7 @@ favoriteRouter.post(
     authenticateJWT,
     async (req: Request, res: Response) => {
         try {
+            const userId = (req as any).user.user_id;
             if (!req.body) {
                 return res.status(400).json(
                     {
@@ -113,8 +114,8 @@ favoriteRouter.post(
             }
 
             // validate data
-            const MusicDto = plainToClass(favoriteMusicDto, req.body);
-            const errors = await validate(MusicDto);
+            const musicDto = plainToClass(favoriteMusicDto, req.body);
+            const errors = await validate(musicDto);
             if (errors.length > 0) {
                 return res.status(400).json(
                     {
@@ -135,10 +136,10 @@ favoriteRouter.post(
             const musicRepository = AppDataSource.getRepository(Song);
             const getMusic = await musicRepository.findOne(
                 {
-                    where: {id: MusicDto.music_id, is_active: true},
+                    where: {id: musicDto.music_id, is_active: true},
                     select: ['id']
                 }
-            )
+            );
             if (!getMusic) {
                 return res.status(404).json(
                     {
@@ -148,8 +149,29 @@ favoriteRouter.post(
                 );
             }
 
+            // check unique favorite_song and user
+            const favoriteRepository = AppDataSource.getRepository(FavoriteSong)
+            const checkFavorite = await favoriteRepository.findOne(
+                {
+                    where: {
+                        song: {id: musicDto.music_id}, 
+                        is_active: true, 
+                        user: {id: userId}
+                    },
+                    select: {
+                        id: true
+                    }
+                }
+            );
+            if (checkFavorite) {
+                return res.status(403).json(
+                    {
+                        status: false,
+                        message: "song already exists in favorite music"
+                    }
+                )
+            }
             // create favorite
-            const userId = (req as any).user.user_id;
             const favorite = new FavoriteSong();
             favorite.user = userId;
             favorite.song = getMusic;
@@ -162,12 +184,12 @@ favoriteRouter.post(
                 }
             );
         } catch (error) {
-              if (error.code === '23505') {
-                return res.status(409).json({
-                status: false,
-                message: "This music has already been added to favorites."
-                });
-            }
+            //   if (error.code === '23505') {
+            //     return res.status(409).json({
+            //     status: false,
+            //     message: "This music has already been added to favorites."
+            //     });
+            // }
             return res.status(500).json(
                 {
                     status: false,
@@ -179,7 +201,7 @@ favoriteRouter.post(
 
 );
 
-// get favorit music
+// list favorit music
 /**
  * @swagger
  * /v1/user/favorite/my_favorit_music/:
@@ -316,6 +338,9 @@ favoriteRouter.get(
                         song: {
                             id: true,
                             title: true,
+                            artist: {
+                                nick_name: true
+                            },
                             audio: {
                                 audio_file_path: true
                             },
@@ -327,7 +352,8 @@ favoriteRouter.get(
                     relations: {
                         song: {
                             image: true,
-                            audio: true
+                            audio: true,
+                            artist: true
                         }
                     },
                     take: limit,
@@ -343,7 +369,10 @@ favoriteRouter.get(
                         song_id: item.song.id,
                         title: item.song.title,
                         audio_path: item.song.audio.audio_file_path,
-                        image_path: item.song.image?.image_path || null
+                        image_path: item.song.image?.image_path || null,
+                        artist_nick_name: item.song.artist?.nick_name || null,
+                        // artist_first_name: item.song.artist.user.profile.first_name || null,
+                        // artist_last_name: item.song.artist.user.profile?.last_name || null
                     }
                 )
             )
@@ -369,6 +398,205 @@ favoriteRouter.get(
     }
 );
 
+
+// get favorite music detail
+/**
+ * @swagger
+ * /v1/user/favorite/my_favorit_music/{id}:
+ *   get:
+ *     summary: دریافت جزئیات یک آهنگ خاص از لیست علاقه‌مندی‌ها
+ *     description: |
+ *       این endpoint برای دریافت اطلاعات کامل یک آهنگ خاص از لیست علاقه‌مندی‌های کاربر جاری استفاده می‌شود.
+ *       نیاز به احراز هویت JWT دارد.
+ *     tags:
+ *       - Favorite
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: شناسه رکورد علاقه‌مندی (FavoriteSong ID)
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: اطلاعات آهنگ موردعلاقه با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: شناسه رکورد علاقه‌مندی
+ *                       example: 1
+ *                     song_id:
+ *                       type: integer
+ *                       description: شناسه آهنگ
+ *                       example: 123
+ *                     title:
+ *                       type: string
+ *                       description: عنوان آهنگ
+ *                       example: "آهنگ نمونه"
+ *                     audio_path:
+ *                       type: string
+ *                       description: مسیر فایل صوتی
+ *                       example: "/uploads/audio/song123.mp3"
+ *                     image_path:
+ *                       type: string
+ *                       nullable: true
+ *                       description: مسیر تصویر آهنگ
+ *                       example: "/uploads/images/song123.jpg"
+ *                     artist_nick_name:
+ *                       type: string
+ *                       nullable: true
+ *                       description: نام هنری هنرمند
+ *                       example: "هنرمند نمونه"
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       description: تاریخ اضافه شدن به علاقه‌مندی‌ها
+ *                       example: "2024-01-15T10:30:00.000Z"
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *                       description: تاریخ آخرین به‌روزرسانی
+ *                       example: "2024-01-15T10:30:00.000Z"
+ *       400:
+ *         description: پارامتر ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid favorite music ID"
+ *       404:
+ *         description: آهنگ موردعلاقه یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Favorite music not found"
+ *       401:
+ *         description: عدم احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UnauthorizedError'
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ */
+favoriteRouter.get(
+    "/my_favorit_music/:id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const favoriteId = parseInt(req.params.id);
+
+            // Validate favorite ID
+            if (isNaN(favoriteId) || favoriteId <= 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid favorite music ID"
+                });
+            }
+
+            const favoritMusicRepository = AppDataSource.getRepository(FavoriteSong);
+            
+            // Find the favorite music with relations
+            const favoriteMusic = await favoritMusicRepository.findOne({
+                where: {
+                    id: favoriteId,
+                    user: { id: userId },
+                    is_active: true
+                },
+                select: {
+                    id: true,
+                    song: {
+                        id: true,
+                        title: true,
+                        artist: {
+                            nick_name: true
+                        },
+                        audio: {
+                            audio_file_path: true
+                        },
+                        image: {
+                            image_path: true
+                        }
+                    }
+                },
+                relations: {
+                    song: {
+                        image: true,
+                        audio: true,
+                        artist: true
+                    }
+                }
+            });
+
+            if (!favoriteMusic) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Favorite music not found"
+                });
+            }
+
+            // Format response data
+            const responseData = {
+                id: favoriteMusic.id,
+                song_id: favoriteMusic.song.id,
+                title: favoriteMusic.song.title,
+                audio_path: favoriteMusic.song.audio.audio_file_path,
+                image_path: favoriteMusic.song.image?.image_path || null,
+                artist_nick_name: favoriteMusic.song.artist?.nick_name || null,
+            };
+
+            return res.status(200).json({
+                status: "success",
+                data: responseData
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
+    }
+);
 
 // delete favorite music
 /**

@@ -5,7 +5,7 @@ import { TimestampEntity } from "./Abstract";
 
 
 @Entity()
-@Unique(['user', 'song'])
+// @Unique(['user', 'song'])
 export class FavoriteSong extends TimestampEntity{
   @PrimaryGeneratedColumn()
   id: number;
