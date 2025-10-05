@@ -162,6 +162,7 @@ artistReouter.get(
                     select: {
                         id: true,
                         monthly_listeners: true,
+                        nick_name: true,
                         bio: true,
                         cover_image: {
                             id: true,
@@ -198,7 +199,7 @@ artistReouter.get(
     }
 );
 
-
+// update artiste profile
 /**
  * @swagger
  * /v1/user/artist/update_artist_profile/:
@@ -227,12 +228,18 @@ artistReouter.get(
  *                 nullable: true
  *                 description: آیدی تصویر کاور
  *                 example: 123
+ *               nick_name:
+ *                  type: string
+ *                  description: لقب ارتیست
+ *                  example: string
+ *                  nullable: true
  *           examples:
  *             example1:
  *               summary: بروزرسانی کامل
  *               value:
  *                 bio: "بیوگرافی جدید"
  *                 cover_image: 123
+ *                 nick_name: "ali rezaei"
  *     responses:
  *       '200':
  *         description: موفقیت‌آمیز - پروفایل آرتیست با موفقیت بروزرسانی شد
@@ -420,6 +427,9 @@ artistReouter.patch(
                 checkUserArtist.bio = updateArtistProfile.bio
             }
 
+            if (req.body.nick_name !== undefined) {
+                checkUserArtist.nick_name = updateArtistProfile.nick_name
+            }
             // save
             await artistRepository.save(checkUserArtist);
 

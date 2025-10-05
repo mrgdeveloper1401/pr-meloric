@@ -8,4 +8,8 @@ export class UpdateArtistProfile {
     @IsString()
     @IsOptional()
     bio: string;
+
+    @IsString()
+    @IsOptional()
+    nick_name?: string
 }
