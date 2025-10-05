@@ -192,14 +192,14 @@ suggestRouter.get(
                 album: {
                     id: randomMusic.album?.id,
                     title: randomMusic.album?.title,
-                    bio: randomMusic.album?.bio,
-                    release_date: randomMusic.album?.release_date,
+                    // bio: randomMusic.album?.bio,
+                    // release_date: randomMusic.album?.release_date,
                     cover_image: randomMusic.album.cover_image?.image_path
                 },
                 artist: {
                     id: randomMusic.artist?.id,
-                    monthly_listeners: randomMusic.artist?.monthly_listeners,
-                    bio: randomMusic.artist?.bio,
+                    // monthly_listeners: randomMusic.artist?.monthly_listeners,
+                    // bio: randomMusic.artist?.bio,
                     nicke_name: randomMusic.artist.nick_name,
                     first_name: randomMusic.artist.user.profile?.first_name,
                     last_name: randomMusic.artist.user.profile?.last_name,
@@ -211,9 +211,9 @@ suggestRouter.get(
                     } : null
                 },
                 audio: {
-                    id: randomMusic.audio?.id,
+                    // id: randomMusic.audio?.id,
                     audio_file_path: randomMusic.audio?.audio_file_path,
-                    duration: randomMusic.audio?.duration,
+                    // duration: randomMusic.audio?.duration,
                     audio_format: randomMusic.audio?.audio_format
                 },
             }));

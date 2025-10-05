@@ -142,27 +142,65 @@ musicRouter.get(
                         release_date: true,
                         play_count: true,
                         music_lyrics: true,
+                        createdAt: true,
                         audio: {
                             audio_file_path: true
                         },
                         image: {
                             image_path: true
+                        },
+                        artist: {
+                            id: true,
+                            nick_name: true,
+                            user: {
+                                id: true,
+                                username: true,
+                                profile: {
+                                    id: true,
+                                    first_name: true,
+                                    last_name: true
+                                }
+                            }
                         }
 
                     },
                     relations: {
                         audio: true,
-                        image: true
+                        image: true,
+                        artist: {
+                            user: {
+                                profile: true
+                            }
+                        }
                     },
                     skip: skip
                 }
             );
+            const simpleData = songs.map(
+                item => (
+                    {
+                        music_id: item.id,
+                        nick_name: item.artist?.nick_name || null,
+                        first_name: item.artist.user.profile?.first_name || null,
+                        last_name: item.artist.user.profile?.last_name || null,
+                        username: item.artist.user.username,
+                        title: item.title,
+                        release_date: item.release_date,
+                        created_at: item.createdAt,
+                        play_count: item.play_count,
+                        music_lyrics: item.music_lyrics,
+                        audio_file_path: item.audio.audio_file_path,
+                        music_cover_image: item.image?.image_path || null
+                    }
+                )
+            )
             return res.status(200).json(
                 {
                     status: "success",
-                    data: songs,
                     count: count,
-                    page: page
+                    page: page,
+                    limit: limit,
+                    data: simpleData
                 }
             )
         } catch (error) {
@@ -295,6 +333,7 @@ musicRouter.get(
                         release_date: true,
                         play_count: true,
                         music_lyrics: true,
+                        createdAt: true,
                         album: {
                             title: true
                         },
@@ -306,8 +345,10 @@ musicRouter.get(
                         },
                         artist: {
                             id: true,
+                            nick_name: true,
                             user: {
                                 id: true,
+                                username: true,
                                 profile: {
                                     id: true,
                                     first_name: true,
@@ -344,13 +385,17 @@ musicRouter.get(
                         id: getMusic.id,
                         title: getMusic.title,
                         album_title: getMusic.album.title,
+                        nick_name: getMusic.artist?.nick_name || null,
                         artist_first_name: getMusic.artist.user.profile.first_name,
                         artist_last_name: getMusic.artist.user.profile.last_name,
+                        username: getMusic.artist.user.username,
                         release_date: getMusic.release_date,
                         play_count: getMusic.play_count,
                         music_lyrics: getMusic.music_lyrics,
                         audio: getMusic.audio.audio_file_path,
-                        image: getMusic.image?.image_path || null
+                        image: getMusic.image?.image_path || null,
+                        release_data: getMusic.release_date,
+                        created_at: getMusic.createdAt
                     }
                 }
             );
@@ -1223,6 +1268,8 @@ musicRouter.get(
                 select: {
                     id: true,
                     title: true,
+                    createdAt: true,
+                    release_date: true,
                     image: {
                         image_path: true
                     },
@@ -1235,8 +1282,10 @@ musicRouter.get(
                     },
                     artist: {
                         id: true,
+                        nick_name: true,
                         user: {
                             id: true,
+                            username: true,
                             profile: {
                                 id: true,
                                 first_name: true,
@@ -1251,13 +1300,30 @@ musicRouter.get(
 
                 }
             })
-
+            const simpleData = musics.map(
+                item => (
+                    {
+                        id: item.id,
+                        title: item.title,
+                        created_at: item.createdAt,
+                        release_data: item.release_date,
+                        nick_name: item.artist?.nick_name || null,
+                        first_name: item.artist.user.profile?.first_name || null,
+                        last_name: item.artist.user.profile?.last_name || null,
+                        username: item.artist.user.username || null,
+                        music_cover_image: item.image?.image_path || null,
+                        album_title: item.album.title,
+                        audio: item.audio.audio_file_path,
+                        music_lyric: item?.music_lyrics || null
+                    }
+                )
+            )
             return res.status(200).json({
                 status: "success",
                 total: total,
                 page: page,
                 skip: skip,
-                data: musics
+                data: simpleData
             });
         } catch (error) {
             console.error("Error in show_music_by_genre:", error);

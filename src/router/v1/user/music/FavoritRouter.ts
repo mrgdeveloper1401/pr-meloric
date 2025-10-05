@@ -339,7 +339,17 @@ favoriteRouter.get(
                             id: true,
                             title: true,
                             artist: {
-                                nick_name: true
+                                id: true,
+                                nick_name: true,
+                                user: {
+                                    id: true,
+                                    username: true,
+                                    profile: {
+                                        id: true,
+                                        first_name: true,
+                                        last_name: true
+                                    }
+                                }
                             },
                             audio: {
                                 audio_file_path: true
@@ -353,7 +363,11 @@ favoriteRouter.get(
                         song: {
                             image: true,
                             audio: true,
-                            artist: true
+                            artist: {
+                                user: {
+                                    profile: true
+                                }
+                            }
                         }
                     },
                     take: limit,
@@ -371,8 +385,9 @@ favoriteRouter.get(
                         audio_path: item.song.audio.audio_file_path,
                         image_path: item.song.image?.image_path || null,
                         artist_nick_name: item.song.artist?.nick_name || null,
-                        // artist_first_name: item.song.artist.user.profile.first_name || null,
-                        // artist_last_name: item.song.artist.user.profile?.last_name || null
+                        artist_first_name: item.song.artist.user.profile.first_name || null,
+                        artist_last_name: item.song.artist.user.profile?.last_name || null,
+                        username: item.song.artist.user.username
                     }
                 )
             )
@@ -397,7 +412,6 @@ favoriteRouter.get(
         }
     }
 );
-
 
 // get favorite music detail
 /**
@@ -548,7 +562,17 @@ favoriteRouter.get(
                         id: true,
                         title: true,
                         artist: {
-                            nick_name: true
+                            nick_name: true,
+                            id: true,
+                            user: {
+                                id: true,
+                                username: true,
+                                profile: {
+                                    id: true,
+                                    first_name: true,
+                                    last_name: true
+                                }
+                            }
                         },
                         audio: {
                             audio_file_path: true
@@ -562,7 +586,11 @@ favoriteRouter.get(
                     song: {
                         image: true,
                         audio: true,
-                        artist: true
+                        artist: {
+                            user: {
+                                profile: true
+                            }
+                        }
                     }
                 }
             });
@@ -582,6 +610,9 @@ favoriteRouter.get(
                 audio_path: favoriteMusic.song.audio.audio_file_path,
                 image_path: favoriteMusic.song.image?.image_path || null,
                 artist_nick_name: favoriteMusic.song.artist?.nick_name || null,
+                first_name: favoriteMusic.song.artist.user.profile?.first_name || null,
+                last_name: favoriteMusic.song.artist.user.profile?.last_name || null,
+                username: favoriteMusic.song.artist.user.username
             };
 
             return res.status(200).json({

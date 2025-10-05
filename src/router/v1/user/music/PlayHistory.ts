@@ -301,13 +301,17 @@ playHistoryRouter.get(
                     id: true,
                     played_at: true,
                     song: {
+                        music_lyrics: true,
+                        createdAt: true,
                         artist: {
                             id: true,
+                            nick_name: true,
                             cover_image: {
                                 image_path: true
                             },
                             user: {
                                 id: true,
+                                username: true,
                                 profile: {
                                     id: true,
                                     first_name: true,
@@ -338,11 +342,16 @@ playHistoryRouter.get(
                         id: item.id,
                         played_at: item.played_at,
                         music_image: item.song.image?.image_path || null,
-                        music_file_path: item.song.audio.audio_file_path,
+                        music_adio: item.song.audio.audio_file_path,
                         artist_first_name: item.song.artist.user.profile?.first_name || null,
                         artist_last_name: item.song.artist.user.profile?.last_name || null,
+                        nick_name: item.song.artist?.nick_name || null,
+                        username: item.song.artist.user.username,
                         album_title: item.song.album.title,
-                        song_title: item.song.title
+                        song_title: item.song.title,
+                        music_lyric: item.song.music_lyrics,
+                        created_at: item.song.createdAt,
+                        realaese_date: item.song.release_date
                     }
                 )
             )

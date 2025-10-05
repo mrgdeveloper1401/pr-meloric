@@ -768,11 +768,9 @@ playListRouter.get(
                         }
                     },
                     relations: {
-                        playlist: {
-                            user: true
-                        },
                         song: {
                             audio: true,
+                            album: true,
                             image: true,
                             artist: {
                                 user: {
@@ -784,17 +782,25 @@ playListRouter.get(
                     select: {
                         id: true,
                         song: {
+                            play_count: true,
                             id: true,
                             title: true,
+                            music_lyrics: true,
+                            createdAt: true,
+                            release_date: true,
                             audio: {
-                                audio_file_path: true
+                                audio_file_path: true,
+                                audio_format: true
                             },
                             image: {
                                 image_path: true
                             },
                             artist: {
                                 id: true,
+                                nick_name: true,
                                 user: {
+                                    id: true,
+                                    username: true,
                                     profile: {
                                         first_name: true,
                                         last_name: true
@@ -804,9 +810,6 @@ playListRouter.get(
                         },
                         playlist: {
                             id: true,
-                            user: {
-                                id: true
-                            }
                         }
                     },
                     take: limit,
@@ -821,7 +824,29 @@ playListRouter.get(
                     message: "Playlist not found or you don't have access"
                 });
             }
-
+            
+            // simple data
+            const simpleData = playListSongs.map(
+                item => (
+                    {
+                        music_id: item.song.id,
+                        created_at: item.song.createdAt,
+                        release_data: item.song.release_date,
+                        song_title: item.song.title,
+                        music_lyric: item.song.music_lyrics,
+                        music_audio: item.song.audio.audio_file_path,
+                        music_audio_format: item.song.audio.audio_format,
+                        music_cover_image: item.song.image?.image_path || null,
+                        playlist_id: item.id,
+                        album_title: item.song.album.title,
+                        first_name: item.song.artist.user.profile?.first_name || null,
+                        last_name: item.song.artist.user.profile?.last_name || null,
+                        username: item.song.artist.user.username,
+                        nick_name: item.song.artist?.nick_name || null,
+                        play_count: item.song.play_count,
+                    }
+                )
+            )
             return res.status(200).json(
                 {
                     status: "success",
@@ -829,7 +854,7 @@ playListRouter.get(
                     skip: skip,
                     page: page,
                     total: total,
-                    data: playListSongs
+                    data: simpleData
                 }
             );
         } catch (error) {
