@@ -338,6 +338,9 @@ favoriteRouter.get(
                         song: {
                             id: true,
                             title: true,
+                            createdAt: true,
+                            play_count: true,
+                            release_date: true,
                             artist: {
                                 id: true,
                                 nick_name: true,
@@ -387,7 +390,11 @@ favoriteRouter.get(
                         artist_nick_name: item.song.artist?.nick_name || null,
                         artist_first_name: item.song.artist.user.profile.first_name || null,
                         artist_last_name: item.song.artist.user.profile?.last_name || null,
-                        username: item.song.artist.user.username
+                        username: item.song.artist.user.username,
+                        nick_name: item.song.artist?.nick_name || null,
+                        created_at: item.song.createdAt,
+                        release_dat: item.song.release_date,
+                        play_count: item.song.play_count
                     }
                 )
             )
@@ -561,6 +568,10 @@ favoriteRouter.get(
                     song: {
                         id: true,
                         title: true,
+                        play_count: true,
+                        createdAt: true,
+                        release_date: true,
+                        music_lyrics: true,
                         artist: {
                             nick_name: true,
                             id: true,
@@ -612,7 +623,11 @@ favoriteRouter.get(
                 artist_nick_name: favoriteMusic.song.artist?.nick_name || null,
                 first_name: favoriteMusic.song.artist.user.profile?.first_name || null,
                 last_name: favoriteMusic.song.artist.user.profile?.last_name || null,
-                username: favoriteMusic.song.artist.user.username
+                username: favoriteMusic.song.artist.user.username,
+                created_at: favoriteMusic.song.artist?.nick_name || null,
+                release_date: favoriteMusic.song.release_date,
+                play_count: favoriteMusic.song.play_count,
+                music_lyric: favoriteMusic.song.music_lyrics
             };
 
             return res.status(200).json({

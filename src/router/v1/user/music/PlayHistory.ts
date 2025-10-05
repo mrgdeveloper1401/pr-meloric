@@ -303,6 +303,8 @@ playHistoryRouter.get(
                     song: {
                         music_lyrics: true,
                         createdAt: true,
+                        release_date: true,
+                        play_count: true,
                         artist: {
                             id: true,
                             nick_name: true,
@@ -349,9 +351,10 @@ playHistoryRouter.get(
                         username: item.song.artist.user.username,
                         album_title: item.song.album.title,
                         song_title: item.song.title,
-                        music_lyric: item.song.music_lyrics,
+                        music_lyric: item.song?.music_lyrics || null,
                         created_at: item.song.createdAt,
-                        realaese_date: item.song.release_date
+                        realaese_date: item.song.release_date,
+                        play_count: item.song.play_count
                     }
                 )
             )

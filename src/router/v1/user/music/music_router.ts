@@ -394,7 +394,6 @@ musicRouter.get(
                         music_lyrics: getMusic.music_lyrics,
                         audio: getMusic.audio.audio_file_path,
                         image: getMusic.image?.image_path || null,
-                        release_data: getMusic.release_date,
                         created_at: getMusic.createdAt
                     }
                 }
@@ -1270,6 +1269,7 @@ musicRouter.get(
                     title: true,
                     createdAt: true,
                     release_date: true,
+                    play_count: true,
                     image: {
                         image_path: true
                     },
@@ -1314,7 +1314,8 @@ musicRouter.get(
                         music_cover_image: item.image?.image_path || null,
                         album_title: item.album.title,
                         audio: item.audio.audio_file_path,
-                        music_lyric: item?.music_lyrics || null
+                        music_lyric: item?.music_lyrics || null,
+                        play_count: item.play_count
                     }
                 )
             )
