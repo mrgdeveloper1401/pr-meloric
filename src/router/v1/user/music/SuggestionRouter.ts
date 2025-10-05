@@ -159,6 +159,8 @@ suggestRouter.get(
             const randomMusics = await musicRepository
                 .createQueryBuilder("song")
                 .leftJoinAndSelect("song.artist", "artist")
+                .leftJoinAndSelect("artist.user", "user")
+                .leftJoinAndSelect("user.profile", "profile")
                 .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
                 .leftJoinAndSelect("song.album", "album")
                 .leftJoinAndSelect("song.audio", "audio")
@@ -183,6 +185,7 @@ suggestRouter.get(
                 release_date: randomMusic.release_date,
                 play_count: randomMusic.play_count,
                 music_lyrics: randomMusic.music_lyrics,
+                created_at: randomMusic.createdAt,
                 image: {
                     image_path: randomMusic.image?.image_path
                 },
@@ -197,10 +200,14 @@ suggestRouter.get(
                     id: randomMusic.artist?.id,
                     monthly_listeners: randomMusic.artist?.monthly_listeners,
                     bio: randomMusic.artist?.bio,
+                    nicke_name: randomMusic.artist.nick_name,
+                    first_name: randomMusic.artist.user.profile?.first_name,
+                    last_name: randomMusic.artist.user.profile?.last_name,
+                    username: randomMusic.artist.user.username,
                     cover_image: randomMusic.artist?.cover_image ? {
                         id: randomMusic.artist.cover_image.id,
                         image_path: randomMusic.artist.cover_image.image_path,
-                        file_name: randomMusic.artist.cover_image.file_name
+                        // file_name: randomMusic.artist.cover_image.file_name
                     } : null
                 },
                 audio: {

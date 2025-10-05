@@ -1549,7 +1549,7 @@ userAuthRouter.post(
                 }
             );
         }
-        if (getUser.is_active === false) {
+        if (!getUser.is_active) {
             return res.status(403).json(
                 {
                     message: "your account is ben!",
