@@ -20,6 +20,7 @@ import { playHistoryRouter } from "./router/v1/user/music/PlayHistory";
 import { informationUserRouter } from "./router/v1/user/auth/InformationUser";
 import { suggestRouter } from "./router/v1/user/music/SuggestionRouter";
 import { artistReouter } from "./router/v1/user/auth/ArtistReouter";
+import { bestMusicRouter } from "./router/v1/user/music/BestMusicRouter";
 
 dotenv.config()
 
@@ -101,6 +102,10 @@ AppDataSource.initialize().then(() => {
     app.use(
         '/v1/user/artist/',
         artistReouter
+    )
+    app.use(
+        "/v1/best/user/music/",
+        bestMusicRouter
     )
     // listen
     app.listen(port)
