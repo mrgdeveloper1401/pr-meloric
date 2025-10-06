@@ -243,15 +243,36 @@ router.post("/comments", authenticateJWT, async (req: Request, res: Response) =>
  */
 router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response) => {
     try {
-        const commentId = parseInt(req.params.id);
+        if (isNaN(Number(req.params.id))){
+            return res.status(400).json(
+                {
+                    status: false,
+                    message: "params must be required"
+                }
+            );
+        }
+        const commentId = Number(req.params.id);
         const commentRepository = AppDataSource.getRepository(Comment);
 
         const comment = await commentRepository.findOne({
             where: { id: commentId, is_active: true },
-            relations: ["user", "song"],
+            relations: {
+                user: true,
+                song: true
+            },
             select: {
-                user: { id: true, username: true },
-                song: { id: true, title: true }
+                id: true,
+                user: { 
+                    id: true, 
+                    username: true 
+                },
+                song: { 
+                    id: true, 
+                    title: true 
+                },
+                body: true,
+                createdAt: true,
+                updatedAt: true
             }
         });
 
@@ -262,13 +283,22 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
             });
         }
 
+        const simpleData = {
+            id: comment.id,
+            body: comment.body,
+            user_id: comment.user.id,
+            username: comment.user.username,
+            song_id: comment.song.id,
+            song_title: comment.song.title,
+            created_at: comment.createdAt,
+            updated_at: comment.updatedAt
+        }
         res.json({
             status: "success",
-            data: comment
+            data: simpleData
         });
 
     } catch (error) {
-        console.error("Get comment error:", error);
         res.status(500).json({
             status: false,
             message: "Server error"
@@ -593,5 +623,6 @@ router.delete("/comments/:id", authenticateJWT, async (req: Request, res: Respon
         });
     }
 });
+
 
 export const commentMusicRouter = router;
