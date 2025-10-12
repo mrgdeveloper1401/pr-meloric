@@ -1434,24 +1434,15 @@ musicRouter.get(
  *                   data:
  *                     - id: 1
  *                       title: "First Song"
+ *                       artist_nick_name: "jd"
+ *                       artist_first_name: "john"
+ *                       artist_last_name: "deo"
  *                       release_date: "2024-01-15T00:00:00.000Z"
  *                       createdAt: "2024-01-15T10:30:00.000Z"
  *                       updatedAt: "2024-01-16T14:20:00.000Z"
  *                       play_count: 150
- *                       audio:
- *                         audio_file_path: "/uploads/audio/song1.mp3"
- *                       image:
- *                         image_path: "/uploads/images/cover1.jpg"
- *                     - id: 2
- *                       title: "Second Song"
- *                       release_date: "2024-02-01T00:00:00.000Z"
- *                       createdAt: "2024-02-01T09:15:00.000Z"
- *                       updatedAt: "2024-02-02T11:45:00.000Z"
- *                       play_count: 89
- *                       audio:
- *                         audio_file_path: "/uploads/audio/song2.mp3"
- *                       image:
- *                         image_path: "/uploads/images/cover2.jpg"
+ *                       audio_file_path: "/uploads/audio/song1.mp3"
+ *                       image_path: "/uploads/images/cover1.jpg"
  *       '401':
  *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده یا منقضی شده است
  *         content:
@@ -1511,7 +1502,12 @@ musicRouter.get(
                     },
                     relations: {
                         audio: true,
-                        image: true
+                        image: true,
+                        artist: {
+                            user: {
+                                profile: true
+                            }
+                        }
                     },
                     select: {
                         title: true,
@@ -1527,6 +1523,17 @@ musicRouter.get(
                         image: {
                             // id: true,
                             image_path: true
+                        },
+                        artist: {
+                            id: true,
+                            user: {
+                                id: true,
+                                profile: {
+                                    id: true,
+                                    first_name: true,
+                                    last_name: true
+                                }
+                            }
                         }
                     },
                     take: limit,
@@ -1541,6 +1548,9 @@ musicRouter.get(
                 (item) => (
                     {
                         id: item.id,
+                        artist_nick_name: item.artist?.nick_name || null,
+                        artist_first_name: item.artist.user.profile?.first_name || null,
+                        artist_last_name: item.artist.user.profile?.last_name || null,
                         title: item.title,
                         created_at: item.createdAt,
                         updated_at: item.updatedAt,
