@@ -1186,7 +1186,6 @@ musicRouter.get(
     }
 );
 
-
 // get own artist_music
 /**
  * @swagger

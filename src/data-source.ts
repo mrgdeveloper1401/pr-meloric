@@ -29,6 +29,7 @@ import { TokenBlock } from "./entity/TokenBlock";
 import { Story } from "./entity/Story";
 import dotenv from "dotenv";
 import { StoryMedia } from "./entity/StoryMedia";
+import { DownloadMusics } from "./entity/Donwloads";
 
 dotenv.config();
 
@@ -70,7 +71,8 @@ export const AppDataSource = new DataSource({
         Gateway,
         TokenBlock,
         Story,
-        StoryMedia
+        StoryMedia,
+        DownloadMusics
     ],
     migrations: [],
     subscribers: [UserSubscriber],
