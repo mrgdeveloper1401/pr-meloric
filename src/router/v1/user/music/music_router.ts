@@ -215,7 +215,6 @@ musicRouter.get(
 
 )
 
-
 // detail music
 /**
  * @swagger
@@ -1046,16 +1045,16 @@ musicRouter.delete(
  *                     - id: 1
  *                       title: "Beautiful Song"
  *                       release_date: "2025-09-28T11:57:16.000Z"
- *                       "created_at": "2025-09-28T05:10:19.604Z",
- *                       "release_data": "2025-09-28T05:10:11.000Z",
- *                       "nick_name": "ali rezaei",
- *                       "first_name": "جان",
- *                       "last_name": "دو",
- *                       "username": "john_doe",
+ *                       "created_at": "2025-09-28T05:10:19.604Z"
+ *                       "release_data": "2025-09-28T05:10:11.000Z"
+ *                       "nick_name": "ali rezaei"
+ *                       "first_name": "جان"
+ *                       "last_name": "دو"
+ *                       "username": "john_doe"
  *                       "music_cover_image": null,
- *                       "album_title": "test music",
- *                       "audio": "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/19/1758719801056-109228681.mp3",
- *                       "music_lyric": null,
+ *                       "album_title": "test music"
+ *                       "audio": "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/19/1758719801056-109228681.mp3"
+ *                       "music_lyric": null
  *                       "play_count": 0
  *       '400':
  *         description: پارامترهای ورودی نامعتبر
@@ -1188,6 +1187,7 @@ musicRouter.get(
 );
 
 
+// get own artist_music
 /**
  * @swagger
  * components:
@@ -1433,6 +1433,7 @@ musicRouter.get(
     }
 );
 
+// get music by artist_id
 /**
  * @swagger
  * components:
@@ -1676,9 +1677,9 @@ musicRouter.get(
             // Check if artist exists and is active
             const artistRepository = AppDataSource.getRepository(Artist);
             const artist = await artistRepository.findOne({
-                where: { 
-                    id: artistId, 
-                    is_active: true 
+                where: {
+                    id: artistId,
+                    is_active: true
                 },
                 select: ["id"]
             });
@@ -1775,5 +1776,168 @@ musicRouter.get(
                 message: "Internal server error"
             });
         }
+    }
+);
+
+// get album by artist_id
+/**
+ * @swagger
+ * /v1/user/music/album/{artistId}/albums:
+ *   get:
+ *     tags:
+ *       - Albums
+ *     summary: دریافت لیست آلبوم‌های یک آرتیست
+ *     description: |
+ *       دریافت لیست تمام آلبوم‌های فعال یک آرتیست خاص با قابلیت صفحه‌بندی
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - فقط آلبوم‌های فعال (is_active=true) نمایش داده می‌شوند
+ *       - اطلاعات کامل کاور آلبوم و اطلاعات کاربر مرتبط برگردانده می‌شود
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/ArtistIdParam'
+ *       - $ref: '#/components/parameters/PageQueryParam'
+ *       - $ref: '#/components/parameters/LimitQueryParam'
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - لیست آلبوم‌های آرتیست بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AlbumListResponse'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: "success"
+ *                   limit: 20
+ *                   page: 1
+ *                   total: 5
+ *                   data:
+ *                     - id: 1
+ *                       title: "آلبوم بهترین آثار"
+ *                       createdAt: "2024-01-15T10:30:00.000Z"
+ *                       updatedAt: "2024-01-16T14:20:00.000Z"
+ *                       image_path: "https://example.com/images/album1-cover.jpg"
+ *                       artist_first_name: "john"
+ *                       artist_last_name: "deo"
+ *       '400':
+ *         description: پارامترهای ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               invalid_artist_id:
+ *                 summary: artistId نامعتبر
+ *                 value:
+ *                   status: false
+ *                   message: "artistId must be required"
+ *       '401':
+ *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: آرتیست پیدا نشد یا هیچ آلبوم فعالی ندارد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+musicRouter.get(
+    "/album/:artistId/albums",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const artistId = Number(req.params.artistId)
+            const limit = Number(req.query.limit) || 20;
+            const page = Number(req.query.page) || 1;
+            const skip = (page - 1) * limit;
+
+            if (isNaN(artistId)) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "artistId must be required"
+                    }
+                );
+            }
+
+            const albumRepository = AppDataSource.getRepository(Album);
+            const [albums, total] = await albumRepository.findAndCount(
+                {
+                    where: {
+                        id: artistId,
+                        is_active: true
+                    },
+                    relations: {
+                        user: {
+                            profile: true
+                        },
+                        cover_image: true
+                    },
+                    select: {
+                        id: true,
+                        title: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        cover_image: {
+                            image_path: true
+                        },
+                        user: {
+                            id: true,
+                            profile: {
+                                id: true,
+                                first_name: true,
+                                last_name: true
+                            }
+                        }
+                    },
+                    take: limit,
+                    skip: skip
+                }
+            );
+            
+            const simpleData = albums.map(
+                item => (
+                    {
+                        id: item.id,
+                        created_at: item.createdAt,
+                        updated_at: item.updatedAt,
+                        title: item.title,
+                        image_path: item.cover_image?.image_path || null,
+                        artist_first_name: item.user.profile?.first_name || null,
+                        artist_last_name: item.user.profile?.last_name || null
+                    }
+                )
+            )
+            return res.status(200).json(
+                {
+                    status: "success",
+                    limit: limit,
+                    page: page,
+                    total: total,
+                    data: simpleData
+                }
+            )
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+
     }
 );
