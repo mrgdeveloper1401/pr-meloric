@@ -1335,3 +1335,238 @@ musicRouter.get(
         }
     }
 );
+
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Audio:
+ *       type: object
+ *       properties:
+ *         audio_file_path:
+ *           type: string
+ *           example: "/uploads/audio/song.mp3"
+ *     Image:
+ *       type: object
+ *       properties:
+ *         image_path:
+ *           type: string
+ *           example: "/uploads/images/cover.jpg"
+ *     Song:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         title:
+ *           type: string
+ *           example: "My Song Title"
+ *         release_date:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T00:00:00.000Z"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00.000Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-16T14:20:00.000Z"
+ *         play_count:
+ *           type: integer
+ *           example: 150
+ *         audio:
+ *           $ref: '#/components/schemas/Audio'
+ *         image:
+ *           $ref: '#/components/schemas/Image'
+ *     ArtistMusicResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         total:
+ *           type: integer
+ *           example: 5
+ *         data:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Song'
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "artist not found"
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *       description: "JWT Token برای احراز هویت"
+ * 
+ * /v1/user/music/artist_music:
+ *   get:
+ *     tags:
+ *       - Music
+ *     summary: دریافت موزیک‌های آرتیست
+ *     description: دریافت لیست تمام موزیک‌های مربوط به آرتیست لاگین شده
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - لیست موزیک‌های آرتیست بازگردانده می‌شود
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ArtistMusicResponse'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: "success"
+ *                   total: 3
+ *                   data:
+ *                     - id: 1
+ *                       title: "First Song"
+ *                       release_date: "2024-01-15T00:00:00.000Z"
+ *                       createdAt: "2024-01-15T10:30:00.000Z"
+ *                       updatedAt: "2024-01-16T14:20:00.000Z"
+ *                       play_count: 150
+ *                       audio:
+ *                         audio_file_path: "/uploads/audio/song1.mp3"
+ *                       image:
+ *                         image_path: "/uploads/images/cover1.jpg"
+ *                     - id: 2
+ *                       title: "Second Song"
+ *                       release_date: "2024-02-01T00:00:00.000Z"
+ *                       createdAt: "2024-02-01T09:15:00.000Z"
+ *                       updatedAt: "2024-02-02T11:45:00.000Z"
+ *                       play_count: 89
+ *                       audio:
+ *                         audio_file_path: "/uploads/audio/song2.mp3"
+ *                       image:
+ *                         image_path: "/uploads/images/cover2.jpg"
+ *       '401':
+ *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده یا منقضی شده است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: آرتیست مربوط به کاربر یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+musicRouter.get(
+    "/artist_music",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const limit = Number(req.query.limit) || 20;
+            const page = Number(req.query.page) || 1;
+            const skip = (page - 1) * limit;
+
+            // get artist by user
+            const artistRepository = AppDataSource.getRepository(Artist);
+            const artist = await artistRepository.findOne(
+                {
+                    where: {
+                        user: { id: userId }
+                    },
+                    select: {
+                        id: true
+                    }
+
+                }
+            );
+            if (!artist) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "artist not found"
+                    }
+                )
+            }
+
+            const musicRepository = AppDataSource.getRepository(Song);
+            const [musics, total] = await musicRepository.findAndCount(
+                {
+                    where: {
+                        artist: artist
+                    },
+                    relations: {
+                        audio: true,
+                        image: true
+                    },
+                    select: {
+                        title: true,
+                        id: true,
+                        release_date: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        play_count: true,
+                        audio: {
+                            // id: true,
+                            audio_file_path: true
+                        },
+                        image: {
+                            // id: true,
+                            image_path: true
+                        }
+                    },
+                    take: limit,
+                    skip: skip,
+                    order: {
+                        createdAt: "DESC"
+                    }
+                }
+            );
+            // data
+            const simpleData = musics.map(
+                (item) => (
+                    {
+                        id: item.id,
+                        title: item.title,
+                        created_at: item.createdAt,
+                        updated_at: item.updatedAt,
+                        release_date: item.release_date,
+                        play_count: item.play_count,
+                        audio_file_path: item.audio.audio_file_path,
+                        image_path: item.image?.image_path || null
+                    }
+                )
+            )
+            return res.status(200).json(
+                {
+                    status: "success",
+                    total: total,
+                    limit: limit,
+                    page: page,
+                    data: simpleData
+                }
+            )
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+    }
+);
