@@ -1477,7 +1477,8 @@ musicRouter.get(
             const artist = await artistRepository.findOne(
                 {
                     where: {
-                        user: { id: userId }
+                        user: { id: userId },
+                        is_active: true
                     },
                     select: {
                         id: true
@@ -1577,6 +1578,351 @@ musicRouter.get(
                     message: "server error"
                 }
             )
+        }
+    }
+);
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     PaginationParams:
+ *       type: object
+ *       properties:
+ *         page:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *           description: شماره صفحه
+ *           example: 1
+ *         limit:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *           description: تعداد آیتم در هر صفحه
+ *           example: 20
+ *     PaginationResponse:
+ *       type: object
+ *       properties:
+ *         total:
+ *           type: integer
+ *           example: 150
+ *         page:
+ *           type: integer
+ *           example: 1
+ *         limit:
+ *           type: integer
+ *           example: 20
+ *         totalPages:
+ *           type: integer
+ *           example: 8
+ *         hasNext:
+ *           type: boolean
+ *           example: true
+ *         hasPrev:
+ *           type: boolean
+ *           example: false
+ *     MusicItem:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         title:
+ *           type: string
+ *           example: "Song Title"
+ *         artist_nick_name:
+ *           type: string
+ *           nullable: true
+ *           example: "Super Artist"
+ *         artist_first_name:
+ *           type: string
+ *           nullable: true
+ *           example: "John"
+ *         artist_last_name:
+ *           type: string
+ *           nullable: true
+ *           example: "Doe"
+ *         release_date:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T00:00:00.000Z"
+ *         play_count:
+ *           type: integer
+ *           example: 1500
+ *         audio_file_path:
+ *           type: string
+ *           example: "/uploads/audio/song.mp3"
+ *         image_path:
+ *           type: string
+ *           nullable: true
+ *           example: "/uploads/images/cover.jpg"
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00.000Z"
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-16T14:20:00.000Z"
+ *     MusicListResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         data:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/MusicItem'
+ *         pagination:
+ *           $ref: '#/components/schemas/PaginationResponse'
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "Error message"
+ *   parameters:
+ *     ArtistIdParam:
+ *       name: artistId
+ *       in: path
+ *       required: true
+ *       description: آیدی آرتیست
+ *       schema:
+ *         type: integer
+ *         example: 1
+ *     PageQueryParam:
+ *       name: page
+ *       in: query
+ *       required: false
+ *       description: شماره صفحه
+ *       schema:
+ *         type: integer
+ *         minimum: 1
+ *         default: 1
+ *     LimitQueryParam:
+ *       name: limit
+ *       in: query
+ *       required: false
+ *       description: تعداد آیتم در هر صفحه
+ *       schema:
+ *         type: integer
+ *         minimum: 1
+ *         maximum: 100
+ *         default: 20
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */
+
+/**
+ * @swagger
+ * /v1/user/music/{artistId}/musics:
+ *   get:
+ *     tags:
+ *       - Music
+ *     summary: دریافت لیست موزیک‌های یک آرتیست
+ *     description: |
+ *       دریافت لیست تمام موزیک‌های فعال یک آرتیست خاص به همراه اطلاعات پجینیشن
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - فقط موزیک‌های فعال (is_active=true) برگردانده می‌شوند
+ *       - آرتیست نیز باید فعال باشد
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/ArtistIdParam'
+ *       - $ref: '#/components/parameters/PageQueryParam'
+ *       - $ref: '#/components/parameters/LimitQueryParam'
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - لیست موزیک‌ها بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/MusicListResponse'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: "success"
+ *                   data:
+ *                     - id: 1
+ *                       title: "Beautiful Song"
+ *                       artist_nick_name: "SuperStar"
+ *                       artist_first_name: "John"
+ *                       artist_last_name: "Doe"
+ *                       release_date: "2024-01-15T00:00:00.000Z"
+ *                       play_count: 1500
+ *                       audio_file_path: "/uploads/audio/song1.mp3"
+ *                       image_path: "/uploads/images/cover1.jpg"
+ *                       created_at: "2024-01-15T10:30:00.000Z"
+ *                       updated_at: "2024-01-16T14:20:00.000Z"
+ *                   pagination:
+ *                     total: 150
+ *                     page: 1
+ *                     limit: 20
+ *                     totalPages: 8
+ *                     hasNext: true
+ *                     hasPrev: false
+ *       '400':
+ *         description: پارامترهای ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               invalid_artist_id:
+ *                 summary: artist_id نامعتبر
+ *                 value:
+ *                   status: false
+ *                   message: "artist_id must be send params"
+ *       '401':
+ *         description: عدم دسترسی - توکن معتبر ارائه نشده
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: آرتیست پیدا نشد یا غیرفعال است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+musicRouter.get(
+    "/:artistId/musics",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const artistId = Number(req.params.artistId);
+            const page = Math.max(1, Number(req.query.page) || 1);
+            const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+            const skip = (page - 1) * limit;
+
+            // Validation
+            if (isNaN(artistId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "artist_id must be a valid number"
+                });
+            }
+
+            // Check if artist exists and is active
+            const artistRepository = AppDataSource.getRepository(Artist);
+            const artist = await artistRepository.findOne({
+                where: { 
+                    id: artistId, 
+                    is_active: true 
+                },
+                select: ["id"]
+            });
+
+            if (!artist) {
+                return res.status(404).json({
+                    status: false,
+                    message: "Artist not found or inactive"
+                });
+            }
+
+            // Get musics with pagination
+            const musicRepository = AppDataSource.getRepository(Song);
+            const [musics, total] = await musicRepository.findAndCount({
+                where: {
+                    is_active: true,
+                    artist: { id: artistId }
+                },
+                relations: {
+                    image: true,
+                    audio: true,
+                    artist: {
+                        user: {
+                            profile: true
+                        }
+                    }
+                },
+                select: {
+                    id: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    title: true,
+                    release_date: true,
+                    play_count: true,
+                    audio: {
+                        audio_file_path: true
+                    },
+                    image: {
+                        image_path: true
+                    },
+                    artist: {
+                        nick_name: true,
+                        user: {
+                            id: true,
+                            profile: {
+                                id: true,
+                                first_name: true,
+                                last_name: true
+                            }
+                        }
+                    }
+                },
+                order: { createdAt: "DESC" },
+                skip,
+                take: limit
+            });
+
+            // Transform data
+            const simpleData = musics.map(item => ({
+                id: item.id,
+                artist_nick_name: item.artist?.nick_name || null,
+                artist_first_name: item.artist?.user?.profile?.first_name || null,
+                artist_last_name: item.artist?.user?.profile?.last_name || null,
+                title: item.title,
+                created_at: item.createdAt,
+                updated_at: item.updatedAt,
+                release_date: item.release_date,
+                play_count: item.play_count,
+                audio_file_path: item.audio?.audio_file_path,
+                image_path: item.image?.image_path || null
+            }));
+
+            // Pagination info
+            const totalPages = Math.ceil(total / limit);
+            const pagination = {
+                total,
+                page,
+                limit,
+                totalPages,
+                hasNext: page < totalPages,
+                hasPrev: page > 1
+            };
+
+            return res.status(200).json({
+                status: "success",
+                data: simpleData,
+                pagination
+            });
+
+        } catch (error) {
+            console.error("Error in artist musics route:", error);
+            return res.status(500).json({
+                status: false,
+                message: "Internal server error"
+            });
         }
     }
 );
