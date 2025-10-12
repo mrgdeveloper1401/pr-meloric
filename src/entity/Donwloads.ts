@@ -12,12 +12,12 @@ export class DownloadMusics extends TimestampEntity {
   @JoinColumn({ name: "user_id" })
   user: User;
 
-  @ManyToOne(() => Song, { onDelete: "CASCADE", nullable: true })
+  @ManyToOne(() => Song, { onDelete: "CASCADE"})
   @JoinColumn({ name: "song_id" })
   song: Song;
 
-  @Column({ default: 1 })
-  download_count: number;
+  // @Column({ default: 0 })
+  // download_count: number;
 
   @Column({ default: true })
   is_active: boolean;

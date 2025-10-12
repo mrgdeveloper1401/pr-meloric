@@ -2,6 +2,11 @@ import { Request, Response, Router } from "express";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { AppDataSource } from "../../../../data-source";
 import { DownloadMusics } from "../../../../entity/Donwloads";
+import { plainToClass } from "class-transformer";
+import { DownloadMusicDto } from "../../../../dtos/music/CreateDownloadMusic";
+import { validate } from "class-validator";
+import { Song } from "../../../../entity/Song";
+import { User } from "../../../../entity/User";
 
 export const downloadRouter = Router();
 
@@ -234,266 +239,382 @@ export const downloadRouter = Router();
  *                   message: "Internal server error"
  */
 downloadRouter.get(
-  "/list",
-  authenticateJWT,
-  async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user.user_id;
-      const page = Math.max(1, Number(req.query.page) || 1);
-      const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
-      const skip = (page - 1) * limit;
+    "/list",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const page = Math.max(1, Number(req.query.page) || 1);
+            const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+            const skip = (page - 1) * limit;
 
-      const downloadRepository = AppDataSource.getRepository(DownloadMusics);
-      const [downloads, total] = await downloadRepository.findAndCount({
-        where: {
-          user: { id: userId },
-          is_active: true
-        },
-        relations: {
-            song: {
-                audio: true,
-                image: true,
-                album: {
-                    user: {
-                        profile: true
-                    }
-                }
-            },
-        },
-        select: {
-            id: true,
-            createdAt: true,
-            updatedAt: true,
-            song: {
-                id: true,
-                title: true,
-                play_count: true,
-                audio: {
-                    audio_file_path: true
+            const downloadRepository = AppDataSource.getRepository(DownloadMusics);
+            const [downloads, total] = await downloadRepository.findAndCount({
+                where: {
+                    user: { id: userId },
+                    is_active: true
                 },
-                image: {
-                    image_path: true
-                },
-                album: {
-                    id: true,
-                    // title: true,
-                    user: {
-                        id: true,
-                        profile: {
-                            id: true,
-                            first_name: true,
-                            last_name: true
+                relations: {
+                    song: {
+                        audio: true,
+                        image: true,
+                        album: {
+                            user: {
+                                profile: true
+                            }
                         }
+                    },
+                },
+                select: {
+                    id: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    song: {
+                        id: true,
+                        title: true,
+                        play_count: true,
+                        audio: {
+                            audio_file_path: true
+                        },
+                        image: {
+                            image_path: true
+                        },
+                        album: {
+                            id: true,
+                            // title: true,
+                            user: {
+                                id: true,
+                                profile: {
+                                    id: true,
+                                    first_name: true,
+                                    last_name: true
+                                }
+                            }
+                        }
+                    },
+
+                },
+                order: { createdAt: "DESC" },
+                skip,
+                take: limit
+            });
+
+            const simpleData = downloads.map(
+                item => (
+                    {
+                        id: item.id,
+                        created_at: item.createdAt,
+                        updated_at: item.updatedAt,
+                        music_id: item.song.id,
+                        music_title: item.song.title,
+                        audio: item.song.audio.audio_file_path,
+                        music_cover_image: item.song.image?.image_path || null,
+                        artist_first_name: item.song.album.user.profile?.first_name || null,
+                        artist_last_name: item.song.album.user.profile?.last_name || null,
+                        play_count: item.song.play_count
+
                     }
-                }
-            },
-            
-        },
-        order: { createdAt: "DESC" },
-        skip,
-        take: limit
-      });
+                )
+            )
+            return res.status(200).json({
+                status: "success",
+                pagination: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit)
+                },
+                data: simpleData,
+            });
 
-      const simpleData = downloads.map(
-        item => (
-            {
-                id: item.id,
-                created_at: item.createdAt,
-                updated_at: item.updatedAt,
-                music_id: item.song.id,
-                music_title: item.song.title,
-                audio: item.song.audio.audio_file_path,
-                music_cover_image: item.song.image?.image_path || null,
-                artist_first_name: item.song.album.user.profile?.first_name || null,
-                artist_last_name: item.song.album.user.profile?.last_name || null,
-                play_count: item.song.play_count
-
-            }
-        )
-      )
-      return res.status(200).json({
-        status: "success",
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit)
-        },
-        data: simpleData,
-      });
-
-    } catch (error) {
-      return res.status(500).json({
-        status: false,
-        message: "Server error"
-      });
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "Server error"
+            });
+        }
     }
-  }
 );
 
+
+// add music into download music
 /**
  * @swagger
- * /v1/user/downloads/song/{songId}:
- *   post:
- *     summary: افزودن موزیک به دانلود شده‌ها
- *     description: ثبت دانلود یک موزیک توسط کاربر
- *     tags: [Downloads]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - name: songId
- *         in: path
- *         required: true
- *         schema:
+ * components:
+ *   schemas:
+ *     DownloadMusicDto:
+ *       type: object
+ *       required:
+ *         - music_id
+ *       properties:
+ *         music_id:
  *           type: integer
- *     responses:
- *       200:
- *         description: موزیک به دانلود شده‌ها اضافه شد
+ *           description: شناسه موزیک برای دانلود
+ *           example: 123
+ *     DownloadSuccessResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         message:
+ *           type: string
+ *           example: "successfully add data"
+ *     ValidationError:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "Invalid Data"
+ *         error:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               field:
+ *                 type: string
+ *                 example: "music_id"
+ *               value:
+ *                 type: object
+ *                 properties:
+ *                   isNumber:
+ *                     type: string
+ *                     example: "music_id must be a number"
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "Error message"
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
  */
-// downloadRouter.post(
-//   "/song/:songId",
-//   authenticateJWT,
-//   async (req: Request, res: Response) => {
-//     try {
-//       const userId = (req as any).user.user_id;
-//       const songId = Number(req.params.songId);
-
-//       // بررسی وجود موزیک
-//       const songRepository = AppDataSource.getRepository(Song);
-//       const song = await songRepository.findOne({
-//         where: { id: songId, is_active: true }
-//       });
-
-//       if (!song) {
-//         return res.status(404).json({
-//           status: false,
-//           message: "Song not found"
-//         });
-//       }
-
-//       const downloadRepository = AppDataSource.getRepository(DownloadMusics);
-
-//       // بررسی آیا قبلاً دانلود شده
-//       let download = await downloadRepository.findOne({
-//         where: {
-//           user: { id: userId },
-//           song: { id: songId },
-//           is_active: true
-//         }
-//       });
-
-//       if (download) {
-//         // افزایش تعداد دانلود
-//         download.download_count += 1;
-//         await downloadRepository.save(download);
-//       } else {
-//         // ایجاد رکورد جدید
-//         download = downloadRepository.create({
-//           user: { id: userId },
-//           song: { id: songId },
-//           download_type: "song",
-//           download_count: 1
-//         });
-//         await downloadRepository.save(download);
-//       }
-
-//       return res.status(200).json({
-//         status: "success",
-//         message: "Song added to downloads",
-//         data: {
-//           id: download.id,
-//           download_count: download.download_count
-//         }
-//       });
-
-//     } catch (error) {
-//       return res.status(500).json({
-//         status: false,
-//         message: "Server error"
-//       });
-//     }
-//   }
-// );
 
 /**
  * @swagger
- * /v1/user/downloads/album/{albumId}:
+ * /v1/user/downloads/download/add:
  *   post:
- *     summary: افزودن آلبوم به دانلود شده‌ها
- *     description: ثبت دانلود یک آلبوم توسط کاربر
- *     tags: [Downloads]
+ *     tags:
+ *       - Downloads
+ *     summary: افزودن موزیک به لیست دانلود شده‌ها
+ *     description: |
+ *       افزودن یک موزیک به لیست دانلود شده‌های کاربر
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - موزیک باید فعال (is_active=true) باشد
+ *       - کاربر نمی‌تواند یک موزیک را دو بار به دانلود شده‌ها اضافه کند
+ *       - در صورت وجود قبلی، خطای مناسب بازگردانده می‌شود
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - name: albumId
- *         in: path
- *         required: true
- *         schema:
- *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DownloadMusicDto'
+ *           examples:
+ *             example1:
+ *               summary: نمونه درخواست
+ *               value:
+ *                 music_id: 123
  *     responses:
- *       200:
- *         description: آلبوم به دانلود شده‌ها اضافه شد
+ *       '201':
+ *         description: موزیک با موفقیت به دانلود شده‌ها اضافه شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DownloadSuccessResponse'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: "success"
+ *                   message: "successfully add data"
+ *       '400':
+ *         description: خطای اعتبارسنجی یا موزیک قبلاً اضافه شده
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/ValidationError'
+ *                 - $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               validation_error:
+ *                 summary: خطای اعتبارسنجی
+ *                 value:
+ *                   status: false
+ *                   message: "Invalid Data"
+ *                   error:
+ *                     - field: "music_id"
+ *                       value:
+ *                         isNumber: "music_id must be a number"
+ *               already_exists:
+ *                 summary: موزیک قبلاً اضافه شده
+ *                 value:
+ *                   status: false
+ *                   message: "music download already exists"
+ *       '401':
+ *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               unauthorized:
+ *                 summary: کاربر لاگین نکرده است
+ *                 value:
+ *                   status: false
+ *                   message: "Authentication required"
+ *       '404':
+ *         description: موزیک یا کاربر یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               music_not_found:
+ *                 summary: موزیک یافت نشد
+ *                 value:
+ *                   status: false
+ *                   message: "music not found"
+ *               user_not_found:
+ *                 summary: کاربر یافت نشد
+ *                 value:
+ *                   status: false
+ *                   message: "user not found"
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               server_error:
+ *                 summary: خطای سرور
+ *                 value:
+ *                   status: false
+ *                   message: "server error"
  */
-// downloadRouter.post(
-//   "/album/:albumId",
-//   authenticateJWT,
-//   async (req: Request, res: Response) => {
-//     try {
-//       const userId = (req as any).user.user_id;
-//       const albumId = Number(req.params.albumId);
+downloadRouter.post(
+    "/download/add",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            const downloadMusicDto = plainToClass(DownloadMusicDto, req.body)
+            const errors = await validate(downloadMusicDto);
+            if (errors.length > 0) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "Invalid Data",
+                        error: errors.map(
+                            err => (
+                                {
+                                    field: err.property,
+                                    value: err.constraints
+                                }
+                            )
+                        )
+                    }
+                );
+            }
 
-//       // بررسی وجود آلبوم
-//       const albumRepository = AppDataSource.getRepository(Album);
-//       const album = await albumRepository.findOne({
-//         where: { id: albumId, is_active: true }
-//       });
+            // check music
+            const musicRepository = AppDataSource.getRepository(Song);
+            const getMusic = await musicRepository.findOne(
+                {
+                    where: {
+                        id: downloadMusicDto.music_id,
+                        is_active: true
+                    },
+                    select: {
+                        id: true
+                    }
+                }
+            );
+            if (!getMusic) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "music not found"
+                    }
+                )
+            }
+            
+            // check user
+            const userRepository = AppDataSource.getRepository(User);
+            const checkUser = await userRepository.findOne(
+                {
+                    where: {
+                        id: Number(userId),
+                        is_active: true
+                    },
+                    select: {id: true}
+                }
+            );
+            if (!checkUser) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "user not found"
+                    }
+                )
+            }
+            
+            // check download exists
+            const downloadMusicRepository = AppDataSource.getRepository(DownloadMusics);
+            const checkDownloadMusic = await downloadMusicRepository.findOne(
+                {
+                    where: {
+                        user: checkUser,
+                        is_active: true,
+                        song: getMusic
+                    },
+                    select: {
+                        id: true
+                    },
+                },
+            )
+            if (checkDownloadMusic) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "music download already exists"
+                    }
+                )
+            }
+            // add music into downloads
+            const donwload = new DownloadMusics();
+            donwload.song = getMusic;
+            donwload.user = checkUser
+            await DownloadMusics.save(donwload);
+            // donwload.download_count += 1;
 
-//       if (!album) {
-//         return res.status(404).json({
-//           status: false,
-//           message: "Album not found"
-//         });
-//       }
-
-//       const downloadRepository = AppDataSource.getRepository(DownloadMusics);
-
-//       // بررسی آیا قبلاً دانلود شده
-//       let download = await downloadRepository.findOne({
-//         where: {
-//           user: { id: userId },
-//           is_active: true
-//         }
-//       });
-
-//       if (download) {
-//         // افزایش تعداد دانلود
-//         download.download_count += 1;
-//         await downloadRepository.save(download);
-//       } else {
-//         // ایجاد رکورد جدید
-//         download = downloadRepository.create({
-//           user: { id: userId },
-//           album: { id: albumId },
-//           download_type: "album",
-//           download_count: 1
-//         });
-//         await downloadRepository.save(download);
-//       }
-
-//       return res.status(200).json({
-//         status: "success",
-//         message: "Album added to downloads",
-//         data: {
-//           id: download.id,
-//           download_count: download.download_count
-//         }
-//       });
-
-//     } catch (error) {
-//       return res.status(500).json({
-//         status: false,
-//         message: "Server error"
-//       });
-//     }
-//   }
-// );
+            // return data
+            return res.status(201).json(
+                {
+                    status: "success",
+                    message: "successfly add data"
+                }
+            )
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+    }
+);
