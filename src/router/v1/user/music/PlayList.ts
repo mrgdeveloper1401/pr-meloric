@@ -818,12 +818,12 @@ playListRouter.get(
             );
 
             // check playlist
-            if (playListSongs.length === 0 && page === 1) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Playlist not found or you don't have access"
-                });
-            }
+            // if (playListSongs.length === 0 && page === 1) {
+            //     return res.status(404).json({
+            //         status: false,
+            //         message: "Playlist not found or you don't have access"
+            //     });
+            // }
             
             // simple data
             const simpleData = playListSongs.map(
