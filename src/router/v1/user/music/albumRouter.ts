@@ -9,11 +9,12 @@ import { validate } from "class-validator";
 import { In } from "typeorm";
 import { User } from "../../../../entity/User";
 import { Image } from "../../../../entity/Image";
+import { Artist } from "../../../../entity/Artist";
 
 
 export const albumRouter = Router();
 
-
+// get album by genre
 /**
  * @swagger
  * /v1/album/user/{genre_id}/albums/:
@@ -119,25 +120,52 @@ albumRouter.get(
                 .createQueryBuilder("album")
                 .innerJoin("album.genre", "genre", "genre.id = :genreId", { genreId })
                 .leftJoinAndSelect("album.cover_image", "cover_image")
+                .leftJoin("album.user", "user")  // Join با User
+                .leftJoin("user.profile", "profile")  // Join با Profile
+                .leftJoin(Artist, "artist", "artist.user_id = user.id")  // Join با Artist
                 .where("album.is_active = :isActive", { isActive: true })
+                .andWhere("artist.is_active = :artistActive", { artistActive: true })  // فقط آرتیست‌های فعال
                 .select([
                     "album.id",
                     "album.title",
-                    // "album.bio",
-                    // "album.release_date",
+                    "album.bio",
+                    "album.release_date",
                     "cover_image.id",
                     "cover_image.image_path",
-                    // "genre.id"
+                    "artist.id as artist_id",  // آیدی آرتیست
+                    "artist.nick_name",        // نام هنری
+                    "profile.first_name",      // نام
+                    "profile.last_name",       // نام خانوادگی
+                    "user.username"           // نام کاربری
                 ])
-                .getMany();
+                .getRawMany();  // استفاده از getRawMany برای فیلدهای custom
+
+            // تبدیل به فرمت تمیز
+            const formattedAlbums = albums.map(album => ({
+                id: album.album_id,
+                title: album.album_title,
+                bio: album.album_bio,
+                release_date: album.album_release_date,
+                cover_image: {
+                    id: album.cover_image_id,
+                    image_path: album.cover_image_image_path
+                },
+                artist: {
+                    id: album.artist_id,
+                    nick_name: album.artist_nick_name,
+                    first_name: album.profile_first_name,
+                    last_name: album.profile_last_name,
+                    username: album.user_username
+                }
+            }));
 
             return res.status(200).json({
                 status: "success",
-                data: albums
+                data: formattedAlbums
             });
 
         } catch (error) {
-            console.error(error);
+            console.error("Error in genre albums:", error);
             return res.status(500).json({
                 status: false,
                 message: "server error"
