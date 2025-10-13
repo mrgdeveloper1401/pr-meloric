@@ -140,13 +140,23 @@ followRouter.get(
                     skip: skip
                 }
             )
+            const simpleData = follow.map(
+                item => (
+                    {
+                        followrs_id: item.id,
+                        from_user_id: item.from_user.id,
+                        from_user_username: item.from_user.username,
+                        from_user_profile_image: item.from_user.profile.profile_image?.image_path || null
+                    }
+                )
+            )
             return res.status(200).json(
                 {
                     status: "success",
                     totalCount: totalCount,
                     take: limit,
                     page: page,
-                    data: follow
+                    data: simpleData
                 }
             )
         } catch (error) {
@@ -306,13 +316,23 @@ followRouter.get(
                     skip: skip
                 }
             )
+            const simpleData = follow.map(
+                item => (
+                    {
+                        following_id: item.id,
+                        to_user_id: item.to_user.id,
+                        to_user_username: item.to_user.username,
+                        to_user_profile_image: item.to_user.profile.profile_image?.image_path || null
+                    }
+                )
+            )
             return res.status(200).json(
                 {
                     status: "success",
                     totalCount: totalCount,
                     take: limit,
                     page: page,
-                    data: follow
+                    data: simpleData
                 }
             )
         } catch (error) {

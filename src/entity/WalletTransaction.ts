@@ -13,10 +13,10 @@ export class WalletTransaction extends TimestampEntity {
 
   @Column({ 
     type: "enum", 
-    enum: ["deposit", "withdrawal", "purchase", "refund"],
+    enum: ["deposit", "withdrawal", "purchase", "refund", "supporting_meloric"],
     default: "deposit"
   })
-  type: string;
+  wallet_type: string;
 
   @Column({ 
     type: "decimal", 

@@ -30,6 +30,7 @@ import { Story } from "./entity/Story";
 import dotenv from "dotenv";
 import { StoryMedia } from "./entity/StoryMedia";
 import { DownloadMusics } from "./entity/Donwloads";
+import { WalletTransaction } from "./entity/WalletTransaction";
 
 dotenv.config();
 
@@ -72,7 +73,8 @@ export const AppDataSource = new DataSource({
         TokenBlock,
         Story,
         StoryMedia,
-        DownloadMusics
+        DownloadMusics,
+        WalletTransaction
     ],
     migrations: [],
     subscribers: [UserSubscriber],
