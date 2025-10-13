@@ -3,10 +3,14 @@ import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { Request, Response } from "express";
 import { AppDataSource } from "../../../../data-source";
 import { Follow } from "../../../../entity/Follow";
+import { plainToClass } from "class-transformer";
+import { FollowDto } from "../../../../dtos/auth/FollowDto";
+import { validate } from "class-validator";
+import { User } from "../../../../entity/User";
 
 export const followRouter = express.Router();
 
-
+// followrs
 /**
  * @swagger
  * /v1/follow/user/followers:
@@ -167,10 +171,11 @@ followRouter.get(
                 }
             )
         }
-        
+
     }
 )
 
+// following
 /**
  * @swagger
  * /v1/follow/user/following:
@@ -294,9 +299,9 @@ followRouter.get(
                     },
                     relations: {
                         to_user: {
-                             profile: {
+                            profile: {
                                 profile_image: true
-                             }
+                            }
                         }
                     },
                     select: {
@@ -343,6 +348,303 @@ followRouter.get(
                 }
             )
         }
-        
+
     }
 )
+
+
+// create follow
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     FollowDto:
+ *       type: object
+ *       required:
+ *         - to_user_id
+ *       properties:
+ *         to_user_id:
+ *           type: integer
+ *           description: شناسه کاربری که می‌خواهید فالو کنید
+ *           example: 123
+ *     FollowSuccessResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         message:
+ *           type: string
+ *           example: "You have successfully followed the user."
+ *         data:
+ *           type: object
+ *           properties:
+ *             follow_id:
+ *               type: integer
+ *               example: 1
+ *             from_user_id:
+ *               type: integer
+ *               example: 1
+ *             to_user_id:
+ *               type: integer
+ *               example: 123
+ *     ValidationError:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "Invalid Data"
+ *         error:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               field:
+ *                 type: string
+ *                 example: "to_user_id"
+ *               value:
+ *                 type: object
+ *                 properties:
+ *                   isNumber:
+ *                     type: string
+ *                     example: "to_user_id must be a number"
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "Error message"
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */
+
+/**
+ * @swagger
+ * /v1/follow/user/add_follow:
+ *   post:
+ *     tags:
+ *       - Follow
+ *     summary: فالو کردن یک کاربر
+ *     description: |
+ *       ایجاد رابطه فالو بین کاربر جاری و کاربر هدف
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - کاربر نمی‌تواند خودش را فالو کند
+ *       - کاربر نمی‌تواند یک کاربر را دو بار فالو کند
+ *       - هر دو کاربر باید فعال (is_active=true) باشند
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FollowDto'
+ *           examples:
+ *             example1:
+ *               summary: نمونه درخواست
+ *               value:
+ *                 to_user_id: 123
+ *     responses:
+ *       '201':
+ *         description: کاربر با موفقیت فالو شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FollowSuccessResponse'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: "success"
+ *                   message: "You have successfully followed the user."
+ *                   data:
+ *                     follow_id: 1
+ *                     from_user_id: 1
+ *                     to_user_id: 123
+ *       '400':
+ *         description: خطای اعتبارسنجی یا فالوی تکراری
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/ValidationError'
+ *                 - $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               validation_error:
+ *                 summary: خطای اعتبارسنجی
+ *                 value:
+ *                   status: false
+ *                   message: "Invalid Data"
+ *                   error:
+ *                     - field: "to_user_id"
+ *                       value:
+ *                         isNumber: "to_user_id must be a number"
+ *               already_following:
+ *                 summary: کاربر قبلاً فالو شده
+ *                 value:
+ *                   status: false
+ *                   message: "you have already follow this user!"
+ *               self_follow:
+ *                 summary: کاربر نمی‌تواند خودش را فالو کند
+ *                 value:
+ *                   status: false
+ *                   message: "You cannot follow yourself"
+ *       '404':
+ *         description: کاربر مبدا یا مقصد یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               from_user_not_found:
+ *                 summary: کاربر مبدا یافت نشد
+ *                 value:
+ *                   status: false
+ *                   message: "from_user not found"
+ *               to_user_not_found:
+ *                 summary: کاربر مقصد یافت نشد
+ *                 value:
+ *                   status: false
+ *                   message: "to_user_id not found"
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               server_error:
+ *                 summary: خطای سرور
+ *                 value:
+ *                   status: false
+ *                   message: "server error"
+ */
+followRouter.post(
+    "/add_follow",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+
+            if (!req.body) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "request body is required"
+                    }
+                )
+            }
+            const followDto = plainToClass(FollowDto, req.body)
+            const errors = await validate(followDto);
+            if (errors.length > 0) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "Invalid Data",
+                        error: errors.map(
+                            err => (
+                                {
+                                    field: err.property,
+                                    value: err.constraints
+                                }
+                            )
+                        )
+                    }
+                );
+            }
+
+            // check follow dose exists
+            const followRepository = AppDataSource.getRepository(Follow);
+            const checkFollow = await followRepository.findOne(
+                {
+                    where: {
+                        to_user: { id: followDto.to_user_id },
+                        is_active: true
+                    },
+                    select: {
+                        id: true
+                    }
+                }
+            );
+            if (checkFollow) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "you have already follow this user!"
+                    }
+                );
+            }
+
+            // get from_user and to_user
+            const userRepository = AppDataSource.getRepository(User);
+            const checkFromUser = await userRepository.findOne(
+                {
+                    where: {
+                        id: userId,
+                        is_active: true
+                    },
+                    select: {
+                        id: true
+                    }
+                }
+            )
+            if (!checkFromUser) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "from_user found"
+                    }
+                )
+            }
+            const checkToUser = await userRepository.findOne(
+                {
+                    where: {
+                        id: followDto.to_user_id,
+                        is_active: true
+                    },
+                    select: {
+                        id: true
+                    }
+                }
+            );
+            if (!checkToUser) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "to_user_id not found"
+                    }
+                );
+            }
+            // create follow
+            const follow = new Follow();
+            follow.from_user = checkFromUser
+            follow.to_user = checkToUser
+            follow.is_active = true
+            await follow.save()
+            return res.status(201).json(
+                {
+                    status: "success",
+                    message: "You have successfully followed someone."
+                }
+            );
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+    }
+);
