@@ -10,7 +10,7 @@ export class Story extends TimestampEntity {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(() => User, { onDelete: "CASCADE" })
+    @ManyToOne(() => User, { onDelete: "RESTRICT" })
     @JoinColumn({ name: "user_id" })
     user: User;
 
@@ -26,6 +26,6 @@ export class Story extends TimestampEntity {
     @Column({ default: 0 })
     view_count: number;
 
-    @OneToMany(() => StoryMedia, storyMedia => storyMedia.story, { cascade: true })
+    @OneToMany(() => StoryMedia, storyMedia => storyMedia.story, { cascade: false })
     media: StoryMedia[];
 }

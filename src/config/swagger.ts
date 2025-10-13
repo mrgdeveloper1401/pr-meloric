@@ -34,6 +34,7 @@ const options: swaggerJsdoc.Options = {
         path.join(__dirname, '../dtos/auth/*.ts'),
         path.join(__dirname, "../router/v1/core/*.ts"),
         path.join(__dirname, "../router/v1/user/music/*.ts"),
+        path.join(__dirname, "../router/v1/user/wallet/*.ts")
     ]
 }
 

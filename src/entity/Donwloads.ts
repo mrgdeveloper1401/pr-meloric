@@ -8,11 +8,11 @@ export class DownloadMusics extends TimestampEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, { onDelete: "CASCADE" })
+  @ManyToOne(() => User, { onDelete: "RESTRICT" })
   @JoinColumn({ name: "user_id" })
   user: User;
 
-  @ManyToOne(() => Song, { onDelete: "CASCADE"})
+  @ManyToOne(() => Song, { onDelete: "RESTRICT"})
   @JoinColumn({ name: "song_id" })
   song: Song;
 
