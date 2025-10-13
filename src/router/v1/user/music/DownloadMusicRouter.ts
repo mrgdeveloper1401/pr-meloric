@@ -172,6 +172,7 @@ export const downloadRouter = Router();
  *                     totalPages: 3
  *                   data:
  *                     - id: 1
+ *                       artist_id: 1
  *                       created_at: "2024-01-15T10:30:00.000Z"
  *                       updated_at: "2024-01-16T14:20:00.000Z"
  *                       music_id: 123
@@ -258,6 +259,7 @@ downloadRouter.get(
                     song: {
                         audio: true,
                         image: true,
+                        artist: true,
                         album: {
                             user: {
                                 profile: true
@@ -273,6 +275,9 @@ downloadRouter.get(
                         id: true,
                         title: true,
                         play_count: true,
+                        artist: {
+                            id: true,
+                        },
                         audio: {
                             audio_file_path: true
                         },
@@ -303,6 +308,7 @@ downloadRouter.get(
                 item => (
                     {
                         id: item.id,
+                        artist_id: item.song.artist.id,
                         created_at: item.createdAt,
                         updated_at: item.updatedAt,
                         music_id: item.song.id,

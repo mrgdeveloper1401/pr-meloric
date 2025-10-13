@@ -616,6 +616,7 @@ favoriteRouter.get(
             // Format response data
             const responseData = {
                 id: favoriteMusic.id,
+                artist_id: favoriteMusic.song.artist.id,
                 song_id: favoriteMusic.song.id,
                 title: favoriteMusic.song.title,
                 audio_path: favoriteMusic.song.audio.audio_file_path,

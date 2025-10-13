@@ -383,6 +383,7 @@ musicRouter.get(
                     status: "success",
                     data: {
                         id: getMusic.id,
+                        artist_id: getMusic.artist.id,
                         title: getMusic.title,
                         album_title: getMusic.album.title,
                         nick_name: getMusic.artist?.nick_name || null,
@@ -1175,6 +1176,7 @@ musicRouter.get(
                 item => (
                     {
                         id: item.id,
+                        artist_id: item.artist.id,
                         title: item.title,
                         created_at: item.createdAt,
                         release_data: item.release_date,
@@ -1420,6 +1422,7 @@ musicRouter.get(
                 (item) => (
                     {
                         id: item.id,
+                        artist_id: item.artist.id,
                         artist_nick_name: item.artist?.nick_name || null,
                         artist_first_name: item.artist.user.profile?.first_name || null,
                         artist_last_name: item.artist.user.profile?.last_name || null,
@@ -1760,6 +1763,7 @@ musicRouter.get(
             // Transform data
             const simpleData = musics.map(item => ({
                 id: item.id,
+                artist_id: item.artist.id,
                 artist_nick_name: item.artist?.nick_name || null,
                 artist_first_name: item.artist?.user?.profile?.first_name || null,
                 artist_last_name: item.artist?.user?.profile?.last_name || null,
