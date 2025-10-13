@@ -1023,9 +1023,29 @@ musicRouter.delete(
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - $ref: '#/components/parameters/GenreIdParam'
- *       - $ref: '#/components/parameters/PageQueryParam'
- *       - $ref: '#/components/parameters/LimitQueryParam'
+ *       - name: genreId
+ *         in: path
+ *         required: true
+ *         description: آیدی ژانر
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *       - name: page
+ *         in: query
+ *         required: false
+ *         description: شماره صفحه
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *           example: 1
+ *       - name: limit
+ *         in: query
+ *         required: false
+ *         description: تعداد آیتم در هر صفحه
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           example: 20
  *     responses:
  *       '200':
  *         description: موفقیت‌آمیز - لیست آهنگ‌های ژانر مورد نظر بازگردانده می‌شود
@@ -1045,17 +1065,17 @@ musicRouter.delete(
  *                     - id: 1
  *                       title: "Beautiful Song"
  *                       release_date: "2025-09-28T11:57:16.000Z"
- *                       "created_at": "2025-09-28T05:10:19.604Z"
- *                       "release_data": "2025-09-28T05:10:11.000Z"
- *                       "nick_name": "ali rezaei"
- *                       "first_name": "جان"
- *                       "last_name": "دو"
- *                       "username": "john_doe"
- *                       "music_cover_image": null,
- *                       "album_title": "test music"
- *                       "audio": "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/19/1758719801056-109228681.mp3"
- *                       "music_lyric": null
- *                       "play_count": 0
+ *                       created_at: "2025-09-28T05:10:19.604Z"
+ *                       release_data: "2025-09-28T05:10:11.000Z"
+ *                       nick_name: "ali rezaei"
+ *                       first_name: "جان"
+ *                       last_name: "دو"
+ *                       username: "john_doe"
+ *                       music_cover_image: null
+ *                       album_title: "test music"
+ *                       audio: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/19/1758719801056-109228681.mp3"
+ *                       music_lyric: null
+ *                       play_count: 0
  *       '400':
  *         description: پارامترهای ورودی نامعتبر
  *         content:
