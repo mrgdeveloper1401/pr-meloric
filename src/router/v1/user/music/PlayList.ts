@@ -830,6 +830,7 @@ playListRouter.get(
                 item => (
                     {
                         music_id: item.song.id,
+                        artist_id: item.song.artist.id,
                         created_at: item.song.createdAt,
                         release_data: item.song.release_date,
                         song_title: item.song.title,

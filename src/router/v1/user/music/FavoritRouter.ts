@@ -384,6 +384,7 @@ favoriteRouter.get(
                     {
                         id: item.id,
                         song_id: item.song.id,
+                        artist_id: item.song.artist.id,
                         title: item.song.title,
                         audio_path: item.song.audio.audio_file_path,
                         image_path: item.song.image?.image_path || null,

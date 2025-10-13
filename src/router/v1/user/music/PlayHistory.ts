@@ -342,6 +342,7 @@ playHistoryRouter.get(
                 (item) => (
                     {
                         id: item.id,
+                        artist_id: item.song.artist.id,
                         played_at: item.played_at,
                         music_image: item.song.image?.image_path || null,
                         music_adio: item.song.audio.audio_file_path,
