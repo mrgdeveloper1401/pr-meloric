@@ -449,3 +449,279 @@ artistReouter.patch(
         }
     }
 );
+
+// artist list
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ArtistPublicProfile:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           description: شناسه آرتیست
+ *           example: 1
+ *         nick_name:
+ *           type: string
+ *           nullable: true
+ *           description: نام هنری آرتیست
+ *           example: "محسن یگانه"
+ *         bio:
+ *           type: string
+ *           nullable: true
+ *           description: بیوگرافی آرتیست
+ *           example: "خواننده و ترانه سرای پاپ ایرانی"
+ *         monthly_listeners:
+ *           type: integer
+ *           description: تعداد شنوندگان ماهانه
+ *           example: 150000
+ *         is_active:
+ *           type: boolean
+ *           description: وضعیت فعال بودن آرتیست
+ *           example: true
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: تاریخ ایجاد پروفایل
+ *           example: "2024-01-15T10:30:00.000Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: تاریخ آخرین به‌روزرسانی
+ *           example: "2024-01-16T14:20:00.000Z"
+ *         cover_image:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             id:
+ *               type: integer
+ *               example: 1
+ *             image_path:
+ *               type: string
+ *               example: "https://example.com/images/artist-cover.jpg"
+ *         user:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: integer
+ *               example: 1
+ *             username:
+ *               type: string
+ *               example: "mohsen_yeganeh"
+ *             profile:
+ *               type: object
+ *               properties:
+ *                 first_name:
+ *                   type: string
+ *                   example: "محسن"
+ *                 last_name:
+ *                   type: string
+ *                   example: "یگانه"
+ *                 bio:
+ *                   type: string
+ *                   example: "خواننده و ترانه سرا"
+ *     ArtistPublicProfileResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         data:
+ *           $ref: '#/components/schemas/ArtistPublicProfile'
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "Error message"
+ *   parameters:
+ *     ArtistIdParam:
+ *       name: artistId
+ *       in: path
+ *       required: true
+ *       description: آیدی آرتیست
+ *       schema:
+ *         type: integer
+ *         example: 1
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */
+
+/**
+ * @swagger
+ * /v1/user/artist/get_artist_public_profile/{artistId}:
+ *   get:
+ *     tags:
+ *       - Artist
+ *     summary: دریافت پروفایل عمومی یک آرتیست
+ *     description: |
+ *       دریافت اطلاعات کامل پروفایل عمومی یک آرتیست خاص
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - آرتیست باید فعال (is_active=true) باشد
+ *       - اطلاعات کامل پروفایل، کاور و کاربر مرتبط برگردانده می‌شود
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/ArtistIdParam'
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - اطلاعات پروفایل آرتیست بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ArtistPublicProfileResponse'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: "success"
+ *                   data:
+ *                     artist_id: 1
+ *                     nick_name: "محسن یگانه"
+ *                     bio: "خواننده و ترانه سرای پاپ ایرانی با بیش از ۱۵ سال سابقه فعالیت در موسیقی"
+ *                     monthly_listeners: 150000
+ *                     image_path: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/artists/mohsen-yeganeh-cover.jpg"
+ *                     artist_username: "mohsen_yeganeh"
+ *                     artist_first_name: "محسن"
+ *                     artist_last_name: "یگانه"
+ *       '400':
+ *         description: پارامترهای ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               invalid_artist_id:
+ *                 summary: artist_id نامعتبر
+ *                 value:
+ *                   status: false
+ *                   message: "artist_id must be required"
+ *       '401':
+ *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               unauthorized:
+ *                 summary: کاربر لاگین نکرده است
+ *                 value:
+ *                   status: false
+ *                   message: "Authentication required"
+ *       '404':
+ *         description: آرتیست پیدا نشد یا غیرفعال است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               artist_not_found:
+ *                 summary: آرتیست یافت نشد
+ *                 value:
+ *                   status: false
+ *                   message: "artist not found"
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               server_error:
+ *                 summary: خطای سرور
+ *                 value:
+ *                   status: false
+ *                   message: "server error"
+ */
+artistReouter.get(
+    "/get_artist_public_profile/:artistId",
+    authenticateJWT,
+    async (req: Request, res:Response) => {
+        try {
+            const artistId = Number(req.params.artistId);
+            if (isNaN(artistId)) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "artist_id must be required"
+                    }
+                );
+            }
+
+            const artistRepository = AppDataSource.getRepository(Artist);
+            const getArtist = await artistRepository.findOne(
+                {
+                    where: {
+                        id: artistId,
+                        is_active: true
+                    },
+                    relations: {
+                        cover_image: true,
+                        user: {
+                            profile: true
+                        }
+                    },
+                    select: {
+                        id: true,
+                        bio: true,
+                        monthly_listeners: true,
+                        nick_name: true,
+                        cover_image: {
+                            image_path: true
+                        },
+                        user: {
+                            id: true,
+                            username: true,
+                            profile: {
+                                id: true,
+                                first_name: true,
+                                last_name: true
+                            }
+                        }
+                    }
+                }
+            )
+            if (!getArtist) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "artist not found"
+                    }
+                )
+            }
+
+            const simpleData = {
+                artist_id: getArtist.id,
+                artist_username: getArtist.user.username,
+                artist_image: getArtist.cover_image?.image_path || null,
+                artist_first_name: getArtist.user.profile?.first_name || null,
+                artist_last_name: getArtist.user.profile?.last_name || null,
+                monthly_listeners: getArtist.monthly_listeners,
+                bio: getArtist.bio,
+                nick_name: getArtist.nick_name
+            }
+            return res.status(200).json(
+                {
+                    status: "success",
+                    data: simpleData
+                }
+            )
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+    }
+);

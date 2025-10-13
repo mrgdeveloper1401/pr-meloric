@@ -180,6 +180,7 @@ musicRouter.get(
                 item => (
                     {
                         music_id: item.id,
+                        artist_id: item.artist.id,
                         nick_name: item.artist?.nick_name || null,
                         first_name: item.artist.user.profile?.first_name || null,
                         last_name: item.artist.user.profile?.last_name || null,
