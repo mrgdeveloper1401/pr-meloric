@@ -1906,9 +1906,10 @@ musicRouter.get(
                     },
                     relations: {
                         user: {
-                            profile: true
+                            profile: true,
+                            user_artist_set: true
                         },
-                        cover_image: true
+                        cover_image: true,
                     },
                     select: {
                         id: true,
@@ -1919,6 +1920,9 @@ musicRouter.get(
                             image_path: true
                         },
                         user: {
+                            user_artist_set: {
+                                id: true
+                            },
                             id: true,
                             profile: {
                                 id: true,
@@ -1936,6 +1940,7 @@ musicRouter.get(
                 item => (
                     {
                         id: item.id,
+                        artist_id: item.user.user_artist_set.id,
                         created_at: item.createdAt,
                         updated_at: item.updatedAt,
                         title: item.title,

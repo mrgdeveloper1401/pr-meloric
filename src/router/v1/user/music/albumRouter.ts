@@ -807,10 +807,11 @@ albumRouter.get(
     async (req: Request, res: Response) => {
         try {
             // get user
+            const userId = (req as any).user.user_id;
             const userRepository = AppDataSource.getRepository(User);
             const getUser = await userRepository.findOne({
                 where: { 
-                    id: (req as any).user.user_id, 
+                    id: userId, 
                     is_active: true, 
                     is_artist: true 
                 },
@@ -830,38 +831,67 @@ albumRouter.get(
             const skip = (page - 1) * limit;
 
             const albumRepository = AppDataSource.getRepository(Album);
+            const [myAlbum, total] = await albumRepository.findAndCount(
+                {
+                    where: {
+                        user: {id: userId},
+                        is_active: true
+                    },
+                    select: {
+                        id: true,
+                        title: true,
+                        bio: true,
+                        is_active: true,
+                        cover_image: {
+                            image_path: true
+                        },
+                        release_date: true,
+                        genre: {
+                            id: true,
+                            name: true
+                        },
+                        user: {
+                            id: true,
+                            user_artist_set: {
+                                id: true
+                            }
+                        }
+                    },
+                    relations: {
+                        cover_image: true,
+                        genre: true,
+                        user: {
+                            user_artist_set: true
+                        }
+                    }
+                }
+            );
             
-            const queryBuilder = albumRepository
-                .createQueryBuilder("album")
-                .leftJoinAndSelect("album.genre", "genre")
-                .leftJoinAndSelect("album.cover_image", "cover_image")
-                .where("album.user_id = :userId", { userId: getUser.id })
-                .andWhere("album.is_active = :isActive", { isActive: true })
-                .select([
-                    "album.id",
-                    "album.title",
-                    "album.bio",
-                    "album.is_active",
-                    "album.release_date",
-                    "genre.id",
-                    "genre.name",
-                    "genre.description",
-                    "cover_image.image_path"
-                ])
-                .skip(skip)
-                .take(limit);
-
-            const [myAlbum, total] = await queryBuilder.getManyAndCount();
-
+            const simpleData = myAlbum.map(
+                item => (
+                    {
+                        id: item.id,
+                        artist_id: item.user.user_artist_set.id,
+                        title: item.title,
+                        bio: item?.bio || null,
+                        is_active: item.is_active,
+                        album_cover_image: item.cover_image?.image_path || null,
+                        release_date: item.release_date,
+                        genre_id: item.genre.id,
+                        genre_name: item.genre.name
+                    }
+                )
+            )
             return res.status(200).json({
                 status: "success",
-                data: myAlbum,
+                data: simpleData,
                 page: page,
                 skip: skip,
                 limit: limit,
                 total: total
             });
         } catch (error) {
+            console.log(error)
             return res.status(500).json({
                 status: false,
                 message: "server error"

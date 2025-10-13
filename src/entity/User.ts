@@ -11,6 +11,7 @@ import { UserNotification } from "./UserNotification";
 import { IsEmail } from "class-validator";
 import { TokenBlock } from "./TokenBlock";
 import { Image } from "./Image";
+import { Artist } from "./Artist";
 
 @Entity({name: "users"})
 export class User extends TimestampEntity{
@@ -65,4 +66,7 @@ export class User extends TimestampEntity{
     (token) => token.user_id
   )
   token_block_set: TokenBlock[];
+
+  @OneToOne(() => Artist, artist => artist.user)
+  user_artist_set: Artist;
 }
