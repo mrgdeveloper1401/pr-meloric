@@ -32,6 +32,8 @@ services:
       - pg_stat_statements.track=all
 
   redis:
+    volumes:
+      - redis_data:/data
     container_name: music_db_redis
     image: docker.arvancloud.ir/redis:8.2-alpine
     restart: always
@@ -88,3 +90,4 @@ services:
 volumes:
   music_volume:
   static_files:
+  redis_data:
