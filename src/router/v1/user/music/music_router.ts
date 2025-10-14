@@ -136,6 +136,7 @@ musicRouter.get(
                 {
                     where: { album: getAlbum, is_active: true },
                     take: limit,
+                    skip: skip,
                     select: {
                         id: true,
                         title: true,
@@ -143,10 +144,19 @@ musicRouter.get(
                         play_count: true,
                         music_lyrics: true,
                         createdAt: true,
+                        album: {
+                            id: true,
+                            title: true,
+                            cover_image: {
+                                image_path: true
+                            }
+                        },
                         audio: {
-                            audio_file_path: true
+                            audio_file_path: true,
+                            audio_format: true
                         },
                         image: {
+                            id: true,
                             image_path: true
                         },
                         artist: {
@@ -167,31 +177,66 @@ musicRouter.get(
                     relations: {
                         audio: true,
                         image: true,
+                        album: true,
                         artist: {
                             user: {
                                 profile: true
                             }
                         }
                     },
-                    skip: skip
                 }
             );
-            const simpleData = songs.map(
+            // const simpleData = songs.map(
+            //     item => (
+            //         {
+            //             music_id: item.id,
+            //             artist_id: item.artist.id,
+            //             nick_name: item.artist?.nick_name || null,
+            //             first_name: item.artist.user.profile?.first_name || null,
+            //             last_name: item.artist.user.profile?.last_name || null,
+            //             username: item.artist.user.username,
+            //             title: item.title,
+            //             release_date: item.release_date,
+            //             created_at: item.createdAt,
+            //             play_count: item.play_count,
+            //             music_lyrics: item.music_lyrics,
+            //             audio_file_path: item.audio.audio_file_path,
+            //             music_cover_image: item.image?.image_path || null
+            //         }
+            //     )
+            // )
+            const data = songs.map(
                 item => (
                     {
-                        music_id: item.id,
-                        artist_id: item.artist.id,
-                        nick_name: item.artist?.nick_name || null,
-                        first_name: item.artist.user.profile?.first_name || null,
-                        last_name: item.artist.user.profile?.last_name || null,
-                        username: item.artist.user.username,
+                        id: item.id,
                         title: item.title,
                         release_date: item.release_date,
-                        created_at: item.createdAt,
                         play_count: item.play_count,
                         music_lyrics: item.music_lyrics,
-                        audio_file_path: item.audio.audio_file_path,
-                        music_cover_image: item.image?.image_path || null
+                        created_at: item.createdAt,
+                        image: {
+                            image_path: item.image?.image_path || null,
+                        },
+                        album: {
+                            id: item.album?.id || null,
+                            title: item.album?.title || null,
+                            cover_image: item.album.cover_image?.image_path || null
+                        },
+                        artist: {
+                            id: item.artist.id,
+                            nicke_name: item.artist?.nick_name || null,
+                            first_name: item.artist.user.profile?.first_name || null,
+                            last_name: item.artist.user.profile?.last_name || null,
+                            username: item.artist.user.username,
+                            cover_image: {
+                                id: item.artist.cover_image?.id || null,
+                                image_path: item.artist.cover_image?.image_path || null
+                            },
+                            audio: {
+                                audio_file_path: item.audio.audio_file_path,
+                                audio_format: item.audio.audio_format
+                            }
+                        }
                     }
                 )
             )
@@ -201,10 +246,11 @@ musicRouter.get(
                     count: count,
                     page: page,
                     limit: limit,
-                    data: simpleData
+                    data: data
                 }
             )
         } catch (error) {
+            console.log(error)
             return res.status(500).json(
                 {
                     status: false,
@@ -378,25 +424,41 @@ musicRouter.get(
                 )
             }
 
+            const data = {
+                id: getMusic.id,
+                title: getMusic.title,
+                release_date: getMusic.release_date,
+                play_count: getMusic.play_count,
+                music_lyrics: getMusic.music_lyrics,
+                created_at: getMusic.createdAt,
+                image: {
+                    image_path: getMusic.image?.image_path || null,
+                },
+                album: {
+                    id: getMusic.album?.id || null,
+                    title: getMusic.album?.title || null,
+                    cover_image: getMusic.album.cover_image?.image_path || null
+                },
+                artist: {
+                    id: getMusic.artist.id,
+                    nicke_name: getMusic.artist?.nick_name || null,
+                    first_name: getMusic.artist.user.profile?.first_name || null,
+                    last_name: getMusic.artist.user.profile?.last_name || null,
+                    username: getMusic.artist.user.username,
+                    cover_image: {
+                        id: getMusic.artist.cover_image?.id || null,
+                        image_path: getMusic.artist.cover_image?.image_path || null
+                    },
+                    audio: {
+                        audio_file_path: getMusic.audio.audio_file_path,
+                        audio_format: getMusic.audio.audio_format
+                    }
+                }
+            }
             return res.status(200).json(
                 {
                     status: "success",
-                    data: {
-                        id: getMusic.id,
-                        artist_id: getMusic.artist.id,
-                        title: getMusic.title,
-                        album_title: getMusic.album.title,
-                        nick_name: getMusic.artist?.nick_name || null,
-                        artist_first_name: getMusic.artist.user.profile.first_name,
-                        artist_last_name: getMusic.artist.user.profile.last_name,
-                        username: getMusic.artist.user.username,
-                        release_date: getMusic.release_date,
-                        play_count: getMusic.play_count,
-                        music_lyrics: getMusic.music_lyrics,
-                        audio: getMusic.audio.audio_file_path,
-                        image: getMusic.image?.image_path || null,
-                        created_at: getMusic.createdAt
-                    }
+                    data: data
                 }
             );
         } catch (error) {
@@ -1004,7 +1066,7 @@ musicRouter.delete(
             });
 
         } catch (error) {
-            console.error("Delete music error:", error);
+            // console.error("Delete music error:", error);
             return res.status(500).json({
                 status: false,
                 message: "server error"
@@ -1172,23 +1234,58 @@ musicRouter.get(
 
                 }
             })
-            const simpleData = musics.map(
+            // const simpleData = musics.map(
+            //     item => (
+            //         {
+            //             id: item.id,
+            //             artist_id: item.artist.id,
+            //             title: item.title,
+            //             created_at: item.createdAt,
+            //             release_data: item.release_date,
+            //             nick_name: item.artist?.nick_name || null,
+            //             first_name: item.artist.user.profile?.first_name || null,
+            //             last_name: item.artist.user.profile?.last_name || null,
+            //             username: item.artist.user.username || null,
+            //             music_cover_image: item.image?.image_path || null,
+            //             album_title: item.album.title,
+            //             audio: item.audio.audio_file_path,
+            //             music_lyric: item?.music_lyrics || null,
+            //             play_count: item.play_count
+            //         }
+            //     )
+            // )
+            const data = musics.map(
                 item => (
                     {
                         id: item.id,
-                        artist_id: item.artist.id,
                         title: item.title,
+                        release_date: item.release_date,
+                        play_count: item.play_count,
+                        music_lyrics: item.music_lyrics,
                         created_at: item.createdAt,
-                        release_data: item.release_date,
-                        nick_name: item.artist?.nick_name || null,
-                        first_name: item.artist.user.profile?.first_name || null,
-                        last_name: item.artist.user.profile?.last_name || null,
-                        username: item.artist.user.username || null,
-                        music_cover_image: item.image?.image_path || null,
-                        album_title: item.album.title,
-                        audio: item.audio.audio_file_path,
-                        music_lyric: item?.music_lyrics || null,
-                        play_count: item.play_count
+                        image: {
+                            image_path: item.image?.image_path || null,
+                        },
+                        album: {
+                            id: item.album?.id || null,
+                            title: item.album?.title || null,
+                            cover_image: item.album.cover_image?.image_path || null
+                        },
+                        artist: {
+                            id: item.artist.id,
+                            nicke_name: item.artist?.nick_name || null,
+                            first_name: item.artist.user.profile?.first_name || null,
+                            last_name: item.artist.user.profile?.last_name || null,
+                            username: item.artist.user.username,
+                            cover_image: {
+                                id: item.artist.cover_image?.id || null,
+                                image_path: item.artist.cover_image?.image_path || null
+                            },
+                            audio: {
+                                audio_file_path: item.audio.audio_file_path,
+                                audio_format: item.audio.audio_format
+                            }
+                        }
                     }
                 )
             )
@@ -1197,7 +1294,7 @@ musicRouter.get(
                 total: total,
                 page: page,
                 skip: skip,
-                data: simpleData
+                data: data
             });
         } catch (error) {
             console.error("Error in show_music_by_genre:", error);
@@ -1377,6 +1474,7 @@ musicRouter.get(
                     relations: {
                         audio: true,
                         image: true,
+                        album: true,
                         artist: {
                             user: {
                                 profile: true
@@ -1418,21 +1516,56 @@ musicRouter.get(
                 }
             );
             // data
-            const simpleData = musics.map(
-                (item) => (
+            // const simpleData = musics.map(
+            //     (item) => (
+            //         {
+            //             id: item.id,
+            //             artist_id: item.artist.id,
+            //             artist_nick_name: item.artist?.nick_name || null,
+            //             artist_first_name: item.artist.user.profile?.first_name || null,
+            //             artist_last_name: item.artist.user.profile?.last_name || null,
+            //             title: item.title,
+            //             created_at: item.createdAt,
+            //             updated_at: item.updatedAt,
+            //             release_date: item.release_date,
+            //             play_count: item.play_count,
+            //             audio_file_path: item.audio.audio_file_path,
+            //             image_path: item.image?.image_path || null
+            //         }
+            //     )
+            // )
+            const data = musics.map(
+                item => (
                     {
                         id: item.id,
-                        artist_id: item.artist.id,
-                        artist_nick_name: item.artist?.nick_name || null,
-                        artist_first_name: item.artist.user.profile?.first_name || null,
-                        artist_last_name: item.artist.user.profile?.last_name || null,
                         title: item.title,
-                        created_at: item.createdAt,
-                        updated_at: item.updatedAt,
                         release_date: item.release_date,
                         play_count: item.play_count,
-                        audio_file_path: item.audio.audio_file_path,
-                        image_path: item.image?.image_path || null
+                        music_lyrics: item.music_lyrics,
+                        created_at: item.createdAt,
+                        image: {
+                            image_path: item.image?.image_path || null,
+                        },
+                        album: {
+                            id: item.album?.id || null,
+                            title: item.album?.title || null,
+                            cover_image: item.album.cover_image?.image_path || null
+                        },
+                        artist: {
+                            id: item.artist.id,
+                            nicke_name: item.artist?.nick_name || null,
+                            first_name: item.artist.user.profile?.first_name || null,
+                            last_name: item.artist.user.profile?.last_name || null,
+                            username: item.artist.user.username,
+                            cover_image: {
+                                id: item.artist.cover_image?.id || null,
+                                image_path: item.artist.cover_image?.image_path || null
+                            },
+                            audio: {
+                                audio_file_path: item.audio.audio_file_path,
+                                audio_format: item.audio.audio_format
+                            }
+                        }
                     }
                 )
             )
@@ -1442,7 +1575,7 @@ musicRouter.get(
                     total: total,
                     limit: limit,
                     page: page,
-                    data: simpleData
+                    data: data
                 }
             )
         } catch (error) {
@@ -1724,6 +1857,7 @@ musicRouter.get(
                 relations: {
                     image: true,
                     audio: true,
+                    album: true,
                     artist: {
                         user: {
                             profile: true
@@ -1761,21 +1895,56 @@ musicRouter.get(
             });
 
             // Transform data
-            const simpleData = musics.map(item => ({
-                id: item.id,
-                artist_id: item.artist.id,
-                artist_nick_name: item.artist?.nick_name || null,
-                artist_first_name: item.artist?.user?.profile?.first_name || null,
-                artist_last_name: item.artist?.user?.profile?.last_name || null,
-                title: item.title,
-                created_at: item.createdAt,
-                updated_at: item.updatedAt,
-                release_date: item.release_date,
-                play_count: item.play_count,
-                audio_file_path: item.audio?.audio_file_path,
-                image_path: item.image?.image_path || null
-            }));
+            // const simpleData = musics.map(item => ({
+            //     id: item.id,
+            //     artist_id: item.artist.id,
+            //     artist_nick_name: item.artist?.nick_name || null,
+            //     artist_first_name: item.artist?.user?.profile?.first_name || null,
+            //     artist_last_name: item.artist?.user?.profile?.last_name || null,
+            //     title: item.title,
+            //     created_at: item.createdAt,
+            //     updated_at: item.updatedAt,
+            //     release_date: item.release_date,
+            //     play_count: item.play_count,
+            //     audio_file_path: item.audio?.audio_file_path,
+            //     image_path: item.image?.image_path || null
+            // }));
 
+            const data = musics.map(
+                item => (
+                    {
+                        id: item.id,
+                        title: item.title,
+                        release_date: item.release_date,
+                        play_count: item.play_count,
+                        music_lyrics: item.music_lyrics,
+                        created_at: item.createdAt,
+                        image: {
+                            image_path: item.image?.image_path || null,
+                        },
+                        album: {
+                            id: item.album?.id || null,
+                            title: item.album?.title || null,
+                            cover_image: item.album.cover_image?.image_path || null
+                        },
+                        artist: {
+                            id: item.artist.id,
+                            nicke_name: item.artist?.nick_name || null,
+                            first_name: item.artist.user.profile?.first_name || null,
+                            last_name: item.artist.user.profile?.last_name || null,
+                            username: item.artist.user.username,
+                            cover_image: {
+                                id: item.artist.cover_image?.id || null,
+                                image_path: item.artist.cover_image?.image_path || null
+                            },
+                            audio: {
+                                audio_file_path: item.audio.audio_file_path,
+                                audio_format: item.audio.audio_format
+                            }
+                        }
+                    }
+                )
+            )
             // Pagination info
             const totalPages = Math.ceil(total / limit);
             const pagination = {
@@ -1789,12 +1958,12 @@ musicRouter.get(
 
             return res.status(200).json({
                 status: "success",
-                data: simpleData,
+                data: data,
                 pagination
             });
 
         } catch (error) {
-            console.error("Error in artist musics route:", error);
+            // console.error("Error in artist musics route:", error);
             return res.status(500).json({
                 status: false,
                 message: "Internal server error"
@@ -1935,7 +2104,7 @@ musicRouter.get(
                     skip: skip
                 }
             );
-            
+
             const simpleData = albums.map(
                 item => (
                     {

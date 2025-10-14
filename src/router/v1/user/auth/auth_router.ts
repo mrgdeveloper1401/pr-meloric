@@ -1615,10 +1615,21 @@ userAuthRouter.get(
                 {
                     where: {
                         user: {
-                            id: (req as any).user.user_id
+                            id: (req as any).user.user_id,
+                            is_active: true
                         }
                     },
-                    relations: ['user', 'profile_image', 'banner_image', 'banner_galery_image'],
+                    relations: ['user', 'profile_image', 'banner_image', 'banner_galery_image', "user.user_artist_set"],
+                    // relations: {
+                    //     user: {
+                    //         user_artist_set: true,
+                    //         profile: {
+                    //             profile_image: true,
+                    //             banner_galery_image: true,
+                    //             banner_image: true
+                    //         }
+                    //     }
+                    // },
                     select: {
                         id: true,
                         first_name: true,
@@ -1645,6 +1656,9 @@ userAuthRouter.get(
                             email: true,
                             is_artist: true,
                             is_public: true,
+                            user_artist_set: {
+                                id: true
+                            }
                         }
                     }
                 }
@@ -1666,15 +1680,44 @@ userAuthRouter.get(
                     }
                 );
             }
-
+            
+            const data = {
+                id: getProfile.id,
+                first_name: getProfile.first_name,
+                last_name: getProfile.last_name,
+                birth_date: getProfile.birth_date,
+                bio: getProfile.bio,
+                jobs: getProfile.jobs,
+                user: {
+                    id: getProfile.user.id,
+                    email: getProfile.user.email,
+                    username: getProfile.user.username,
+                    is_artist: getProfile.user.is_artist,
+                    is_public: getProfile.user.is_public,
+                    artist_id: getProfile.user.user_artist_set.id
+                },
+                profile_image: {
+                    id: getProfile.profile_image.id,
+                    image_path: getProfile.profile_image?.image_path || null
+                },
+                banner_image: {
+                    id: getProfile.banner_image.id,
+                    image_path: getProfile.banner_image?.image_path || null
+                },
+                banner_galery_image: {
+                    id: getProfile.banner_galery_image?.id || null,
+                    image_path: getProfile.banner_galery_image?.image_path || null
+                }
+            }
             return res.status(200).json(
                 {
                     status: "success",
-                    data: getProfile
+                    data: data
                 }
             );
 
         } catch (error) {
+            console.log(error)
             return res.status(500).json(
                 {
                     status: false,
@@ -2873,38 +2916,50 @@ userAuthRouter.get(
             const page = 1;
             const skip = (page - 1) * limit;
             const userRepository = AppDataSource.getRepository(User);
-
-            // count data
-            const count = await userRepository.count(
+            const [allUser, count] = await userRepository.findAndCount(
                 {
-                    where: {is_active: true}
+                    where: {
+                        is_active: true
+                    },
+                    relations: {
+                        profile: true
+                    },
+                    select: {
+                        id: true,
+                        username: true,
+                        is_artist: true,
+                        profile: {
+                            id: true,
+                            profile_image: {
+                                id: true,
+                                image_path: true
+                            }
+                        },
+                        user_artist_set: {
+                            id: true
+                        }
+                    },
+                    take: limit,
+                    skip: skip
                 }
-            );
+            )
+            const simpleData = allUser.map(
+                item => (
+                    {
+                        id: item.id,
+                        artist_id: item.user_artist_set?.id || null,
+                        username: item.username,
+                        profile_image: item.profile.profile_image?.image_path || null
 
-            // join data
-            const allUser = await userRepository
-            .createQueryBuilder("user")
-            .leftJoinAndSelect("user.profile", "profile")
-            .leftJoinAndSelect("profile.profile_image", "profile_image")
-            .select([
-            "user.id",
-            "user.username",
-            "profile.id",
-            "profile_image.id",
-            "profile_image.image_path",
-            ])
-            .where("user.is_active = :active", { active: true })
-            .orderBy("user.id", "ASC")
-            .skip(skip)
-            .take(limit)
-            .getMany();
-            // return data
+                    }
+                )
+            )
             return res.status(200).json(
                 {
                     status: "success",
-                    data: allUser,
                     page: page,
-                    count: count
+                    count: count,
+                    data: simpleData,
                 }
             )
         } catch (error) {

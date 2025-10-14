@@ -66,7 +66,10 @@ informationUserRouter.get(
                         email: true,
                         username: true,
                         is_artist: true,
-                        is_public: true
+                        is_public: true,
+                        user_artist_set: {
+                            id: true
+                        }
                     }
                 }
             );
@@ -78,11 +81,21 @@ informationUserRouter.get(
                     }
                 )
             }
-
+            
+            const simpleData = {
+                created_at: getUser.createdAt,
+                updated_at: getUser.updatedAt,
+                id: getUser.id,
+                artist_id: getUser.user_artist_set?.id || null,
+                mobile_phone: getUser.mobile_phone,
+                email: getUser.email,
+                is_artist: getUser.is_artist,
+                is_public: getUser.is_public
+            }
             return res.status(200).json(
                 {
                     status: "success",
-                    data: getUser
+                    data: simpleData
                 }
             )
         } catch (error) {

@@ -131,6 +131,10 @@ followRouter.get(
                         from_user: {
                             id: true,
                             username: true,
+                            is_artist: true,
+                            user_artist_set: {
+                                id: true
+                            },
                             profile: {
                                 id: true,
                                 profile_image: {
@@ -149,6 +153,8 @@ followRouter.get(
                     {
                         followrs_id: item.id,
                         from_user_id: item.from_user.id,
+                        from_user_artist_id: item.from_user.user_artist_set?.id || null,
+                        from_user_is_artist: item.from_user.is_artist,
                         from_user_username: item.from_user.username,
                         from_user_profile_image: item.from_user.profile.profile_image?.image_path || null
                     }
@@ -299,6 +305,7 @@ followRouter.get(
                     },
                     relations: {
                         to_user: {
+                            user_artist_set: true,
                             profile: {
                                 profile_image: true
                             }
@@ -307,6 +314,9 @@ followRouter.get(
                     select: {
                         id: true,
                         to_user: {
+                            user_artist_set: {
+                                id: true
+                            },
                             id: true,
                             username: true,
                             profile: {
@@ -326,6 +336,8 @@ followRouter.get(
                     {
                         following_id: item.id,
                         to_user_id: item.to_user.id,
+                        to_user_is_artist: item.to_user.is_active,
+                        to_user_artist_id: item.to_user.user_artist_set?.id || null,
                         to_user_username: item.to_user.username,
                         to_user_profile_image: item.to_user.profile.profile_image?.image_path || null
                     }

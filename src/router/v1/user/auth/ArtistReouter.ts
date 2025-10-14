@@ -181,10 +181,20 @@ artistReouter.get(
                 )
             }
             // return information artist
+            const simpleData = {
+                artist_id: getArtist.id,
+                monthly_listeners: getArtist.monthly_listeners,
+                cover_image: {
+                    id: getArtist.cover_image.id,
+                    image_path: getArtist.cover_image?.image_path || null
+                },
+                bio: getArtist.bio,
+                nick_name: getArtist.nick_name
+            }
             return res.status(200).json(
                 {
                     status: "success",
-                    data: getArtist
+                    data: simpleData
                 }
             )
         } catch (error) {
