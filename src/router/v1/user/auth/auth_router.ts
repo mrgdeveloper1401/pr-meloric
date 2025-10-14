@@ -166,8 +166,8 @@ userAuthRouter.post(
                 if (decodeRefreshToken['type_token'] !== "refresh") {
                     return res.status(400).json(
                         {
-                           status: false,
-                           message: "Invalid token type"
+                            status: false,
+                            message: "Invalid token type"
                         }
                     )
                 }
@@ -176,7 +176,7 @@ userAuthRouter.post(
                 const tokenRepository = AppDataSource.getRepository(TokenBlock);
                 const isTokenBlock = await tokenRepository.findOne(
                     {
-                        where: {token_uuid: decodeRefreshToken['uuid_name']},
+                        where: { token_uuid: decodeRefreshToken['uuid_name'] },
                         select: ['token_uuid']
                     }
                 );
@@ -192,49 +192,49 @@ userAuthRouter.post(
                 // check user
                 const userRepository = AppDataSource.getRepository(User);
                 const user = await userRepository.findOne(
-                {
-                    where: {id: decodeRefreshToken['user_id']},
-                    select: ['id', "is_active"]
+                    {
+                        where: { id: decodeRefreshToken['user_id'] },
+                        select: ['id', "is_active"]
+                    }
+                );
+                if (!user) {
+                    return res.status(404).json(
+                        {
+                            status: false,
+                            message: "user not found"
+                        }
+                    );
                 }
-            );
-            if (!user) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "user not found"
-                    }
-                );
-            }
-            if (!user.is_active) {
-                return res.status(403).json(
-                    {
-                        status: false,
-                        message: "your account is ben!"
-                    }
-                );
-            }
+                if (!user.is_active) {
+                    return res.status(403).json(
+                        {
+                            status: false,
+                            message: "your account is ben!"
+                        }
+                    );
+                }
 
-            // create access_token
-            const accessSecretKey = process.env.JWT_SECRET_KEY
-            if (!accessSecretKey) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "JWT_SECRET_KEY is not found in .env file"
-                    }
-                );
-            }
-            const token = jwt.sign(
-                {user_id: decodeRefreshToken['user_id'], type_token: "access", is_active: user.is_active},
-                accessSecretKey,
-                {expiresIn: "1h"}
-            )
-            return res.status(201).json(
-                {
-                    status: "success",
-                    token: token
+                // create access_token
+                const accessSecretKey = process.env.JWT_SECRET_KEY
+                if (!accessSecretKey) {
+                    return res.status(404).json(
+                        {
+                            status: false,
+                            message: "JWT_SECRET_KEY is not found in .env file"
+                        }
+                    );
                 }
-            )
+                const token = jwt.sign(
+                    { user_id: decodeRefreshToken['user_id'], type_token: "access", is_active: user.is_active },
+                    accessSecretKey,
+                    { expiresIn: "1h" }
+                )
+                return res.status(201).json(
+                    {
+                        status: "success",
+                        token: token
+                    }
+                )
             } catch (error) {
                 return res.status(400).json(
                     {
@@ -243,15 +243,15 @@ userAuthRouter.post(
                     }
                 );
             }
-    } catch (error) {
-        return res.status(500).json(
-            {
-                status: false,
-                message: "server error"
-            }
-        )
-    }
-})
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+    })
 
 // token block
 /**
@@ -400,7 +400,7 @@ userAuthRouter.post(
                         }
                     );
                 }
-    
+
                 const verifyRefreshToken = jwt.verify(tokenBlock.refresh_token, refreshSecretKey)
                 if (verifyRefreshToken["type_token"] !== "refresh") {
                     return res.status(400).json(
@@ -415,7 +415,7 @@ userAuthRouter.post(
                 const tokenRepository = AppDataSource.getRepository(TokenBlock);
                 const checkTokenExists = await tokenRepository.findOne(
                     {
-                        where: {token_uuid: verifyRefreshToken['uuid_name']},
+                        where: { token_uuid: verifyRefreshToken['uuid_name'] },
                         select: ['token_uuid']
                     }
                 )
@@ -427,7 +427,7 @@ userAuthRouter.post(
                         }
                     );
                 }
-                
+
                 // save token in database
                 const getUserByToken = verifyRefreshToken['user_id'];
                 const createTokenBlock = new TokenBlock();
@@ -459,7 +459,7 @@ userAuthRouter.post(
                 }
             )
         }
-        
+
     }
 );
 
@@ -571,7 +571,7 @@ userAuthRouter.post(
 
             // check request body
             if (!req.body) {
-                return res.status(400).json({message: "request body is required"})
+                return res.status(400).json({ message: "request body is required" })
             }
 
             // validate data
@@ -599,20 +599,20 @@ userAuthRouter.post(
             // check user exits
             const checkUsername = await user.findOne(
                 {
-                    where: {username: signupUserDto.username},
+                    where: { username: signupUserDto.username },
                     select: ['username', 'is_active', "password", "is_staff", "is_artist"]
                 }
             );
             if (checkUsername) {
-                return res.status(400).json({message: "username already exists"})
+                return res.status(400).json({ message: "username already exists" })
             }
-                    const checkEmail = await user.findOne(
+            const checkEmail = await user.findOne(
                 {
-                    where: {email: signupUserDto.email}
+                    where: { email: signupUserDto.email }
                 }
             )
             if (checkEmail) {
-                return res.status(400).json({message: "email is already exists"})
+                return res.status(400).json({ message: "email is already exists" })
             }
 
             // create user
@@ -625,7 +625,7 @@ userAuthRouter.post(
             await createUser.save()
 
             // create and return token
-            const token  = funcCreateToken(createUser.id, createUser.is_active)
+            const token = funcCreateToken(createUser.id, createUser.is_active)
             return res.status(201).json(
                 {
                     "status": "success",
@@ -635,7 +635,7 @@ userAuthRouter.post(
                     isArtist: createUser.is_artist
                 }
             )
-        }catch (error) {
+        } catch (error) {
             return res.status(500).json(
                 {
                     status: false,
@@ -758,13 +758,13 @@ userAuthRouter.post(
         try {
             // request body
             if (!req.body) {
-                return res.status(400).json({message: "request body is required"})
+                return res.status(400).json({ message: "request body is required" })
             }
 
             // validate data
             const loginByUsername = plainToClass(LoginUsernameDto, req.body)
             const error = await validate(loginByUsername);
-            
+
             if (error.length > 0) {
                 return res.status(400).json(
                     {
@@ -784,17 +784,18 @@ userAuthRouter.post(
 
             const userRepository = AppDataSource.getRepository(User);
             const user = await userRepository.findOne(
-                { 
-                    where: {username: loginByUsername.username}, select: ["id", 'username', "password", "is_active", "is_staff", "is_artist"]}
-                ) ;
+                {
+                    where: { username: loginByUsername.username }, select: ["id", 'username', "password", "is_active", "is_staff", "is_artist"]
+                }
+            );
             const isMatch = funcVerifyPassword(loginByUsername.password, user.password);
 
             if (!user) {
-                return res.status(400).json({message: "username or password is invalid"})
+                return res.status(400).json({ message: "username or password is invalid" })
             }
 
             if (!isMatch) {
-                return res.status(400).json({message: "username or password is invalid"})
+                return res.status(400).json({ message: "username or password is invalid" })
             }
             // check user is_active
             if (!user.is_active) {
@@ -821,7 +822,7 @@ userAuthRouter.post(
         } catch (error) {
             return res.status(500).json(
                 {
-                    message: "server error", 
+                    message: "server error",
                     status: "false",
                     error: error
                 }
@@ -951,18 +952,18 @@ userAuthRouter.post(
         try {
             // request body
             if (!req.body) {
-                return res.status(400).json({message: "request body is required"})
+                return res.status(400).json({ message: "request body is required" })
             }
 
             // validate data
             const loginByEmail = plainToClass(LoginByEmailDto, req.body)
 
             const userRepository = AppDataSource.getRepository(User);
-  
+
             // get user
             const getUser = await userRepository.findOne(
                 {
-                    where: {email: loginByEmail.email},
+                    where: { email: loginByEmail.email },
                     select: ["id", 'email', "is_active", "password", 'is_staff', "is_artist"]
                 }
             );
@@ -1128,7 +1129,7 @@ userAuthRouter.post(
         try {
             // check request body
             if (!req.body) {
-                return res.status(400).json({message: "request body is required"})
+                return res.status(400).json({ message: "request body is required" })
             }
 
             // validate data
@@ -1155,15 +1156,15 @@ userAuthRouter.post(
             const userRepository = AppDataSource.getRepository(User);
             const getUser = await userRepository.findOne(
                 {
-                    where: {mobile_phone: requestOtpPhone.mobile_phone},
+                    where: { mobile_phone: requestOtpPhone.mobile_phone },
                     select: ['mobile_phone', "id", "is_active"]
                 }
             )
             if (!getUser) {
-                return res.status(404).json({message: "user not found!"})
+                return res.status(404).json({ message: "user not found!" })
             }
             if (!getUser.is_active) {
-                return res.status(403).json({message: "your account is ben!!"})
+                return res.status(403).json({ message: "your account is ben!!" })
             }
 
             // generate otp code and send otp code
@@ -1175,7 +1176,7 @@ userAuthRouter.post(
                 }
             );
         } catch (error) {
-            return res.status(500).json({message: "server error", error})
+            return res.status(500).json({ message: "server error", error })
         }
 
     }
@@ -1321,7 +1322,7 @@ userAuthRouter.post(
         try {
             // check data in body
             if (!req.body) {
-                return res.status(400).json({message: "request body must be set"});
+                return res.status(400).json({ message: "request body must be set" });
             }
 
             // validate data
@@ -1360,10 +1361,10 @@ userAuthRouter.post(
             const userRepository = AppDataSource.getRepository(User);
             const getUser = await userRepository.findOne(
                 {
-                    where: {mobile_phone: verifyOtpPhone.mobile_phone},
-                    select: ['id', 'mobile_phone', "is_active", "is_staff", "is_artist"]    
+                    where: { mobile_phone: verifyOtpPhone.mobile_phone },
+                    select: ['id', 'mobile_phone', "is_active", "is_staff", "is_artist"]
                 }
-                )
+            )
             if (!getUser) {
                 return res.status(404).json(
                     {
@@ -1396,7 +1397,7 @@ userAuthRouter.post(
                     status: false,
                     message: "server error"
                 }
-            )   
+            )
         }
     }
 );
@@ -1515,7 +1516,7 @@ userAuthRouter.post(
     async (req: Request, res: Response) => {
         // validate request body
         if (!req.body) {
-            return res.status(400).json({message: "request body must be set"});
+            return res.status(400).json({ message: "request body must be set" });
         }
 
         // validate data
@@ -1539,7 +1540,7 @@ userAuthRouter.post(
         }
 
         const userRepository = AppDataSource.getRepository(User);
-        const getUser = await userRepository.findOne({where: {email: requestEmail.email}});
+        const getUser = await userRepository.findOne({ where: { email: requestEmail.email } });
 
         if (!getUser) {
             return res.status(404).json(
@@ -1680,7 +1681,7 @@ userAuthRouter.get(
                     }
                 );
             }
-            
+
             const data = {
                 id: getProfile.id,
                 first_name: getProfile.first_name,
@@ -1694,14 +1695,14 @@ userAuthRouter.get(
                     username: getProfile.user.username,
                     is_artist: getProfile.user.is_artist,
                     is_public: getProfile.user.is_public,
-                    artist_id: getProfile.user.user_artist_set.id
+                    artist_id: getProfile.user.user_artist_set?.id || null
                 },
                 profile_image: {
-                    id: getProfile.profile_image.id,
+                    id: getProfile.profile_image?.id || null,
                     image_path: getProfile.profile_image?.image_path || null
                 },
                 banner_image: {
-                    id: getProfile.banner_image.id,
+                    id: getProfile.banner_image?.id || null,
                     image_path: getProfile.banner_image?.image_path || null
                 },
                 banner_galery_image: {
@@ -1725,7 +1726,7 @@ userAuthRouter.get(
                 }
             )
         }
-});
+    });
 
 // update profile
 /**
@@ -1864,7 +1865,7 @@ userAuthRouter.patch(
 
             // get user_id by authenticate jwt
             const userId = (req as any).user.user_id;
-            
+
             // get repo and user profile
             const profileRepository = AppDataSource.getRepository(Profile);
             const getProfile = await profileRepository.findOne({
@@ -1914,17 +1915,17 @@ userAuthRouter.patch(
                     }))
                 });
             }
-            
+
             // validate images if provided
             const imageRepository = AppDataSource.getRepository(Image);
-            
+
             // Check profile image
             if (profileDto.profile_image_id !== undefined) {
                 const profileImage = await imageRepository.findOne({
-                    where: { 
-                        id: profileDto.profile_image_id, 
-                        user: { id: userId }, 
-                        is_active: true 
+                    where: {
+                        id: profileDto.profile_image_id,
+                        user: { id: userId },
+                        is_active: true
                     },
                     select: ['id']
                 });
@@ -1940,7 +1941,7 @@ userAuthRouter.patch(
             // Check banner image
             if (profileDto.banner_image_id !== undefined) {
                 const bannerImage = await imageRepository.findOne({
-                    where: { id: profileDto.banner_image_id, user: { id: userId }, is_active:true },
+                    where: { id: profileDto.banner_image_id, user: { id: userId }, is_active: true },
                     select: ['id']
                 });
                 if (!bannerImage) {
@@ -2183,7 +2184,7 @@ userAuthRouter.post(
             const userId = (req as any).user.user_id
             const user = await userRepository.findOne(
                 {
-                    where: {id: Number(userId)},
+                    where: { id: Number(userId) },
                     select: ['id', 'password']
                 }
             )
@@ -2360,7 +2361,7 @@ userAuthRouter.get(
                     where: {
                         user: {
                             id: userId
-                        }, 
+                        },
                         is_active: true
                     },
                     select: {
@@ -2372,28 +2373,28 @@ userAuthRouter.get(
                     },
                     skip: skip,
                     take: limit
-            }
-        );
+                }
+            );
 
-        // calc pagination
-        const totalPage = Math.ceil(totalCount / Number(limit));
-        const hasNext = Number(page) < totalPage;
-        const hasPrev = Number(page) > 1
+            // calc pagination
+            const totalPage = Math.ceil(totalCount / Number(limit));
+            const hasNext = Number(page) < totalPage;
+            const hasPrev = Number(page) > 1
 
-        return res.status(200).json(
-            {
-                status: "success",
-                pagination: {
-                    currentPage: page,
-                    totalPages: totalPage,
-                    totalItem: totalCount,
-                    itemPerPage: limit,
-                    hasNext: hasNext,
-                    hasPrev: hasPrev
-                },
-                data: notification,
-            }
-        );
+            return res.status(200).json(
+                {
+                    status: "success",
+                    pagination: {
+                        currentPage: page,
+                        totalPages: totalPage,
+                        totalItem: totalCount,
+                        itemPerPage: limit,
+                        hasNext: hasNext,
+                        hasPrev: hasPrev
+                    },
+                    data: notification,
+                }
+            );
         } catch (error) {
             return res.status(500).json(
                 {
@@ -2535,7 +2536,7 @@ userAuthRouter.get(
             }
 
             const notificationRepository = AppDataSource.getRepository(UserNotification);
-            
+
             // find user notification
             const notification = await notificationRepository.findOne({
                 where: {
@@ -2756,19 +2757,19 @@ userAuthRouter.post(
         const checkOtpCode = await VerifyOtpRedis(confirmForgetPassword.code, req.ip)
 
         if (checkOtpCode === null) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "code is invalid"
-                    }
-                )
-            }
-            
+            return res.status(404).json(
+                {
+                    status: false,
+                    message: "code is invalid"
+                }
+            )
+        }
+
         // check user
         const userRepository = AppDataSource.getRepository(User);
         const user = await userRepository.findOne(
             {
-                where: {mobile_phone: confirmForgetPassword.mobile_phone},
+                where: { mobile_phone: confirmForgetPassword.mobile_phone },
                 select: ['id', "mobile_phone", "is_active"]
             }
         )
@@ -2781,7 +2782,7 @@ userAuthRouter.post(
                 }
             )
         }
-        
+
         if (!user.is_active) {
             return res.status(403).json(
                 {
@@ -2805,7 +2806,7 @@ userAuthRouter.post(
             }
         )
 
-});
+    });
 
 // all user
 /**
