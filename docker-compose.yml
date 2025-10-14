@@ -44,7 +44,7 @@ services:
     container_name: music_nginx
     volumes:
       - static_files:/var/www/static/
-      - flower:/var/www/static/
+      - flower:/var/www/static/flower/
     ports:
       - "80:80"
       - "443:443"
