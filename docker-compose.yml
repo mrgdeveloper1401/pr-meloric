@@ -80,6 +80,18 @@ services:
       - dj-admin-pannel
     entrypoint: "celery -A melo_music.dj_celery worker -l INFO"
 
+  flower:
+    build:
+      context: /root/online-melo
+      dockerfile: Dockerfile
+    env_file: "/root/online-melo/.env"
+    restart: always
+    expose:
+      - 5555
+    depends_on:
+      - dj-celery
+    entrypoint: "celery -A melo_music.dj_celery flower --port=5555"
+
   pghero:
     container_name: music_pghero
     volumes:
