@@ -70,6 +70,16 @@ services:
       - redis
       - nginx
 
+  dj-celery:
+    build:
+      context: /root/online-melo
+      dockerfile: Dockerfile
+    env_file: "/root/online-melo/.env"
+    restart: always
+    depends_on:
+      - dj-admin-pannel
+    entrypoint: "celery -A melo_music.dj_celery worker -l INFO"
+
   pghero:
     container_name: music_pghero
     volumes:
