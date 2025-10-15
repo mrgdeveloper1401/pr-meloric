@@ -177,8 +177,11 @@ musicRouter.get(
                     relations: {
                         audio: true,
                         image: true,
-                        album: true,
+                        album: {
+                            cover_image: true
+                        },
                         artist: {
+                            cover_image: true,
                             user: {
                                 profile: true
                             }
@@ -414,6 +417,7 @@ musicRouter.get(
                         image: true,
                         audio: true,
                         artist: {
+                            cover_image: true,
                             user: {
                                 profile: true
                             }
@@ -1195,7 +1199,9 @@ musicRouter.get(
                 },
                 relations: {
                     audio: true,
-                    album: true,
+                    album: {
+                        cover_image: true
+                    },
                     image: true,
                     artist: {
                         cover_image: true,
@@ -1480,8 +1486,11 @@ musicRouter.get(
                     relations: {
                         audio: true,
                         image: true,
-                        album: true,
+                        album: {
+                            cover_image: true
+                        },
                         artist: {
+                            cover_image: true,
                             user: {
                                 profile: true
                             }

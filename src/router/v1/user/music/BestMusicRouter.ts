@@ -192,11 +192,9 @@ bestMusicRouter.get(
                     image_path: randomMusic.image?.image_path
                 },
                 album: {
-                    id: randomMusic.album?.id,
-                    title: randomMusic.album?.title,
-                    // bio: randomMusic.album?.bio,
-                    // release_date: randomMusic.album?.release_date,
-                    cover_image: randomMusic.album.cover_image?.image_path
+                    id: randomMusic.album.id,
+                    title: randomMusic.album.title,
+                    cover_image: randomMusic.album.cover_image?.image_path || null
                 },
                 artist: {
                     id: randomMusic.artist?.id,
