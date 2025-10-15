@@ -1515,6 +1515,7 @@ musicRouter.get(
                             id: true,
                             user: {
                                 id: true,
+                                username: true,
                                 profile: {
                                     id: true,
                                     first_name: true,
@@ -1872,8 +1873,11 @@ musicRouter.get(
                 relations: {
                     image: true,
                     audio: true,
-                    album: true,
+                    album: {
+                        cover_image: true
+                    },
                     artist: {
+                        cover_image: true,
                         user: {
                             profile: true
                         }
@@ -1893,8 +1897,10 @@ musicRouter.get(
                         image_path: true
                     },
                     artist: {
+                        id: true,
                         nick_name: true,
                         user: {
+                            username: true,
                             id: true,
                             profile: {
                                 id: true,
