@@ -134,7 +134,7 @@ export const suggestRouter = Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  *             example:
- *               success: true
+ *               status: false
  *               message: "No active songs found"
  *       500:
  *         description: Internal server error
@@ -174,7 +174,7 @@ suggestRouter.get(
 
             if (!randomMusics || randomMusics.length === 0) {
                 return res.status(404).json({ 
-                    success: true, 
+                    status: false, 
                     message: "No active songs found" 
                 });
             }
@@ -219,7 +219,7 @@ suggestRouter.get(
             }));
 
             res.json({
-                success: true,
+                status: "success",
                 count: randomMusics.length,
                 data: response
             });
