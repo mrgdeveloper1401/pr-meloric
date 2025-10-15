@@ -381,7 +381,11 @@ musicRouter.get(
                         music_lyrics: true,
                         createdAt: true,
                         album: {
-                            title: true
+                            id: true,
+                            title: true,
+                            cover_image: {
+                                image_path: true
+                            }
                         },
                         image: {
                             image_path: true
@@ -404,7 +408,9 @@ musicRouter.get(
                         }
                     },
                     relations: {
-                        album: true,
+                        album: {
+                            cover_image: true
+                        },
                         image: true,
                         audio: true,
                         artist: {
@@ -435,8 +441,8 @@ musicRouter.get(
                     image_path: getMusic.image?.image_path || null,
                 },
                 album: {
-                    id: getMusic.album?.id || null,
-                    title: getMusic.album?.title || null,
+                    id: getMusic.album.id,
+                    title: getMusic.album.title,
                     cover_image: getMusic.album.cover_image?.image_path || null
                 },
                 artist: {
