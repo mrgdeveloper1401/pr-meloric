@@ -298,6 +298,7 @@ followRouter.get(
             const [follow, totalCount] = await followRepository.findAndCount(
                 {
                     where: {
+                        is_active: true,
                         from_user: {
                             id: userId,
                             is_active: true
@@ -314,6 +315,7 @@ followRouter.get(
                     select: {
                         id: true,
                         to_user: {
+                            is_active: true,
                             user_artist_set: {
                                 id: true
                             },
@@ -657,6 +659,112 @@ followRouter.post(
                     message: "server error"
                 }
             )
+        }
+    }
+);
+
+// unfollow user
+/**
+ * @swagger
+ * /v1/follow/user/unfollow/{user_id}:
+ *   delete:
+ *     summary: Unfollow a user
+ *     description: Soft delete follow relationship by setting is_active to false
+ *     tags:
+ *       - Follow
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: user_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: ID of the user to unfollow
+ *     responses:
+ *       200:
+ *         description: Successfully unfollowed user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "User unfollowed successfully"
+ *       400:
+ *         description: Bad request - User is not being followed or invalid user ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "You are not following this user"
+ *       401:
+ *         description: Unauthorized - Invalid or missing JWT token
+ *       500:
+ *         description: Internal server error
+ */
+followRouter.delete(
+    "/unfollow/:user_id",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const fromUserId = (req as any).user.user_id;
+            const toUserId = parseInt(req.params.user_id);
+
+            // Validate user_id parameter
+            if (isNaN(toUserId) || toUserId <= 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid user ID"
+                });
+            }
+
+            const followRepository = AppDataSource.getRepository(Follow);
+
+            // Update directly using update query (more efficient)
+            const checkToUser = await followRepository.findOne(
+                {
+                    where: {
+                        is_active: true,
+                        to_user: {id: toUserId}
+                    },
+                    select: {
+                        id: true,
+                        is_active: true
+                    }
+                }
+            )
+            checkToUser.is_active = false;
+            await checkToUser.save()
+            // Check if any record was updated
+            if (!checkToUser) {
+                return res.status(400).json({
+                    status: false,
+                    message: "You are not following this user"
+                });
+            }
+
+            return res.status(200).json({
+                status: "success",
+                message: "User unfollowed successfully"
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
         }
     }
 );

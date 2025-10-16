@@ -2,7 +2,6 @@ import { Request, Response, Router } from "express";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { AppDataSource } from "../../../../data-source";
 import { Artist } from "../../../../entity/Artist";
-import { User } from "../../../../entity/User";
 import { plainToClass } from "class-transformer";
 import { UpdateArtistProfile } from "../../../../dtos/auth/UpdateArtistProfile";
 import { validate } from "class-validator";
