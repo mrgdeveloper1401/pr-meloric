@@ -11,6 +11,7 @@ import { validate } from "class-validator";
 import { Artist } from "../../../../entity/Artist";
 import { UpdateMusicDto } from "../../../../dtos/music/UpdateMusic";
 import { Image } from "../../../../entity/Image";
+import { FavoriteSong } from "../../../../entity/FavoriteSong";
 
 
 export const musicRouter = Router();
@@ -365,6 +366,7 @@ musicRouter.get(
  */
 musicRouter.get(
     "/music/:musicId/",
+    authenticateJWT,
     async (req: Request, res: Response) => {
         const musicId = Number(req.params.musicId);
 
@@ -434,6 +436,37 @@ musicRouter.get(
                 )
             }
 
+            const userId = (req as any).user.user_id;
+            const FavoriteRepository = AppDataSource.getRepository(FavoriteSong);
+            const checkFavoritMusic = await FavoriteRepository.findOne(
+                {
+                    where: {
+                        user: {id: userId},
+                        is_active: true,
+                        song: {id: musicId}
+                    },
+                    select: {
+                        id: true
+                    }
+                }
+            );
+            let isLiked = false;
+            if (checkFavoritMusic) {
+                isLiked = true
+            }
+
+            const likeCount = await FavoriteRepository.count(
+                {
+                    where: {
+                        is_active: true,
+                        song: {id: musicId}
+                    },
+                    select: {
+                        id: true
+                    }
+                }
+            );
+    
             const data = {
                 id: getMusic.id,
                 title: getMusic.title,
@@ -460,6 +493,8 @@ musicRouter.get(
                         image_path: getMusic.artist.cover_image?.image_path || null
                     },
                     audio: {
+                        isLiked: isLiked,
+                        likeCount: likeCount,
                         audio_file_path: getMusic.audio.audio_file_path,
                         audio_format: getMusic.audio.audio_format
                     }
