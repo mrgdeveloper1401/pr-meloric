@@ -1,4 +1,4 @@
-FROM docker.arvancloud.ir/nginx:1.29-alpine
+FROM melo_nginx:1.0.0
 
 RUN mkdir -p certbot/api.meloricdns.com && \
     mkdir -p /var/www/static/flower
