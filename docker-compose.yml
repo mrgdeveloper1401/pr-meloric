@@ -117,4 +117,4 @@ volumes:
   redis_data:
   flower:
   log_nginx:
-  log_rotate:
+  # log_rotate:
