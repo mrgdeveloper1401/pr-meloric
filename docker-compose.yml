@@ -46,6 +46,7 @@ services:
       - static_files:/var/www/static/
       - flower:/var/www/static/flower/
       - log_nginx:/var/log/nginx
+      - log_rotate:/etc/logrotate.d/nginx
     ports:
       - "80:80"
       - "443:443"
@@ -116,3 +117,4 @@ volumes:
   redis_data:
   flower:
   log_nginx:
+  log_rotate:

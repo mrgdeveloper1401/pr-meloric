@@ -8,4 +8,6 @@ COPY ./certbot/api.meloricdns.com/* /certbot/api.meloricdns.com/
 
 COPY ./nginx.conf /etc/nginx/nginx.conf
 
-ENTRYPOINT ["nginx", "-g", "daemon off;"]
+COPY logrotate-nginx.conf /etc/logrotate.d/nginx
+
+ENTRYPOINT ["sh", "-c", "crond -f -d 8 & nginx -g 'daemon off;'"]
