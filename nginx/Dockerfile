@@ -11,4 +11,4 @@ COPY ./nginx.conf /etc/nginx/nginx.conf
 # COPY logrotate-nginx.conf /etc/logrotate.d/nginx
 
 
-ENTRYPOINT ["nginx", "-g", "daemon off"]
+ENTRYPOINT ["nginx", "-g", "daemon off;"]
