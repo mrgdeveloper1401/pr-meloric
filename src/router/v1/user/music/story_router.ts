@@ -608,8 +608,19 @@ storyRouter.get(
                     user: {
                         id: true,
                         username: true,
+                        is_artist: true,
+                        user_artist_set: {
+                            id: true,
+                            nick_name: true,
+                            cover_image: {
+                                id: true,
+                                image_path: true
+                            }
+                        },
                         profile: {
                             id: true,
+                            first_name: true,
+                            last_name: true,
                             profile_image: {
                                 id: true,
                                 image_path: true
@@ -619,7 +630,8 @@ storyRouter.get(
                 },
                 relations: [
                     "media",
-                    "user", 
+                    "user",
+                    "user.user_artist_set.cover_image",
                     "user.profile", 
                     "user.profile.profile_image"
                 ],
