@@ -158,7 +158,7 @@ bestMusicRouter.get(
             
             // گرفتن تعداد از query parameter (پیش‌فرض 20)
             const count = parseInt(req.query.count as string) || 20;
-            
+            const releaseDate = new Date()
             const randomMusics = await musicRepository
                 .createQueryBuilder("song")
                 .leftJoinAndSelect("song.artist", "artist")
@@ -171,16 +171,10 @@ bestMusicRouter.get(
                 .leftJoinAndSelect("album.cover_image", "album_cover_image")
                 .where("song.is_active = :isActive", { isActive: true })
                 .andWhere("audio.is_active = :audioIsActive", { audioIsActive: true })
+                .andWhere("song.release_date < :releaseDate", { releaseDate })
                 .orderBy("RANDOM()")
                 .limit(count)
                 .getMany();
-
-            if (!randomMusics || randomMusics.length === 0) {
-                return res.status(404).json({ 
-                    status: false, 
-                    message: "No active songs found" 
-                });
-            }
 
             const response = randomMusics.map(randomMusic => ({
                 id: randomMusic.id,
@@ -219,9 +213,9 @@ bestMusicRouter.get(
                 },
             }));
 
-            res.json({
+            return res.json({
                 stayus: "success",
-                count: randomMusics.length,
+                // count: randomMusics.length,
                 data: response
             });
 

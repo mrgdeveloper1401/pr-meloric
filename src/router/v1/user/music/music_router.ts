@@ -12,6 +12,7 @@ import { Artist } from "../../../../entity/Artist";
 import { UpdateMusicDto } from "../../../../dtos/music/UpdateMusic";
 import { Image } from "../../../../entity/Image";
 import { FavoriteSong } from "../../../../entity/FavoriteSong";
+import { LessThan } from "typeorm";
 
 
 export const musicRouter = Router();
@@ -114,11 +115,16 @@ musicRouter.get(
 
             // query params
             const albumId = parseInt(req.params.album_id)
+            const date = new Date();
             // get album id by query params
             const albumRepository = AppDataSource.getRepository(Album);
             const getAlbum = await albumRepository.findOne(
                 {
-                    where: { id: albumId },
+                    where: { 
+                        id: albumId,
+                        is_active: true,
+                        release_date: LessThan(date)
+                    },
                     select: ['id']
                 }
             )
@@ -135,7 +141,7 @@ musicRouter.get(
             const musicRepository = AppDataSource.getRepository(Song);
             const [songs, count] = await musicRepository.findAndCount(
                 {
-                    where: { album: getAlbum, is_active: true },
+                    where: { album: getAlbum, is_active: true, release_date:  LessThan(date)},
                     take: limit,
                     skip: skip,
                     select: {
@@ -369,6 +375,7 @@ musicRouter.get(
     authenticateJWT,
     async (req: Request, res: Response) => {
         const musicId = Number(req.params.musicId);
+        const date = new Date();
 
         try {
             const musicRepository = AppDataSource.getRepository(Song);
@@ -376,7 +383,8 @@ musicRouter.get(
                 {
                     where: {
                         id: musicId,
-                        is_active: true
+                        is_active: true,
+                        release_date: LessThan(date)
                     },
                     select: {
                         id: true,
@@ -1214,6 +1222,7 @@ musicRouter.get(
     "/show_music_by_genre/:genreId",
     authenticateJWT,
     async (req: Request, res: Response) => {
+         const date = new Date();
         try {
             const genreId = Number(req.params.genreId);
             const limit = Number(req.query.limit) || 20;
@@ -1225,8 +1234,10 @@ musicRouter.get(
                 take: limit,
                 where: {
                     is_active: true,
+                    release_date: LessThan(date),
                     album: {
                         is_active: true,
+                        release_date: LessThan(date),
                         genre: {
                             id: genreId
                         }
@@ -1899,11 +1910,13 @@ musicRouter.get(
             }
 
             // Get musics with pagination
+            const date = new Date();
             const musicRepository = AppDataSource.getRepository(Song);
             const [musics, total] = await musicRepository.findAndCount({
                 where: {
                     is_active: true,
-                    artist: { id: artistId }
+                    artist: { id: artistId },
+                    release_date: LessThan(date),
                 },
                 relations: {
                     image: true,
@@ -2112,7 +2125,7 @@ musicRouter.get(
             const limit = Number(req.query.limit) || 20;
             const page = Number(req.query.page) || 1;
             const skip = (page - 1) * limit;
-
+            const date = new Date();
             if (isNaN(artistId)) {
                 return res.status(400).json(
                     {
@@ -2127,7 +2140,8 @@ musicRouter.get(
                 {
                     where: {
                         id: artistId,
-                        is_active: true
+                        is_active: true,
+                        release_date: LessThan(date)
                     },
                     relations: {
                         user: {

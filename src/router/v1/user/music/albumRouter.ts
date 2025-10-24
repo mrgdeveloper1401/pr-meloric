@@ -115,7 +115,7 @@ albumRouter.get(
             }
 
             const albumRepository = AppDataSource.getRepository(Album);
-            
+            const date = new Date();
             const albums = await albumRepository
                 .createQueryBuilder("album")
                 .innerJoin("album.genre", "genre", "genre.id = :genreId", { genreId })
@@ -124,6 +124,7 @@ albumRouter.get(
                 .leftJoin("user.profile", "profile")  // Join با Profile
                 .leftJoin(Artist, "artist", "artist.user_id = user.id")  // Join با Artist
                 .where("album.is_active = :isActive", { isActive: true })
+                .andWhere("album.release_date < :date", {date})
                 .andWhere("artist.is_active = :artistActive", { artistActive: true })  // فقط آرتیست‌های فعال
                 .select([
                     "album.id",
