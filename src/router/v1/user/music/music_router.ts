@@ -12,7 +12,7 @@ import { Artist } from "../../../../entity/Artist";
 import { UpdateMusicDto } from "../../../../dtos/music/UpdateMusic";
 import { Image } from "../../../../entity/Image";
 import { FavoriteSong } from "../../../../entity/FavoriteSong";
-import { LessThan } from "typeorm";
+import { ILike, LessThan, Like } from "typeorm";
 
 
 export const musicRouter = Router();
@@ -120,7 +120,7 @@ musicRouter.get(
             const albumRepository = AppDataSource.getRepository(Album);
             const getAlbum = await albumRepository.findOne(
                 {
-                    where: { 
+                    where: {
                         id: albumId,
                         is_active: true,
                         release_date: LessThan(date)
@@ -141,7 +141,7 @@ musicRouter.get(
             const musicRepository = AppDataSource.getRepository(Song);
             const [songs, count] = await musicRepository.findAndCount(
                 {
-                    where: { album: getAlbum, is_active: true, release_date:  LessThan(date)},
+                    where: { album: getAlbum, is_active: true, release_date: LessThan(date) },
                     take: limit,
                     skip: skip,
                     select: {
@@ -449,9 +449,9 @@ musicRouter.get(
             const checkFavoritMusic = await FavoriteRepository.findOne(
                 {
                     where: {
-                        user: {id: userId},
+                        user: { id: userId },
                         is_active: true,
-                        song: {id: musicId}
+                        song: { id: musicId }
                     },
                     select: {
                         id: true
@@ -467,14 +467,14 @@ musicRouter.get(
                 {
                     where: {
                         is_active: true,
-                        song: {id: musicId}
+                        song: { id: musicId }
                     },
                     select: {
                         id: true
                     }
                 }
             );
-    
+
             const data = {
                 id: getMusic.id,
                 title: getMusic.title,
@@ -1222,7 +1222,7 @@ musicRouter.get(
     "/show_music_by_genre/:genreId",
     authenticateJWT,
     async (req: Request, res: Response) => {
-         const date = new Date();
+        const date = new Date();
         try {
             const genreId = Number(req.params.genreId);
             const limit = Number(req.query.limit) || 20;
@@ -2209,3 +2209,415 @@ musicRouter.get(
 
     }
 );
+
+// search music by title
+/**
+ * @swagger
+ * tags:
+ *   name: Music
+ *   description: Music management and search APIs
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     MusicSearchResponse:
+ *       type: object
+ *       properties:
+ *         message:
+ *           type: string
+ *           example: "success"
+ *         count:
+ *           type: integer
+ *           example: 150
+ *         limit:
+ *           type: integer
+ *           example: 20
+ *         page:
+ *           type: integer
+ *           example: 1
+ *         date:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 example: 1
+ *               title:
+ *                 type: string
+ *                 example: "Love Story"
+ *               release_date:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2023-01-15T00:00:00.000Z"
+ *               play_count:
+ *                 type: integer
+ *                 example: 1500
+ *               music_lyrics:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "This is the lyrics of the song..."
+ *               created_at:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2023-01-15T10:30:00.000Z"
+ *               image:
+ *                 type: object
+ *                 properties:
+ *                   image_path:
+ *                     type: string
+ *                     nullable: true
+ *                     example: "/images/song1.jpg"
+ *               album:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 1
+ *                   title:
+ *                     type: string
+ *                     example: "Best Hits"
+ *                   cover_image:
+ *                     type: string
+ *                     nullable: true
+ *                     example: "/images/album1.jpg"
+ *               artist:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 1
+ *                   nicke_name:
+ *                     type: string
+ *                     nullable: true
+ *                     example: "Super Artist"
+ *                   first_name:
+ *                     type: string
+ *                     nullable: true
+ *                     example: "John"
+ *                   last_name:
+ *                     type: string
+ *                     nullable: true
+ *                     example: "Doe"
+ *                   username:
+ *                     type: string
+ *                     example: "johndoe"
+ *                   cover_image:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 1
+ *                       image_path:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "/images/artist1.jpg"
+ *                   audio:
+ *                     type: object
+ *                     properties:
+ *                       audio_file_path:
+ *                         type: string
+ *                         example: "/audio/song1.mp3"
+ *                       audio_format:
+ *                         type: string
+ *                         example: "mp3"
+ * 
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "Error message"
+ * 
+ *   parameters:
+ *     TitleQueryParam:
+ *       in: query
+ *       name: title
+ *       required: true
+ *       schema:
+ *         type: string
+ *         minLength: 1
+ *       description: "Search query for song title"
+ *       example: "love"
+ * 
+ *     PageQueryParam:
+ *       in: query
+ *       name: page
+ *       schema:
+ *         type: integer
+ *         minimum: 1
+ *         default: 1
+ *       description: "Page number for pagination"
+ * 
+ *     LimitQueryParam:
+ *       in: query
+ *       name: limit
+ *       schema:
+ *         type: integer
+ *         minimum: 1
+ *         maximum: 100
+ *         default: 20
+ *       description: "Number of items per page (max 100)"
+ */
+
+/**
+ * @swagger
+ * /v1/user/music/search:
+ *   get:
+ *     summary: Search songs by title
+ *     description: |
+ *       Search for songs by title with pagination support.
+ *       Returns active songs that match the search criteria.
+ *     tags:
+ *       - Music
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/TitleQueryParam'
+ *       - $ref: '#/components/parameters/PageQueryParam'
+ *       - $ref: '#/components/parameters/LimitQueryParam'
+ *     responses:
+ *       200:
+ *         description: Successful search operation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "success"
+ *                 count:
+ *                   type: integer
+ *                   example: 150
+ *                 limit:
+ *                   type: integer
+ *                   example: 20
+ *                 page:
+ *                   type: integer
+ *                   example: 1
+ *                 date:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/MusicSearchResponse/properties/date/items'
+ *             examples:
+ *               success:
+ *                 summary: Successful search results
+ *                 value:
+ *                   message: "success"
+ *                   count: 150
+ *                   limit: 20
+ *                   page: 1
+ *                   date:
+ *                     - id: 1
+ *                       title: "Love Story"
+ *                       release_date: "2023-01-15T00:00:00.000Z"
+ *                       play_count: 1500
+ *                       music_lyrics: "This is the lyrics of the song..."
+ *                       created_at: "2023-01-15T10:30:00.000Z"
+ *                       image:
+ *                         image_path: "/images/song1.jpg"
+ *                       album:
+ *                         id: 1
+ *                         title: "Best Hits"
+ *                         cover_image: "/images/album1.jpg"
+ *                       artist:
+ *                         id: 1
+ *                         nicke_name: "Super Artist"
+ *                         first_name: "John"
+ *                         last_name: "Doe"
+ *                         username: "johndoe"
+ *                         cover_image:
+ *                           id: 1
+ *                           image_path: "/images/artist1.jpg"
+ *                         audio:
+ *                           audio_file_path: "/audio/song1.mp3"
+ *                           audio_format: "mp3"
+ * 
+ *       400:
+ *         description: Bad request - missing or invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               missingTitle:
+ *                 summary: Missing title parameter
+ *                 value:
+ *                   status: false
+ *                   message: "title params is required"
+ * 
+ *       401:
+ *         description: Unauthorized - JWT token missing or invalid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               unauthorized:
+ *                 summary: Unauthorized access
+ *                 value:
+ *                   status: false
+ *                   message: "Authentication token is required"
+ * 
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               serverError:
+ *                 summary: Internal server error
+ *                 value:
+ *                   status: false
+ *                   message: "server error"
+ */
+musicRouter.get(
+    "/search",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            // params
+            const limit = Number(req.query.limit) || 20;
+            const page = Number((req.query.page)) || 1;
+            const skip = (page - 1) * limit;
+            const title = (req.query.title) || null;
+
+            // validation title
+            if (!title) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "title params is required"
+                    }
+                )
+            }
+            // song
+            const date = new Date();
+            const MusicListResponse = AppDataSource.getRepository(Song);
+            const [findMusics, count] = await MusicListResponse.findAndCount(
+                {
+                    where: {
+                        title: ILike(`%${title}%`),
+                        is_active: true,
+                        release_date: LessThan(date),
+                        album: {
+                            is_active: true,
+                            release_date: LessThan(date)
+                        }
+                    },
+                    select: {
+                        id: true,
+                        title: true,
+                        release_date: true,
+                        play_count: true,
+                        music_lyrics: true,
+                        createdAt: true,
+                        album: {
+                            id: true,
+                            title: true,
+                            cover_image: {
+                                image_path: true
+                            }
+                        },
+                        audio: {
+                            audio_file_path: true,
+                            audio_format: true
+                        },
+                        image: {
+                            id: true,
+                            image_path: true
+                        },
+                        artist: {
+                            id: true,
+                            nick_name: true,
+                            user: {
+                                id: true,
+                                username: true,
+                                profile: {
+                                    id: true,
+                                    first_name: true,
+                                    last_name: true
+                                }
+                            }
+                        }
+
+                    },
+                    relations: {
+                        audio: true,
+                        image: true,
+                        album: {
+                            cover_image: true
+                        },
+                        artist: {
+                            cover_image: true,
+                            user: {
+                                profile: true
+                            }
+                        }
+                    },
+                    take: limit,
+                    skip: skip
+                }
+            )
+            const data = findMusics.map(
+                item => (
+                    {
+                        id: item.id,
+                        title: item.title,
+                        release_date: item.release_date,
+                        play_count: item.play_count,
+                        music_lyrics: item.music_lyrics,
+                        created_at: item.createdAt,
+                        image: {
+                            image_path: item.image?.image_path || null,
+                        },
+                        album: {
+                            id: item.album?.id || null,
+                            title: item.album?.title || null,
+                            cover_image: item.album.cover_image?.image_path || null
+                        },
+                        artist: {
+                            id: item.artist.id,
+                            nicke_name: item.artist?.nick_name || null,
+                            first_name: item.artist.user.profile?.first_name || null,
+                            last_name: item.artist.user.profile?.last_name || null,
+                            username: item.artist.user.username,
+                            cover_image: {
+                                id: item.artist.cover_image?.id || null,
+                                image_path: item.artist.cover_image?.image_path || null
+                            },
+                            audio: {
+                                audio_file_path: item.audio.audio_file_path,
+                                audio_format: item.audio.audio_format
+                            }
+                        }
+                    }
+                )
+            )
+            return res.status(200).json(
+                {
+                    message: "success",
+                    // title: title,
+                    count: count,
+                    limit: limit,
+                    page: page,
+                    date: findMusics
+                }
+            )
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+    })
