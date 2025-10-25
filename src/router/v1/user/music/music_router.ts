@@ -2621,3 +2621,145 @@ musicRouter.get(
             )
         }
     })
+
+
+// increemt play count
+/**
+ * @swagger
+ * /v1/user/music/increement_play_count/{musicId}:
+ *   post:
+ *     summary: Increment play count for a song
+ *     description: |
+ *       Increases the play count of a specific song by 1.
+ *       Only works for active songs that have been released.
+ *     tags:
+ *       - Music
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: musicId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Numeric ID of the music
+ *         example: 123
+ *     responses:
+ *       200:
+ *         description: Play count successfully incremented
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "successfully increment music"
+ *             examples:
+ *               success:
+ *                 summary: Play count incremented
+ *                 value:
+ *                   status: "success"
+ *                   message: "successfully increment music"
+ * 
+ *       400:
+ *         description: Invalid music ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               invalidId:
+ *                 summary: Invalid music ID
+ *                 value:
+ *                   status: false
+ *                   message: "music id not be null"
+ * 
+ *       404:
+ *         description: Music not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               notFound:
+ *                 summary: Music not found
+ *                 value:
+ *                   status: false
+ *                   message: "music not found"
+ * 
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+musicRouter.post(
+    "/increement_play_count/:musicId",
+    authenticateJWT,
+    async (req: Request, res: Response) => {
+        try {
+            const musicId = Number(req.params.musicId);
+            if (isNaN(musicId)) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "music id not be null"
+                    }
+                )
+            }
+            
+            const date = new Date();
+            const musicRepository = AppDataSource.getRepository(Song);
+            const music = await musicRepository.findOne(
+                {
+                    where: {
+                        id: musicId,
+                        is_active: true,
+                        release_date: LessThan(date),
+                        album: {
+                            is_active: true,
+                            release_date: LessThan(date)
+                        }
+                    },
+                    select: {
+                        id: true,
+                        play_count: true
+                    }
+                }
+            )
+            
+            if (!music) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "music not found"
+                    }
+                )
+            }
+
+            music.play_count += 1;
+            await music.save()
+
+            return res.status(200).json(
+                {
+                    status: "success",
+                    message: "successfully increment music"
+                }
+            )
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error"
+                }
+            )
+        }
+    }
+);
