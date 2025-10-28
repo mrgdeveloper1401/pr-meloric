@@ -116,7 +116,7 @@ services:
     depends_on:
       - db
     container_name: pgadmin_music
-    image: docker.arvancloud.ir/dpage/pgadmin4
+    image: dpage/pgadmin4
     restart: always
     ports:
       - "8080:80"
