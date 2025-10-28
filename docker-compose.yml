@@ -110,6 +110,20 @@ services:
       - DATABASE_URL=${PG_HERO_DATABASE_URL}
       - PGHERO_USERNAME=${PGHERO_USERNAME}
       - PGHERO_PASSWORD=${PGHERO_PASSWORD}
+  
+  pgadmin:
+    depends_on:
+      - db
+    container_name: pgadmin_music
+    image: dpage/pgadmin4
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+     - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+     - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
 
 volumes:
   music_volume:
@@ -117,4 +131,5 @@ volumes:
   redis_data:
   flower:
   log_nginx:
+  pgadmin_data:
   # log_rotate:
