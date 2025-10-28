@@ -97,6 +97,7 @@ services:
     entrypoint: "celery -A melo_music.dj_celery flower --port=5555"
 
   pghero:
+    restart: always
     depends_on:
       - db
     container_name: pghero_gapchi
