@@ -1800,18 +1800,38 @@ musicRouter.get(
  *       - Music
  *     summary: دریافت لیست موزیک‌های یک آرتیست
  *     description: |
- *       دریافت لیست تمام موزیک‌های فعال یک آرتیست خاص به همراه اطلاعات پجینیشن
+ *       دریافت لیست تمام موزیک‌های فعال یک آرتیست خاص به همراه اطلاعات پجینیشن و فیلترهای مرتب‌سازی
  *       
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - فقط موزیک‌های فعال (is_active=true) برگردانده می‌شوند
  *       - آرتیست نیز باید فعال باشد
+ *       
+ *       **پارامترهای مرتب‌سازی:**
+ *       - `sort_by`: فیلد برای مرتب‌سازی (مقدار پیش‌فرض: `created_at`)
+ *         - مقادیر مجاز: `created_at`, `play_count`, `release_date`, `title`
+ *       - `sort_order`: ترتیب مرتب‌سازی (مقدار پیش‌فرض: `desc`)
+ *         - مقادیر مجاز: `asc` (صعودی), `desc` (نزولی)
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - $ref: '#/components/parameters/ArtistIdParam'
  *       - $ref: '#/components/parameters/PageQueryParam'
  *       - $ref: '#/components/parameters/LimitQueryParam'
+ *       - name: sort_by
+ *         in: query
+ *         description: فیلد برای مرتب‌سازی
+ *         schema:
+ *           type: string
+ *           enum: [created_at, play_count, release_date, title]
+ *           default: created_at
+ *       - name: sort_order
+ *         in: query
+ *         description: ترتیب مرتب‌سازی
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
  *     responses:
  *       '200':
  *         description: موفقیت‌آمیز - لیست موزیک‌ها بازگردانده شد
@@ -1819,60 +1839,6 @@ musicRouter.get(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/MusicListResponse'
- *             examples:
- *               success:
- *                 summary: نمونه پاسخ موفق
- *                 value:
- *                   status: "success"
- *                   data:
- *                     - id: 1
- *                       title: "Beautiful Song"
- *                       artist_nick_name: "SuperStar"
- *                       artist_first_name: "John"
- *                       artist_last_name: "Doe"
- *                       release_date: "2024-01-15T00:00:00.000Z"
- *                       play_count: 1500
- *                       audio_file_path: "/uploads/audio/song1.mp3"
- *                       image_path: "/uploads/images/cover1.jpg"
- *                       created_at: "2024-01-15T10:30:00.000Z"
- *                       updated_at: "2024-01-16T14:20:00.000Z"
- *                   pagination:
- *                     total: 150
- *                     page: 1
- *                     limit: 20
- *                     totalPages: 8
- *                     hasNext: true
- *                     hasPrev: false
- *       '400':
- *         description: پارامترهای ورودی نامعتبر
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             examples:
- *               invalid_artist_id:
- *                 summary: artist_id نامعتبر
- *                 value:
- *                   status: false
- *                   message: "artist_id must be send params"
- *       '401':
- *         description: عدم دسترسی - توکن معتبر ارائه نشده
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       '404':
- *         description: آرتیست پیدا نشد یا غیرفعال است
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       '500':
- *         description: خطای داخلی سرور
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 musicRouter.get(
     "/:artistId/musics",
@@ -1883,12 +1849,34 @@ musicRouter.get(
             const page = Math.max(1, Number(req.query.page) || 1);
             const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
             const skip = (page - 1) * limit;
+            
+            // پارامترهای مرتب‌سازی جدید
+            const sortBy = (req.query.sort_by as string) || 'created_at';
+            const sortOrder = (req.query.sort_order as string) || 'desc';
 
             // Validation
             if (isNaN(artistId)) {
                 return res.status(400).json({
                     status: false,
                     message: "artist_id must be a valid number"
+                });
+            }
+
+            // اعتبارسنجی پارامترهای مرتب‌سازی
+            const validSortFields = ['created_at', 'play_count', 'release_date', 'title', 'like_quantity'];
+            const validSortOrders = ['asc', 'desc'];
+            
+            if (!validSortFields.includes(sortBy)) {
+                return res.status(400).json({
+                    status: false,
+                    message: `Invalid sort_by parameter. Valid values: ${validSortFields.join(', ')}`
+                });
+            }
+
+            if (!validSortOrders.includes(sortOrder)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "Invalid sort_order parameter. Valid values: asc, desc"
                 });
             }
 
@@ -1909,7 +1897,29 @@ musicRouter.get(
                 });
             }
 
-            // Get musics with pagination
+            // تعیین فیلد مرتب‌سازی برای TypeORM
+            let orderField = '';
+            switch (sortBy) {
+                case 'created_at':
+                    orderField = 'createdAt';
+                    break;
+                case 'play_count':
+                    orderField = 'play_count';
+                    break;
+                case 'release_date':
+                    orderField = 'release_date';
+                    break;
+                case 'title':
+                    orderField = 'title';
+                    break;
+                case 'like_quantity':
+                    orderField = 'like_quantity';
+                    break;
+                default:
+                    orderField = 'createdAt';
+            }
+
+            // Get musics with pagination and sorting
             const date = new Date();
             const musicRepository = AppDataSource.getRepository(Song);
             const [musics, total] = await musicRepository.findAndCount({
@@ -1938,15 +1948,28 @@ musicRouter.get(
                     title: true,
                     release_date: true,
                     play_count: true,
+                    music_lyrics: true,
                     audio: {
-                        audio_file_path: true
+                        audio_file_path: true,
+                        audio_format: true
                     },
                     image: {
                         image_path: true
                     },
+                    album: {
+                        id: true,
+                        title: true,
+                        cover_image: {
+                            image_path: true
+                        }
+                    },
                     artist: {
                         id: true,
                         nick_name: true,
+                        cover_image: {
+                            id: true,
+                            image_path: true
+                        },
                         user: {
                             username: true,
                             id: true,
@@ -1958,62 +1981,44 @@ musicRouter.get(
                         }
                     }
                 },
-                order: { createdAt: "DESC" },
+                order: { [orderField]: sortOrder.toUpperCase() as "ASC" | "DESC" },
                 skip,
                 take: limit
             });
 
             // Transform data
-            // const simpleData = musics.map(item => ({
-            //     id: item.id,
-            //     artist_id: item.artist.id,
-            //     artist_nick_name: item.artist?.nick_name || null,
-            //     artist_first_name: item.artist?.user?.profile?.first_name || null,
-            //     artist_last_name: item.artist?.user?.profile?.last_name || null,
-            //     title: item.title,
-            //     created_at: item.createdAt,
-            //     updated_at: item.updatedAt,
-            //     release_date: item.release_date,
-            //     play_count: item.play_count,
-            //     audio_file_path: item.audio?.audio_file_path,
-            //     image_path: item.image?.image_path || null
-            // }));
-
-            const data = musics.map(
-                item => (
-                    {
-                        id: item.id,
-                        title: item.title,
-                        release_date: item.release_date,
-                        play_count: item.play_count,
-                        music_lyrics: item.music_lyrics,
-                        created_at: item.createdAt,
-                        image: {
-                            image_path: item.image?.image_path || null,
-                        },
-                        album: {
-                            id: item.album?.id || null,
-                            title: item.album?.title || null,
-                            cover_image: item.album.cover_image?.image_path || null
-                        },
-                        artist: {
-                            id: item.artist.id,
-                            nicke_name: item.artist?.nick_name || null,
-                            first_name: item.artist.user.profile?.first_name || null,
-                            last_name: item.artist.user.profile?.last_name || null,
-                            username: item.artist.user.username,
-                            cover_image: {
-                                id: item.artist.cover_image?.id || null,
-                                image_path: item.artist.cover_image?.image_path || null
-                            },
-                            audio: {
-                                audio_file_path: item.audio.audio_file_path,
-                                audio_format: item.audio.audio_format
-                            }
-                        }
+            const data = musics.map(item => ({
+                id: item.id,
+                title: item.title,
+                release_date: item.release_date,
+                play_count: item.play_count,
+                music_lyrics: item.music_lyrics,
+                created_at: item.createdAt,
+                image: {
+                    image_path: item.image?.image_path || null,
+                },
+                album: {
+                    id: item.album?.id || null,
+                    title: item.album?.title || null,
+                    cover_image: item.album?.cover_image?.image_path || null
+                },
+                artist: {
+                    id: item.artist.id,
+                    nick_name: item.artist?.nick_name || null,
+                    first_name: item.artist.user.profile?.first_name || null,
+                    last_name: item.artist.user.profile?.last_name || null,
+                    username: item.artist.user.username,
+                    cover_image: {
+                        id: item.artist.cover_image?.id || null,
+                        image_path: item.artist.cover_image?.image_path || null
                     }
-                )
-            )
+                },
+                audio: {
+                    audio_file_path: item.audio?.audio_file_path,
+                    audio_format: item.audio?.audio_format
+                }
+            }));
+
             // Pagination info
             const totalPages = Math.ceil(total / limit);
             const pagination = {
@@ -2022,7 +2027,9 @@ musicRouter.get(
                 limit,
                 totalPages,
                 hasNext: page < totalPages,
-                hasPrev: page > 1
+                hasPrev: page > 1,
+                sort_by: sortBy,
+                sort_order: sortOrder
             };
 
             return res.status(200).json({
@@ -2032,7 +2039,7 @@ musicRouter.get(
             });
 
         } catch (error) {
-            // console.error("Error in artist musics route:", error);
+            console.error("Error in artist musics route:", error);
             return res.status(500).json({
                 status: false,
                 message: "Internal server error"
