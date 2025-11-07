@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../../../../data-source";
 import { Story } from "../../../../entity/Story";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
-import { In, MoreThan } from "typeorm";
+import { In, LessThan, MoreThan } from "typeorm";
 import { User } from "../../../../entity/User";
 import { s3ClientConfig, videoUploaded } from "../../../../utils/amazon_s3/S3Config";
 import fs from "fs";
@@ -295,10 +295,13 @@ storyRouter.get(
             const storyId = parseInt(req.params.story_id);
 
             const storyRepository = AppDataSource.getRepository(Story);
+            const tomrarow = new Date()
+            tomrarow.setDate(tomrarow.getDate() + 1)
             const story = await storyRepository.findOne({
                 where: { 
                     id: storyId,
                     is_active: true,
+                    createdAt: LessThan(tomrarow),
                     media: {
                         is_active: true
                     }
@@ -583,13 +586,13 @@ storyRouter.get(
             const limit = parseInt(req.query.limit as string) || 20;
             const page = parseInt(req.query.page as string) || 1;
             const skip = (page - 1) * limit;
-            const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-            
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1)
             const storyRepository = AppDataSource.getRepository(Story);
             const [stories, totalCount] = await storyRepository.findAndCount({
                 where: { 
                     is_active: true, 
-                    // createdAt: MoreThan(twentyFourHoursAgo),
+                    createdAt: LessThan(tomorrow),
                     media: {
                         is_active: true
                     }
