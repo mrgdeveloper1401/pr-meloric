@@ -295,13 +295,13 @@ storyRouter.get(
             const storyId = parseInt(req.params.story_id);
 
             const storyRepository = AppDataSource.getRepository(Story);
-            const tomrarow = new Date()
-            tomrarow.setDate(tomrarow.getDate() + 1)
+            const twentyFourHoursAgo = new Date();
+            twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
             const story = await storyRepository.findOne({
                 where: { 
                     id: storyId,
                     is_active: true,
-                    createdAt: LessThan(tomrarow),
+                    createdAt: MoreThan(twentyFourHoursAgo),
                     media: {
                         is_active: true
                     }
@@ -586,13 +586,14 @@ storyRouter.get(
             const limit = parseInt(req.query.limit as string) || 20;
             const page = parseInt(req.query.page as string) || 1;
             const skip = (page - 1) * limit;
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1)
+
+            const twentyFourHoursAgo = new Date();
+            twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
             const storyRepository = AppDataSource.getRepository(Story);
             const [stories, totalCount] = await storyRepository.findAndCount({
                 where: { 
                     is_active: true, 
-                    createdAt: LessThan(tomorrow),
+                    createdAt: MoreThan(twentyFourHoursAgo),
                     media: {
                         is_active: true
                     }
