@@ -1,7 +1,8 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn} from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn} from "typeorm";
 import { User } from "./User";
 import { Image } from "./Image";
 import { TimestampEntity } from "./Abstract";
+import { ArtistGallery } from "./ArtistGallery";
 
 @Entity()
 export class Artist extends TimestampEntity{
@@ -21,6 +22,9 @@ export class Artist extends TimestampEntity{
   @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
   @JoinColumn({name: "image_id"})
   cover_image: Image;
+
+  @OneToMany(() => ArtistGallery, gallery => gallery.artist)
+  gallery_images: ArtistGallery[];
 
   @Column({ length: 400, nullable: true})
   bio: string;

@@ -63,6 +63,7 @@ export const artistReouter = Router();
  *       description: "JWT Token برای احراز هویت"
  */
 
+// show onwer artist profile
 /**
  * @swagger
  * /v1/user/artist/artist_profile/:
@@ -145,66 +146,88 @@ artistReouter.get(
         try {
             const userId = (req as any).user.user_id;
             const artistRepository = AppDataSource.getRepository(Artist);
-            const getArtist = await artistRepository.findOne(
-                {
-                    where: {
+            
+            const getArtist = await artistRepository.findOne({
+                where: {
+                    is_active: true,
+                    user: {
+                        id: userId,
                         is_active: true,
-                        user: {
-                            id: userId,
-                            is_active: true,
-                            is_artist: true
-                        }
-                    },
-                    relations: {
-                        cover_image: true
-                    },
-                    select: {
+                        is_artist: true
+                    }
+                },
+                relations: {
+                    cover_image: true,
+                    user: true,
+                    gallery_images: {
+                        image: true
+                    }
+                },
+                select: {
+                    id: true,
+                    monthly_listeners: true,
+                    nick_name: true,
+                    bio: true,
+                    cover_image: {
                         id: true,
-                        monthly_listeners: true,
-                        nick_name: true,
-                        bio: true,
-                        cover_image: {
+                        image_path: true
+                    },
+                    user: {
+                        id: true,
+                        is_artist: true,
+                        is_active: true
+                    },
+                    gallery_images: {
+                        id: true,
+                        image: {
                             id: true,
                             image_path: true
                         }
                     }
                 }
-            );
-            // check artist dose exists
+            });
+
             if (!getArtist) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "artist not found"
-                    }
-                )
+                return res.status(404).json({
+                    status: false,
+                    message: "artist not found"
+                });
             }
-            // return information artist
+
+            // اضافه کردن بررسی null برای cover_image
             const simpleData = {
                 artist_id: getArtist.id,
                 monthly_listeners: getArtist.monthly_listeners,
-                cover_image: {
+                cover_image: getArtist.cover_image ? {
                     id: getArtist.cover_image.id,
-                    image_path: getArtist.cover_image?.image_path || null
-                },
+                    image_path: getArtist.cover_image.image_path
+                } : null,
                 bio: getArtist.bio,
-                nick_name: getArtist.nick_name
-            }
-            return res.status(200).json(
-                {
-                    status: "success",
-                    data: simpleData
-                }
-            )
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            )
-        }
+                nick_name: getArtist.nick_name,
+                gallary_image: getArtist.gallery_images.filter(
+                    gallery => gallery.is_active
+                ).map(
+                    gallery => (
+                        {
+                            id: gallery.id,
+                            image_path: gallery.image.image_path
+                        }
+                    )
+                )
+            };
 
+            return res.status(200).json({
+                status: "success",
+                data: simpleData
+            });
+            
+        } catch (error) {
+            console.error("Error in artist profile:", error); // اضافه کردن log برای دیباگ
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
+        }
     }
 );
 
@@ -448,7 +471,7 @@ artistReouter.patch(
                     data: updateArtistProfile
                 }
             );
-        } catch (error) {
+        } catch (error) {            
             return res.status(500).json(
                 {
                     status: false,
@@ -562,6 +585,8 @@ artistReouter.patch(
  *       scheme: bearer
  *       bearerFormat: JWT
  */
+
+// get artist public profile
 
 /**
  * @swagger
@@ -677,6 +702,9 @@ artistReouter.get(
                         cover_image: true,
                         user: {
                             profile: true
+                        },
+                        gallery_images: {
+                            image: true
                         }
                     },
                     select: {
@@ -695,7 +723,15 @@ artistReouter.get(
                                 first_name: true,
                                 last_name: true
                             }
+                        },
+                        gallery_images: {
+                            id: true,
+                            image: {
+                                id: true,
+                                image_path: true
+                            }
                         }
+
                     }
                 }
             )
@@ -716,7 +752,17 @@ artistReouter.get(
                 artist_last_name: getArtist.user.profile?.last_name || null,
                 monthly_listeners: getArtist.monthly_listeners,
                 bio: getArtist.bio,
-                nick_name: getArtist.nick_name
+                nick_name: getArtist.nick_name,
+                gallery_images: getArtist.gallery_images.filter(
+                    gallery => gallery.is_active
+                ).map(
+                    gallery => (
+                        {
+                            id: gallery.id,
+                            image_path: gallery.image?.image_path || null
+                        }
+                    )
+                )
             }
             return res.status(200).json(
                 {
