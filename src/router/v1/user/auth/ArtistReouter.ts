@@ -602,32 +602,87 @@ artistReouter.patch(
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - آرتیست باید فعال (is_active=true) باشد
- *       - اطلاعات کامل پروفایل، کاور و کاربر مرتبط برگردانده می‌شود
+ *       - اطلاعات کامل پروفایل، کاور، گالری تصاویر و وضعیت فالو برگردانده می‌شود
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - $ref: '#/components/parameters/ArtistIdParam'
+ *       - name: artistId
+ *         in: path
+ *         required: true
+ *         description: آیدی عددی آرتیست
+ *         schema:
+ *           type: integer
+ *           example: 1
  *     responses:
  *       '200':
  *         description: موفقیت‌آمیز - اطلاعات پروفایل آرتیست بازگردانده شد
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ArtistPublicProfileResponse'
- *             examples:
- *               success:
- *                 summary: نمونه پاسخ موفق
- *                 value:
- *                   status: "success"
- *                   data:
- *                     artist_id: 1
- *                     nick_name: "محسن یگانه"
- *                     bio: "خواننده و ترانه سرای پاپ ایرانی با بیش از ۱۵ سال سابقه فعالیت در موسیقی"
- *                     monthly_listeners: 150000
- *                     image_path: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/artists/mohsen-yeganeh-cover.jpg"
- *                     artist_username: "mohsen_yeganeh"
- *                     artist_first_name: "محسن"
- *                     artist_last_name: "یگانه"
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user_id:
+ *                       type: integer
+ *                       description: آیدی کاربر آرتیست
+ *                       example: 123
+ *                     artist_id:
+ *                       type: integer
+ *                       description: آیدی آرتیست
+ *                       example: 1
+ *                     artist_username:
+ *                       type: string
+ *                       description: نام کاربری آرتیست
+ *                       example: "mohsen_yeganeh"
+ *                     artist_image:
+ *                       type: string
+ *                       nullable: true
+ *                       description: مسیر تصویر کاور آرتیست
+ *                       example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/artists/mohsen-yeganeh-cover.jpg"
+ *                     artist_first_name:
+ *                       type: string
+ *                       nullable: true
+ *                       description: نام آرتیست
+ *                       example: "محسن"
+ *                     artist_last_name:
+ *                       type: string
+ *                       nullable: true
+ *                       description: نام خانوادگی آرتیست
+ *                       example: "یگانه"
+ *                     monthly_listeners:
+ *                       type: integer
+ *                       description: تعداد شنوندگان ماهانه
+ *                       example: 150000
+ *                     bio:
+ *                       type: string
+ *                       description: بیوگرافی آرتیست
+ *                       example: "خواننده و ترانه سرای پاپ ایرانی با بیش از ۱۵ سال سابقه فعالیت در موسیقی"
+ *                     nick_name:
+ *                       type: string
+ *                       description: نام هنری
+ *                       example: "محسن یگانه"
+ *                     gallery_images:
+ *                       type: array
+ *                       description: لیست تصاویر گالری
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 1
+ *                           image_path:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/gallery/image1.jpg"
+ *                 is_follow:
+ *                   type: boolean
+ *                   description: وضعیت فالو کردن توسط کاربر جاری
+ *                   example: true
  *       '400':
  *         description: پارامترهای ورودی نامعتبر
  *         content:
@@ -706,7 +761,8 @@ artistReouter.get(
                         },
                         gallery_images: {
                             image: true
-                        }
+                        },
+                        social_links: true
                     },
                     select: {
                         id: true,
@@ -727,10 +783,17 @@ artistReouter.get(
                         },
                         gallery_images: {
                             id: true,
+                            is_active: true,
                             image: {
                                 id: true,
                                 image_path: true
                             }
+                        },
+                        social_links: {
+                            id: true,
+                            platform: true,
+                            url: true,
+                            is_active: true
                         }
 
                     }
@@ -776,7 +839,18 @@ artistReouter.get(
                     gallery => (
                         {
                             id: gallery.id,
-                            image_path: gallery.image?.image_path || null
+                            image_path: gallery.image.image_path
+                        }
+                    )
+                ),
+                artist_social: getArtist.social_links.filter(
+                    social => social.is_active
+                ).map(
+                    social => (
+                        {
+                            platform: social.platform,
+                            url: social.url,
+                            
                         }
                     )
                 )
@@ -785,8 +859,7 @@ artistReouter.get(
                 {
                     status: "success",
                     data: simpleData,
-                    request_user: (req as any).user.user_id,
-                    is_follow: isFollow
+                    is_follow: isFollow,
                 }
             )
         } catch (error) {

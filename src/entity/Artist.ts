@@ -3,6 +3,7 @@ import { User } from "./User";
 import { Image } from "./Image";
 import { TimestampEntity } from "./Abstract";
 import { ArtistGallery } from "./ArtistGallery";
+import { ArtistSocial } from "./ArtistSocial";
 
 @Entity()
 export class Artist extends TimestampEntity{
@@ -25,6 +26,9 @@ export class Artist extends TimestampEntity{
 
   @OneToMany(() => ArtistGallery, gallery => gallery.artist)
   gallery_images: ArtistGallery[];
+
+  @OneToMany(() => ArtistSocial, social => social.artist)
+  social_links: ArtistSocial[];
 
   @Column({ length: 400, nullable: true})
   bio: string;
