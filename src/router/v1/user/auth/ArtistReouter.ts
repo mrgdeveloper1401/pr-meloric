@@ -630,7 +630,7 @@ artistReouter.patch(
  *                     user_id:
  *                       type: integer
  *                       description: آیدی کاربر آرتیست
- *                       example: 123
+ *                       example: 1
  *                     artist_id:
  *                       type: integer
  *                       description: آیدی آرتیست
@@ -638,34 +638,34 @@ artistReouter.patch(
  *                     artist_username:
  *                       type: string
  *                       description: نام کاربری آرتیست
- *                       example: "mohsen_yeganeh"
+ *                       example: "john_doe"
  *                     artist_image:
  *                       type: string
  *                       nullable: true
  *                       description: مسیر تصویر کاور آرتیست
- *                       example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/artists/mohsen-yeganeh-cover.jpg"
+ *                       example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/1/1759053403801-200735270.jpeg"
  *                     artist_first_name:
  *                       type: string
  *                       nullable: true
  *                       description: نام آرتیست
- *                       example: "محسن"
+ *                       example: "جان"
  *                     artist_last_name:
  *                       type: string
  *                       nullable: true
  *                       description: نام خانوادگی آرتیست
- *                       example: "یگانه"
+ *                       example: "دو"
  *                     monthly_listeners:
  *                       type: integer
  *                       description: تعداد شنوندگان ماهانه
- *                       example: 150000
+ *                       example: 0
  *                     bio:
  *                       type: string
  *                       description: بیوگرافی آرتیست
- *                       example: "خواننده و ترانه سرای پاپ ایرانی با بیش از ۱۵ سال سابقه فعالیت در موسیقی"
+ *                       example: "بیوگرافی جدید یذیبذیذ"
  *                     nick_name:
  *                       type: string
  *                       description: نام هنری
- *                       example: "محسن یگانه"
+ *                       example: "ali rezaei"
  *                     gallery_images:
  *                       type: array
  *                       description: لیست تصاویر گالری
@@ -677,12 +677,23 @@ artistReouter.patch(
  *                             example: 1
  *                           image_path:
  *                             type: string
- *                             nullable: true
- *                             example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/gallery/image1.jpg"
+ *                             example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/19/1758717049408-462980426.jpeg"
+ *                     artist_social:
+ *                       type: array
+ *                       description: لیست شبکه های اجتماعی آرتیست
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           platform:
+ *                             type: string
+ *                             example: "instagram"
+ *                           url:
+ *                             type: string
+ *                             example: "https://instagram.com"
  *                 is_follow:
  *                   type: boolean
  *                   description: وضعیت فالو کردن توسط کاربر جاری
- *                   example: true
+ *                   example: false
  *       '400':
  *         description: پارامترهای ورودی نامعتبر
  *         content:
@@ -850,7 +861,7 @@ artistReouter.get(
                         {
                             platform: social.platform,
                             url: social.url,
-                            
+
                         }
                     )
                 )
