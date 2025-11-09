@@ -6,6 +6,7 @@ import { plainToClass } from "class-transformer";
 import { UpdateArtistProfile } from "../../../../dtos/auth/UpdateArtistProfile";
 import { validate } from "class-validator";
 import { Image } from "../../../../entity/Image";
+import { Follow } from "../../../../entity/Follow";
 
 
 export const artistReouter = Router();
@@ -744,7 +745,23 @@ artistReouter.get(
                 )
             }
 
+            const followRepository = AppDataSource.getRepository(Follow);
+            const request_user_id = (req as any).user.user_id;
+            const checkFollow = await followRepository.findOne(
+                {
+                    where: {
+                        from_user : {id: request_user_id},
+                        is_active: true,
+                        to_user: {id: getArtist.user.id}
+                    }
+                }
+            )
+            let isFollow: boolean = false;
+            if (checkFollow) {
+                isFollow = true
+            }
             const simpleData = {
+                user_id: getArtist.user.id,
                 artist_id: getArtist.id,
                 artist_username: getArtist.user.username,
                 artist_image: getArtist.cover_image?.image_path || null,
@@ -767,7 +784,9 @@ artistReouter.get(
             return res.status(200).json(
                 {
                     status: "success",
-                    data: simpleData
+                    data: simpleData,
+                    request_user: (req as any).user.user_id,
+                    is_follow: isFollow
                 }
             )
         } catch (error) {
