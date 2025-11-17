@@ -54,63 +54,65 @@ services:
     build:
       context: nginx
       dockerfile: Dockerfile
-
-  dj-admin-pannel:
-    build:
-      context: /root/online-melo
-      dockerfile: Dockerfile
-    env_file: "/root/online-melo/.env"
-    restart: always
-    expose:
-      - 8000
-    ports:
-      - "8000:8000"
-    volumes:
-      - static_files:/home/app/staticfiles
-      - flower:/home/app/static_files_flowers
     depends_on:
-      - db
       - app
-      - redis
-      - nginx
 
-  dj-celery:
-    build:
-      context: /root/online-melo
-      dockerfile: Dockerfile
-    env_file: "/root/online-melo/.env"
-    restart: always
-    depends_on:
-      - dj-admin-pannel
-    entrypoint: "celery -A melo_music.dj_celery worker -l INFO"
+  # dj-admin-pannel:
+  #   build:
+  #     context: /root/online-melo
+  #     dockerfile: Dockerfile
+  #   env_file: "/root/online-melo/.env"
+  #   restart: always
+  #   expose:
+  #     - 8000
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - static_files:/home/app/staticfiles
+  #     - flower:/home/app/static_files_flowers
+  #   depends_on:
+  #     - db
+  #     - app
+  #     - redis
+  #     - nginx
 
-  flower:
-    build:
-      context: /root/online-melo
-      dockerfile: Dockerfile
-    env_file: "/root/online-melo/.env"
-    restart: always
-    expose:
-      - 5555
-    depends_on:
-      - dj-celery
-    entrypoint: "celery -A melo_music.dj_celery flower --port=5555"
+  # dj-celery:
+  #   build:
+  #     context: /root/online-melo
+  #     dockerfile: Dockerfile
+  #   env_file: "/root/online-melo/.env"
+  #   restart: always
+  #   depends_on:
+  #     - dj-admin-pannel
+  #   entrypoint: "celery -A melo_music.dj_celery worker -l INFO"
 
-  pghero:
-    restart: always
-    depends_on:
-      - db
-    container_name: pghero_gapchi
-    ports:
-      - "8080:8080"
-    expose:
-      - 8080
-    image: ankane/pghero
-    environment:
-      # - DATABASE_URL=postgres://[username]:[password]@[hostname]:[port]/[database_name]
-      - DATABASE_URL=${PG_HERO_DATABASE_URL}
-      - PGHERO_USERNAME=${PGHERO_USERNAME}
-      - PGHERO_PASSWORD=${PGHERO_PASSWORD}
+  # flower:
+  #   build:
+  #     context: /root/online-melo
+  #     dockerfile: Dockerfile
+  #   env_file: "/root/online-melo/.env"
+  #   restart: always
+  #   expose:
+  #     - 5555
+  #   depends_on:
+  #     - dj-celery
+  #   entrypoint: "celery -A melo_music.dj_celery flower --port=5555"
+
+  # pghero:
+  #   restart: always
+  #   depends_on:
+  #     - db
+  #   container_name: pghero_gapchi
+  #   ports:
+  #     - "8080:8080"
+  #   expose:
+  #     - 8080
+  #   image: ankane/pghero
+  #   environment:
+  #     # - DATABASE_URL=postgres://[username]:[password]@[hostname]:[port]/[database_name]
+  #     - DATABASE_URL=${PG_HERO_DATABASE_URL}
+  #     - PGHERO_USERNAME=${PGHERO_USERNAME}
+  #     - PGHERO_PASSWORD=${PGHERO_PASSWORD}
   
   pgadmin:
     depends_on:
@@ -130,7 +132,7 @@ volumes:
   music_volume:
   static_files:
   redis_data:
-  flower:
+  # flower:
   log_nginx:
   pgadmin_data:
   # log_rotate:
