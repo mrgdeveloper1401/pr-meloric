@@ -788,11 +788,12 @@ userAuthRouter.post(
                     where: { username: loginByUsername.username }, select: ["id", 'username', "password", "is_active", "is_staff", "is_artist"]
                 }
             );
-            const isMatch = funcVerifyPassword(loginByUsername.password, user.password);
 
             if (!user) {
                 return res.status(400).json({ message: "username or password is invalid" })
             }
+
+            const isMatch = funcVerifyPassword(loginByUsername.password, user.password);
 
             if (!isMatch) {
                 return res.status(400).json({ message: "username or password is invalid" })
@@ -824,7 +825,6 @@ userAuthRouter.post(
                 {
                     message: "server error",
                     status: "false",
-                    error: error
                 }
             )
         }
