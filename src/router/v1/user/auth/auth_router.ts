@@ -117,6 +117,7 @@ const userAuthRouter = express.Router()
  */
 userAuthRouter.post(
     "/refresh_token",
+    authenticateJWT,
     async (req: Request, res: Response) => {
         try {
             // check request body
@@ -247,7 +248,8 @@ userAuthRouter.post(
             return res.status(500).json(
                 {
                     status: false,
-                    message: "server error"
+                    message: "server error",
+                    error: error.message
                 }
             )
         }
@@ -423,7 +425,7 @@ userAuthRouter.post(
                     return res.status(400).json(
                         {
                             status: false,
-                            message: "token already exists"
+                            message: "Token is blocked."
                         }
                     );
                 }
@@ -455,7 +457,8 @@ userAuthRouter.post(
             return res.status(500).json(
                 {
                     status: false,
-                    message: "server error"
+                    message: "server error",
+                    error: error.message
                 }
             )
         }
