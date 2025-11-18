@@ -18,13 +18,13 @@ export class ProfileDto {
     @IsString()
     bio?: string;
 
-    @IsOptional()
-    @IsArray()
-    jobs?: string[];
+    // @IsOptional()
+    // @IsArray()
+    // jobs?: string[];
 
-    @IsOptional()
-    @IsArray()
-    social?: string[];
+    // @IsOptional()
+    // @IsArray()
+    // social?: string[];
     
     @IsOptional()
     @IsNumber()

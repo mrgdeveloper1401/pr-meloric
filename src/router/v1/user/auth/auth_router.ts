@@ -1658,7 +1658,7 @@ userAuthRouter.get(
                         last_name: true,
                         birth_date: true,
                         bio: true,
-                        jobs: true,
+                        // jobs: true,
                         social: true,
                         banner_image: {
                             id: true,
@@ -1677,7 +1677,7 @@ userAuthRouter.get(
                             username: true,
                             email: true,
                             is_artist: true,
-                            is_public: true,
+                            // is_public: true,
                             user_artist_set: {
                                 id: true
                             }
@@ -1747,7 +1747,7 @@ userAuthRouter.get(
                 }
             )
         }
-    });
+});
 
 // update profile
 /**
@@ -1891,13 +1891,17 @@ userAuthRouter.patch(
             const profileRepository = AppDataSource.getRepository(Profile);
             const getProfile = await profileRepository.findOne({
                 where: { user: { id: userId } },
-                relations: ["profile_image", "banner_image", "banner_galery_image"],
+                relations: {
+                    profile_image: true,
+                    banner_galery_image: true,
+                    banner_image: true
+                },
                 select: {
                     id: true,
                     first_name: true,
                     last_name: true,
-                    jobs: true,
-                    social: true,
+                    // jobs: true,
+                    // social: true,
                     bio: true,
                     birth_date: true,
                     profile_image: {
@@ -1956,7 +1960,9 @@ userAuthRouter.patch(
                         message: "Profile image not found"
                     });
                 }
-                getProfile.profile_image = profileImage;
+                else {
+                    getProfile.profile_image = profileImage;
+                }
             }
 
             // Check banner image
@@ -1971,7 +1977,9 @@ userAuthRouter.patch(
                         message: "Banner image not found"
                     });
                 }
-                getProfile.banner_image = bannerImage;
+                else {
+                    getProfile.banner_image = bannerImage;
+                }
             }
 
             // Check banner gallery image
@@ -1986,7 +1994,10 @@ userAuthRouter.patch(
                         message: "Banner gallery image not found"
                     });
                 }
-                getProfile.banner_galery_image = bannerGalleryImage;
+                else {
+                    getProfile.banner_galery_image = bannerGalleryImage;
+                }
+                    
             }
 
             // update profile fields
@@ -2006,17 +2017,17 @@ userAuthRouter.patch(
                 getProfile.bio = profileDto.bio;
             }
 
-            if (profileDto.jobs !== undefined) {
-                if (Array.isArray(profileDto.jobs) && profileDto.jobs.every((item) => typeof item === 'string')) {
-                    getProfile.jobs = profileDto.jobs;
-                }
-            }
+            // if (profileDto.jobs !== undefined) {
+            //     if (Array.isArray(profileDto.jobs) && profileDto.jobs.every((item) => typeof item === 'string')) {
+            //         getProfile.jobs = profileDto.jobs;
+            //     }
+            // }
 
-            if (profileDto.social !== undefined) {
-                if (Array.isArray(profileDto.social) && profileDto.social.every((item) => typeof item === 'string')) {
-                    getProfile.social = profileDto.social;
-                }
-            }
+            // if (profileDto.social !== undefined) {
+            //     if (Array.isArray(profileDto.social) && profileDto.social.every((item) => typeof item === 'string')) {
+            //         getProfile.social = profileDto.social;
+            //     }
+            // }
 
             // Save updated profile
             await profileRepository.save(getProfile);
@@ -2025,17 +2036,18 @@ userAuthRouter.patch(
             return res.status(200).json({
                 status: "success",
                 message: "ok",
-                data: {
-                    first_name: getProfile.first_name,
-                    last_name: getProfile.last_name,
-                    birth_date: getProfile.birth_date,
-                    bio: getProfile.bio,
-                    jobs: getProfile.jobs,
-                    social: getProfile.social,
-                    profile_image: getProfile.profile_image,
-                    banner_image: getProfile.banner_image,
-                    banner_galery_image: getProfile.banner_galery_image
-                }
+                // data: {
+                //     first_name: getProfile.first_name,
+                //     last_name: getProfile.last_name,
+                //     birth_date: getProfile.birth_date,
+                //     bio: getProfile.bio,
+                //     // jobs: getProfile.jobs,
+                //     // social: getProfile.social,
+                //     profile_image: getProfile.profile_image,
+                //     banner_image: getProfile.banner_image,
+                //     banner_galery_image: getProfile.banner_galery_image
+                // }
+                data: profileDto
             });
         } catch (error) {
             console.error("Profile update error:", error);
