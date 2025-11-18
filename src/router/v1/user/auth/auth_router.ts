@@ -825,6 +825,7 @@ userAuthRouter.post(
                 {
                     message: "server error",
                     status: "false",
+                    error: error.message
                 }
             )
         }
@@ -2228,7 +2229,8 @@ userAuthRouter.post(
             }
 
             // save new password
-            user.password = resetPasswordDto.new_password;
+            const saveNewPassword = funcCreateHashPassword(resetPasswordDto.confirm_password);
+            user.password = saveNewPassword;
             await user.save();
             return res.status(200).json(
                 {
