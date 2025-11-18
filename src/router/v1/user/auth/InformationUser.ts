@@ -5,8 +5,7 @@ import { User } from "../../../../entity/User";
 import { plainToClass } from "class-transformer";
 import { ChangeAndConfirmMobilePhone, UpdateMobilePhoneDto } from "../../../../dtos/auth/UpdateMobilePhone";
 import { validate } from "class-validator";
-import { sendOtp } from "../../../../utils/sendOtpSmsIr";
-import { VerifyOtpRedis } from "../../../../utils/connectRedis";
+import { otpManagerClass, VerifyOtpRedis } from "../../../../utils/connectRedis";
 
 
 export const informationUserRouter = Router();
@@ -66,7 +65,7 @@ informationUserRouter.get(
                         email: true,
                         username: true,
                         is_artist: true,
-                        is_public: true,
+                        // is_public: true,
                         user_artist_set: {
                             id: true
                         }
@@ -208,11 +207,14 @@ informationUserRouter.post(
                 );
             }
 
-            // send code
-            await sendOtp(updateMobilePhoneDto.mobile_phone, req)
+            const randomCode = Math.floor(Math.random() * (999999 - 111111) + 111111); // generate random code
+             const userIp = req.ip; // get request ip
+             await otpManagerClass.storeOtp(updateMobilePhoneDto.mobile_phone, randomCode, userIp) // set into redis
+            // await sendOtp(updateMobilePhoneDto.mobile_phone, req) // send into phone
+
             return res.status(201).json(
                 {
-                    status: false,
+                    status: true,
                     message: "code send!"
                 }
             )
@@ -220,7 +222,8 @@ informationUserRouter.post(
             return res.status(500).json(
                 {
                     status: false,
-                    message: "server error"
+                    message: "server error",
+                    error: error.message
                 }
             );
         }
@@ -324,8 +327,9 @@ informationUserRouter.post(
             }
 
             // check otp code
-            const checkOtpCode = await VerifyOtpRedis(verifyOtpPhone.code, req.ip)
-            if (checkOtpCode === null) {
+             const userIp = req.ip;
+            const checkOtpCode = await otpManagerClass.verifyOtp(verifyOtpPhone.mobile_phone, verifyOtpPhone.code, userIp)
+            if (checkOtpCode === false) {
                 return res.status(404).json(
                     {
                         status: false,
@@ -335,10 +339,14 @@ informationUserRouter.post(
             }
 
             // update base user
+            const userId = (req as any).user.user_id;
             const userRepository = AppDataSource.getRepository(User);
             const getUser = await userRepository.findOne(
                 {
-                    where: {mobile_phone: verifyOtpPhone.mobile_phone, is_active: true},
+                    where: {
+                        id: userId, 
+                        is_active: true
+                    },
                     select: ['mobile_phone', 'id']
                 }
             )

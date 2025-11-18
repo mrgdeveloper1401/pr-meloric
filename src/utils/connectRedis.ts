@@ -66,3 +66,89 @@ export const VerifyOtpRedis = async (code: number, userIp: string) => {
     await disconnectRedis();
     return check;
 }
+
+
+class RedisOtpManager{
+    private client;
+    private isConnected = false;
+
+    constructor(){
+        const DEBUG = process.env.DEBUG_MODE === 'true';
+
+        const redisUrl = DEBUG
+        ? "redis://localhost:6381/1"
+        : `redis://${process.env.PROD_REDIS_HOST}:${process.env.PROD_REDIS_PORT}/1`;
+
+        this.client = createClient(
+            {
+                url: redisUrl,
+                password: process.env.PROD_REDIS_PASSWORD || undefined
+            }
+        );
+
+        this.setupEventListeners();
+    }
+
+    private setupEventListeners() {
+        this.client.on("error", (err) => {
+            this.isConnected = false
+        });
+
+        this.client.on("connect", () => {});
+
+        this.client.on("disconnect", () => {
+            this.isConnected = false;
+        })
+    }
+
+    async connect(){
+        if (this.isConnected == false && !this.client.isOpen) {
+            await this.client.connect();
+            this.isConnected = true;
+        }
+    }
+
+    async discounnect(){
+        if (this.client.isOpen) {
+            await this.client.quit();
+            this.isConnected = false;
+        }
+    }
+
+    // save otp in redis
+    async storeOtp(phone: string, code: number, ipAddress: string){
+        try {
+            await this.connect();
+
+            const redisKey = `otp_${phone}_${code}_${ipAddress}`;
+            await this.client.setEx(redisKey, 120, "valid");
+            return true
+    
+        } catch (error) {
+            throw new Error(error.message);
+        }
+    }
+
+    async verifyOtp(phone: string, code: number, ipAddress: string){
+        try {
+            await this.connect();
+            const redisKey = `otp_${phone}_${code}_${ipAddress}`
+            const result = await this.client.get(redisKey);
+            if (result) {
+                await this.client.del(redisKey);
+                return true
+            }else {
+                return false
+            }
+
+        } catch (error) {
+            throw new Error(error.message);
+        }
+    }
+
+    getConnectionStatus(): boolean {
+        return this.isConnected;
+    }
+}
+
+export const otpManagerClass = new RedisOtpManager();

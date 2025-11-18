@@ -1631,76 +1631,49 @@ userAuthRouter.get(
     funcCheckUserActive,
     async (req: Request, res: Response) => {
         try {
-            // user repository and get user
-            const userRepository = AppDataSource.getRepository(Profile);
-            const getProfile = await userRepository.findOne(
-                {
-                    where: {
-                        user: {
-                            id: (req as any).user.user_id,
-                            is_active: true
-                        }
-                    },
-                    relations: ['user', 'profile_image', 'banner_image', 'banner_galery_image', "user.user_artist_set"],
-                    // relations: {
-                    //     user: {
-                    //         user_artist_set: true,
-                    //         profile: {
-                    //             profile_image: true,
-                    //             banner_galery_image: true,
-                    //             banner_image: true
-                    //         }
-                    //     }
-                    // },
-                    select: {
-                        id: true,
-                        first_name: true,
-                        last_name: true,
-                        birth_date: true,
-                        bio: true,
-                        // jobs: true,
-                        social: true,
-                        banner_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        banner_galery_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        profile_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        user: {
-                            id: true,
-                            username: true,
-                            email: true,
-                            is_artist: true,
-                            // is_public: true,
-                            user_artist_set: {
-                                id: true
-                            }
-                        }
-                    }
-                }
-            )
+            const userId = (req as any).user.user_id;
+            
+            // استفاده از Query Builder برای کنترل بهتر روی relations
+            const profileRepository = AppDataSource.getRepository(Profile);
+            const getProfile = await profileRepository
+                .createQueryBuilder("profile")
+                .leftJoinAndSelect("profile.user", "user")
+                .leftJoinAndSelect("profile.profile_image", "profile_image", "profile_image.is_active = :isActive", { isActive: true })
+                .leftJoinAndSelect("profile.banner_image", "banner_image", "banner_image.is_active = :isActive", { isActive: true })
+                .leftJoinAndSelect("profile.banner_galery_image", "banner_galery_image", "banner_galery_image.is_active = :isActive", { isActive: true })
+                .leftJoinAndSelect("user.user_artist_set", "user_artist_set")
+                .where("user.id = :userId AND user.is_active = :isActive", { 
+                    userId: userId, 
+                    isActive: true 
+                })
+                .select([
+                    "profile.id",
+                    "profile.first_name",
+                    "profile.last_name",
+                    "profile.birth_date",
+                    "profile.bio",
+                    // "profile.jobs",
+                    // "profile.social",
+                    "user.id",
+                    "user.username",
+                    "user.email",
+                    "user.is_artist",
+                    // "user.is_public",
+                    "user_artist_set.id",
+                    "profile_image.id",
+                    "profile_image.image_path",
+                    "banner_image.id",
+                    "banner_image.image_path",
+                    "banner_galery_image.id",
+                    "banner_galery_image.image_path"
+                ])
+                .getOne();
 
             if (!getProfile) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "profile ot found"
-                    }
-                );
-            }
-            if ((req as any).user.is_active === false) {
-                return res.status(403).json(
-                    {
-                        status: false,
-                        message: "your account is ben!"
-                    }
-                );
+                return res.status(404).json({
+                    status: false,
+                    message: "profile not found"
+                });
             }
 
             const data = {
@@ -1710,6 +1683,7 @@ userAuthRouter.get(
                 birth_date: getProfile.birth_date,
                 bio: getProfile.bio,
                 jobs: getProfile.jobs,
+                social: getProfile.social,
                 user: {
                     id: getProfile.user.id,
                     email: getProfile.user.email,
@@ -1718,36 +1692,34 @@ userAuthRouter.get(
                     is_public: getProfile.user.is_public,
                     artist_id: getProfile.user.user_artist_set?.id || null
                 },
-                profile_image: {
-                    id: getProfile.profile_image?.id || null,
-                    image_path: getProfile.profile_image?.image_path || null
-                },
-                banner_image: {
-                    id: getProfile.banner_image?.id || null,
-                    image_path: getProfile.banner_image?.image_path || null
-                },
-                banner_galery_image: {
-                    id: getProfile.banner_galery_image?.id || null,
-                    image_path: getProfile.banner_galery_image?.image_path || null
-                }
-            }
-            return res.status(200).json(
-                {
-                    status: "success",
-                    data: data
-                }
-            );
+                profile_image: getProfile.profile_image ? {
+                    id: getProfile.profile_image.id,
+                    image_path: getProfile.profile_image.image_path
+                } : null,
+                banner_image: getProfile.banner_image ? {
+                    id: getProfile.banner_image.id,
+                    image_path: getProfile.banner_image.image_path
+                } : null,
+                banner_galery_image: getProfile.banner_galery_image ? {
+                    id: getProfile.banner_galery_image.id,
+                    image_path: getProfile.banner_galery_image.image_path
+                } : null
+            };
+
+            return res.status(200).json({
+                status: "success",
+                data: data
+            });
 
         } catch (error) {
-            console.log(error)
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            )
+            console.log(error);
+            return res.status(500).json({
+                status: false,
+                message: "server error"
+            });
         }
-});
+    }
+);
 
 // update profile
 /**
