@@ -957,6 +957,23 @@ userAuthRouter.post(
 
             // validate data
             const loginByEmail = plainToClass(LoginByEmailDto, req.body)
+            const errors = await validate(loginByEmail);
+            if (errors.length > 0) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "invalid data",
+                        error: errors.map(
+                            err => (
+                                {
+                                    field: err.property,
+                                    value: err.constraints
+                                }
+                            )
+                        )
+                    }
+                );
+            }
 
             const userRepository = AppDataSource.getRepository(User);
 
@@ -2190,9 +2207,8 @@ userAuthRouter.post(
             )
 
             // check old password
-            const hashOldPassword = funcCreateHashPassword(resetPasswordDto.old_password)
-            const isOldPasswordValid = hashOldPassword === user.password
-            if (!isOldPasswordValid) {
+            const isMatch = funcVerifyPassword(resetPasswordDto.old_password, user.password)
+            if (!isMatch) {
                 return res.status(400).json(
                     {
                         status: false,
