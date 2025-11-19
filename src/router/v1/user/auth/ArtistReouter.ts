@@ -31,20 +31,59 @@ export const artistReouter = Router();
  *         image_path:
  *           type: string
  *           example: "https://example.com/images/artist-cover.jpg"
- *     ArtistProfile:
+ *     GalleryImage:
  *       type: object
  *       properties:
  *         id:
  *           type: integer
  *           example: 1
+ *         image_path:
+ *           type: string
+ *           example: "https://example.com/images/gallery1.jpg"
+ *     SocialLink:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         platform:
+ *           type: string
+ *           example: "instagram"
+ *         url:
+ *           type: string
+ *           example: "https://instagram.com/artistname"
+ *         is_active:
+ *           type: boolean
+ *           example: true
+ *     ArtistProfile:
+ *       type: object
+ *       properties:
+ *         artist_id:
+ *           type: integer
+ *           example: 1
  *         monthly_listeners:
  *           type: integer
  *           example: 15000
+ *         cover_image:
+ *           $ref: '#/components/schemas/Image'
  *         bio:
  *           type: string
  *           example: "خواننده و ترانه سرای پاپ با بیش از 10 سال سابقه فعالیت در موسیقی"
- *         cover_image:
+ *         profile_image:
  *           $ref: '#/components/schemas/Image'
+ *         banner_image:
+ *           $ref: '#/components/schemas/Image'
+ *         nick_name:
+ *           type: string
+ *           example: "نام هنری"
+ *         gallary_image:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/GalleryImage'
+ *         social_links:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/SocialLink'
  *     ArtistProfileResponse:
  *       type: object
  *       properties:
@@ -69,8 +108,6 @@ export const artistReouter = Router();
  *       bearerFormat: JWT
  *       description: "JWT Token برای احراز هویت"
  */
-
-// show onwer artist profile
 artistReouter.get(
     "/artist_profile/",
     authenticateJWT,
@@ -87,25 +124,35 @@ artistReouter.get(
                 .leftJoinAndSelect("artist.user", "user")
                 .leftJoinAndSelect("artist.gallery_images", "gallery_images")
                 .leftJoinAndSelect("gallery_images.image", "gallery_image")
+                .leftJoinAndSelect("artist.social_links", "social_links")
                 .where("artist.is_active = :isActive", { isActive: true })
                 .andWhere("user.id = :userId", { userId })
                 .andWhere("user.is_active = :userActive", { userActive: true })
                 .andWhere("user.is_artist = :isArtist", { isArtist: true })
                 .andWhere("gallery_images.is_active = :galleryActive", { galleryActive: true })
+                .andWhere("social_links.is_active = :socialActive", { socialActive: true })
                 .select([
                     "artist.id",
                     "artist.monthly_listeners",
                     "artist.bio",
                     "artist.nick_name",
+                    "artist.first_name",
+                    "artist.last_name",
                     "profile_image.id",
                     "profile_image.image_path",
                     "cover_image.id",
                     "cover_image.image_path",
                     "banner_image.id",
                     "banner_image.image_path",
+                    "user.id",
+                    "user.username",
                     "gallery_images.id",
                     "gallery_image.id",
-                    "gallery_image.image_path"
+                    "gallery_image.image_path",
+                    "social_links.id",
+                    "social_links.platform",
+                    "social_links.url",
+                    "social_links.is_active"
                 ])
                 .getOne();
 
@@ -133,10 +180,19 @@ artistReouter.get(
                     image_path: getArtist.banner_image.image_path
                 } : null,
                 nick_name: getArtist.nick_name,
+                first_name: getArtist.first_name,
+                last_name: getArtist.last_name,
+                username: getArtist.user.username,
                 gallary_image: getArtist.gallery_images ? 
                     getArtist.gallery_images.map(gallery => ({
                         id: gallery.id,
                         image_path: gallery.image?.image_path || null
+                    })) : [],
+                social_links: getArtist.social_links ? 
+                    getArtist.social_links.map(social => ({
+                        id: social.id,
+                        platform: social.platform,
+                        url: social.url,
                     })) : []
             };
 
@@ -146,6 +202,7 @@ artistReouter.get(
             });
             
         } catch (error) {
+            console.error("Error in artist profile:", error);
             return res.status(500).json({
                 status: false,
                 message: "server error",
@@ -454,111 +511,6 @@ artistReouter.patch(
     }
 );
 
-
-// artist list
-/**
- * @swagger
- * components:
- *   schemas:
- *     ArtistPublicProfile:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *           description: شناسه آرتیست
- *           example: 1
- *         nick_name:
- *           type: string
- *           nullable: true
- *           description: نام هنری آرتیست
- *           example: "محسن یگانه"
- *         bio:
- *           type: string
- *           nullable: true
- *           description: بیوگرافی آرتیست
- *           example: "خواننده و ترانه سرای پاپ ایرانی"
- *         monthly_listeners:
- *           type: integer
- *           description: تعداد شنوندگان ماهانه
- *           example: 150000
- *         is_active:
- *           type: boolean
- *           description: وضعیت فعال بودن آرتیست
- *           example: true
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: تاریخ ایجاد پروفایل
- *           example: "2024-01-15T10:30:00.000Z"
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: تاریخ آخرین به‌روزرسانی
- *           example: "2024-01-16T14:20:00.000Z"
- *         cover_image:
- *           type: object
- *           nullable: true
- *           properties:
- *             id:
- *               type: integer
- *               example: 1
- *             image_path:
- *               type: string
- *               example: "https://example.com/images/artist-cover.jpg"
- *         user:
- *           type: object
- *           properties:
- *             id:
- *               type: integer
- *               example: 1
- *             username:
- *               type: string
- *               example: "mohsen_yeganeh"
- *             profile:
- *               type: object
- *               properties:
- *                 first_name:
- *                   type: string
- *                   example: "محسن"
- *                 last_name:
- *                   type: string
- *                   example: "یگانه"
- *                 bio:
- *                   type: string
- *                   example: "خواننده و ترانه سرا"
- *     ArtistPublicProfileResponse:
- *       type: object
- *       properties:
- *         status:
- *           type: string
- *           example: "success"
- *         data:
- *           $ref: '#/components/schemas/ArtistPublicProfile'
- *     ErrorResponse:
- *       type: object
- *       properties:
- *         status:
- *           type: boolean
- *           example: false
- *         message:
- *           type: string
- *           example: "Error message"
- *   parameters:
- *     ArtistIdParam:
- *       name: artistId
- *       in: path
- *       required: true
- *       description: آیدی آرتیست
- *       schema:
- *         type: integer
- *         example: 1
- *   securitySchemes:
- *     bearerAuth:
- *       type: http
- *       scheme: bearer
- *       bearerFormat: JWT
- */
-
 // get artist public profile
 /**
  * @swagger
@@ -573,7 +525,7 @@ artistReouter.patch(
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - آرتیست باید فعال (is_active=true) باشد
- *       - اطلاعات کامل پروفایل، کاور، گالری تصاویر و وضعیت فالو برگردانده می‌شود
+ *       - اطلاعات کامل پروفایل، کاور، گالری تصاویر، لینک‌های اجتماعی و وضعیت فالو برگردانده می‌شود
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -610,10 +562,20 @@ artistReouter.patch(
  *                       type: string
  *                       description: نام کاربری آرتیست
  *                       example: "john_doe"
- *                     artist_image:
+ *                     artist_cover_image:
  *                       type: string
  *                       nullable: true
  *                       description: مسیر تصویر کاور آرتیست
+ *                       example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/1/1759053403801-200735270.jpeg"
+ *                     artist_profile_image:
+ *                       type: string
+ *                       nullable: true
+ *                       description: مسیر تصویر پروفایل آرتیست
+ *                       example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/1/1759053403801-200735270.jpeg"
+ *                     artist_banner_image:
+ *                       type: string
+ *                       nullable: true
+ *                       description: مسیر تصویر بنر آرتیست
  *                       example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/1/1759053403801-200735270.jpeg"
  *                     artist_first_name:
  *                       type: string
@@ -655,12 +617,15 @@ artistReouter.patch(
  *                       items:
  *                         type: object
  *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 1
  *                           platform:
  *                             type: string
  *                             example: "instagram"
  *                           url:
  *                             type: string
- *                             example: "https://instagram.com"
+ *                             example: "https://instagram.com/artistname"
  *                 is_follow:
  *                   type: boolean
  *                   description: وضعیت فالو کردن توسط کاربر جاری
@@ -724,69 +689,49 @@ artistReouter.get(
                 return res.status(400).json(
                     {
                         status: false,
-                        message: "artist_id must be required"
+                        message: "artist_id must be a valid number"
                     }
                 );
             }
 
             const artistRepository = AppDataSource.getRepository(Artist);
-            const getArtist = await artistRepository.findOne(
-                {
-                    where: {
-                        id: artistId,
-                        is_active: true
-                    },
-                    relations: {
-                        cover_image: true,
-                        profile_image: true,
-                        banner_image: true,
-                        user: true,
-                        gallery_images: {
-                            image: true
-                        },
-                        social_links: true
-                    },
-                    select: {
-                        id: true,
-                        bio: true,
-                        first_name: true,
-                        last_name: true,
-                        // monthly_listeners: true,
-                        nick_name: true,
-                        cover_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        profile_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        banner_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        user: {
-                            id: true,
-                            username: true,
-                        },
-                        gallery_images: {
-                            id: true,
-                            is_active: true,
-                            image: {
-                                id: true,
-                                image_path: true
-                            }
-                        },
-                        social_links: {
-                            id: true,
-                            platform: true,
-                            url: true,
-                            is_active: true
-                        }
+            const getArtist = await artistRepository
+                .createQueryBuilder("artist")
+                .leftJoinAndSelect("artist.cover_image", "cover_image")
+                .leftJoinAndSelect("artist.profile_image", "profile_image")
+                .leftJoinAndSelect("artist.banner_image", "banner_image")
+                .leftJoinAndSelect("artist.user", "user")
+                .leftJoinAndSelect("artist.gallery_images", "gallery_images")
+                .leftJoinAndSelect("gallery_images.image", "gallery_image")
+                .leftJoinAndSelect("artist.social_links", "social_links")
+                .where("artist.id = :artistId", { artistId })
+                .andWhere("artist.is_active = :isActive", { isActive: true })
+                .andWhere("gallery_images.is_active = :galleryActive", { galleryActive: true })
+                .andWhere("social_links.is_active = :socialActive", { socialActive: true })
+                .select([
+                    "artist.id",
+                    "artist.bio",
+                    "artist.first_name",
+                    "artist.last_name",
+                    "artist.nick_name",
+                    "artist.monthly_listeners",
+                    "cover_image.id",
+                    "cover_image.image_path",
+                    "profile_image.id",
+                    "profile_image.image_path",
+                    "banner_image.id",
+                    "banner_image.image_path",
+                    "user.id",
+                    "user.username",
+                    "gallery_images.id",
+                    "gallery_image.id",
+                    "gallery_image.image_path",
+                    "social_links.id",
+                    "social_links.platform",
+                    "social_links.url"
+                ])
+                .getOne();
 
-                    }
-                }
-            )
             if (!getArtist) {
                 return res.status(404).json(
                     {
@@ -807,10 +752,9 @@ artistReouter.get(
                     }
                 }
             )
-            let isFollow: boolean = false;
-            if (checkFollow) {
-                isFollow = true
-            }
+            
+            const isFollow: boolean = !!checkFollow;
+
             const simpleData = {
                 user_id: getArtist.user.id,
                 artist_id: getArtist.id,
@@ -818,33 +762,26 @@ artistReouter.get(
                 artist_cover_image: getArtist.cover_image?.image_path || null,
                 artist_profile_image: getArtist.profile_image?.image_path || null,
                 artist_banner_image: getArtist.banner_image?.image_path || null,
-                artist_first_name: getArtist?.first_name || null,
-                artist_last_name: getArtist?.last_name || null,
-                // monthly_listeners: getArtist.monthly_listeners,
+                artist_first_name: getArtist.first_name || null,
+                artist_last_name: getArtist.last_name || null,
+                monthly_listeners: getArtist.monthly_listeners || 0,
                 bio: getArtist.bio,
                 nick_name: getArtist.nick_name,
-                gallery_images: getArtist.gallery_images.filter(
-                    gallery => gallery.is_active
-                ).map(
-                    gallery => (
-                        {
-                            id: gallery.id,
-                            image_path: gallery.image.image_path
-                        }
-                    )
+                gallery_images: getArtist.gallery_images.map(
+                    gallery => ({
+                        id: gallery.id,
+                        image_path: gallery.image?.image_path || null
+                    })
                 ),
-                artist_social: getArtist.social_links.filter(
-                    social => social.is_active
-                ).map(
-                    social => (
-                        {
-                            platform: social.platform,
-                            url: social.url,
-
-                        }
-                    )
+                artist_social: getArtist.social_links.map(
+                    social => ({
+                        id: social.id,
+                        platform: social.platform,
+                        url: social.url
+                    })
                 )
             }
+
             return res.status(200).json(
                 {
                     status: "success",
@@ -853,10 +790,12 @@ artistReouter.get(
                 }
             )
         } catch (error) {
+            console.error("Error in public artist profile:", error);
             return res.status(500).json(
                 {
                     status: false,
-                    message: "server error"
+                    message: "server error",
+                    error: error.message
                 }
             )
         }
