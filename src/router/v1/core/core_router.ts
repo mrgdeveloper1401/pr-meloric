@@ -257,17 +257,27 @@ coreRouter.get(
                     select: ['id', "body", "notification_redirect_url", "title", "notification_type", "createdAt"]
                 }
             )
-            return res.status(200).json(
-                {
-                    status: "success",
-                    data: getPublicNotification
-                }
-            )
+            if (getPublicNotification === null){
+                return res.status(204).json(
+                    {
+                        status: "success",
+                        data: null
+                    }
+                )
+            }else{
+                return res.status(200).json(
+                    {
+                        status: "success",
+                        data: getPublicNotification
+                    }
+                );
+            }
         } catch (error) {
             return res.status(500).json(
                 {
                     status: false,
-                    message: "server error"
+                    message: "server error",
+                    error: error.message
                 }
             )   
         }

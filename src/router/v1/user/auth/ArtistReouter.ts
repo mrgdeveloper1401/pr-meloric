@@ -7,6 +7,11 @@ import { UpdateArtistProfile } from "../../../../dtos/auth/UpdateArtistProfile";
 import { validate } from "class-validator";
 import { Image } from "../../../../entity/Image";
 import { Follow } from "../../../../entity/Follow";
+import { In } from "typeorm";
+import { ArtistGalleryImageDto } from "../../../../dtos/artist/ArtistGallery";
+import { isArtistUser } from "../../../../middlewares/IsArtist";
+import { ArtistSocial } from "../../../../entity/ArtistSocial";
+import { ArtistGallery } from "../../../../entity/ArtistGallery";
 
 
 export const artistReouter = Router();
@@ -65,81 +70,6 @@ export const artistReouter = Router();
  */
 
 // show onwer artist profile
-/**
- * @swagger
- * /v1/user/artist/artist_profile/:
- *   get:
- *     tags:
- *       - Artist
- *     summary: دریافت پروفایل آرتیست کاربر
- *     description: |
- *       دریافت اطلاعات پروفایل آرتیست کاربر جاری
- *       - کاربر باید احراز هویت شده باشد
- *       - کاربر باید دارای نقش آرتیست باشد
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: موفقیت‌آمیز - اطلاعات پروفایل آرتیست بازگردانده شد
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ArtistProfileResponse'
- *             examples:
- *               success:
- *                 summary: نمونه پاسخ موفق
- *                 value:
- *                   status: "success"
- *                   data:
- *                     id: 1
- *                     monthly_listeners: 15000
- *                     bio: "خواننده و ترانه سرای پاپ با بیش از 10 سال سابقه فعالیت در موسیقی"
- *                     cover_image:
- *                       id: 1
- *                       image_path: "https://example.com/images/artist-cover.jpg"
- *       '401':
- *         description: |
- *           عدم دسترسی
- *           - توکن JWT معتبر ارائه نشده
- *           - کاربر احراز هویت نشده
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             examples:
- *               unauthorized:
- *                 summary: کاربر احراز هویت نشده
- *                 value:
- *                   status: "error"
- *                   message: "Authentication required"
- *       '404':
- *         description: |
- *           آرتیست یافت نشد
- *           - کاربر نقش آرتیست ندارد
- *           - پروفایل آرتیست غیرفعال است
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             examples:
- *               notFound:
- *                 summary: آرتیست یافت نشد
- *                 value:
- *                   status: "error"
- *                   message: "Artist not found"
- *       '500':
- *         description: خطای داخلی سرور
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             examples:
- *               serverError:
- *                 summary: خطای سرور
- *                 value:
- *                   status: "error"
- *                   message: "Internal server error"
- */
 artistReouter.get(
     "/artist_profile/",
     authenticateJWT,
@@ -148,45 +78,35 @@ artistReouter.get(
             const userId = (req as any).user.user_id;
             const artistRepository = AppDataSource.getRepository(Artist);
             
-            const getArtist = await artistRepository.findOne({
-                where: {
-                    is_active: true,
-                    user: {
-                        id: userId,
-                        is_active: true,
-                        is_artist: true
-                    }
-                },
-                relations: {
-                    cover_image: true,
-                    user: true,
-                    gallery_images: {
-                        image: true
-                    }
-                },
-                select: {
-                    id: true,
-                    monthly_listeners: true,
-                    nick_name: true,
-                    bio: true,
-                    cover_image: {
-                        id: true,
-                        image_path: true
-                    },
-                    user: {
-                        id: true,
-                        is_artist: true,
-                        is_active: true
-                    },
-                    gallery_images: {
-                        id: true,
-                        image: {
-                            id: true,
-                            image_path: true
-                        }
-                    }
-                }
-            });
+            const getArtist = await artistRepository
+                .createQueryBuilder("artist")
+                .leftJoinAndSelect("artist.profile_image", "profile_image")
+                .leftJoinAndSelect("artist.cover_image", "cover_image")
+                .leftJoinAndSelect("artist.banner_image", "banner_image")
+                .leftJoinAndSelect("artist.user", "user")
+                .leftJoinAndSelect("artist.gallery_images", "gallery_images")
+                .leftJoinAndSelect("gallery_images.image", "gallery_image")
+                .where("artist.is_active = :isActive", { isActive: true })
+                .andWhere("user.id = :userId", { userId })
+                .andWhere("user.is_active = :userActive", { userActive: true })
+                .andWhere("user.is_artist = :isArtist", { isArtist: true })
+                .andWhere("gallery_images.is_active = :galleryActive", { galleryActive: true })
+                .select([
+                    "artist.id",
+                    "artist.monthly_listeners",
+                    "artist.bio",
+                    "artist.nick_name",
+                    "profile_image.id",
+                    "profile_image.image_path",
+                    "cover_image.id",
+                    "cover_image.image_path",
+                    "banner_image.id",
+                    "banner_image.image_path",
+                    "gallery_images.id",
+                    "gallery_image.id",
+                    "gallery_image.image_path"
+                ])
+                .getOne();
 
             if (!getArtist) {
                 return res.status(404).json({
@@ -195,7 +115,6 @@ artistReouter.get(
                 });
             }
 
-            // اضافه کردن بررسی null برای cover_image
             const simpleData = {
                 artist_id: getArtist.id,
                 monthly_listeners: getArtist.monthly_listeners,
@@ -204,17 +123,20 @@ artistReouter.get(
                     image_path: getArtist.cover_image.image_path
                 } : null,
                 bio: getArtist.bio,
+                profile_image: getArtist.profile_image ? {
+                    id: getArtist.profile_image.id,
+                    image_path: getArtist.profile_image.image_path
+                } : null,
+                banner_image: getArtist.banner_image ? {
+                    id: getArtist.banner_image.id,
+                    image_path: getArtist.banner_image.image_path
+                } : null,
                 nick_name: getArtist.nick_name,
-                gallary_image: getArtist.gallery_images.filter(
-                    gallery => gallery.is_active
-                ).map(
-                    gallery => (
-                        {
-                            id: gallery.id,
-                            image_path: gallery.image.image_path
-                        }
-                    )
-                )
+                gallary_image: getArtist.gallery_images ? 
+                    getArtist.gallery_images.map(gallery => ({
+                        id: gallery.id,
+                        image_path: gallery.image?.image_path || null
+                    })) : []
             };
 
             return res.status(200).json({
@@ -223,10 +145,10 @@ artistReouter.get(
             });
             
         } catch (error) {
-            console.error("Error in artist profile:", error); // اضافه کردن log برای دیباگ
             return res.status(500).json({
                 status: false,
-                message: "server error"
+                message: "server error",
+                error: error.message
             });
         }
     }
@@ -371,117 +293,166 @@ artistReouter.patch(
 
             // check user artist
             const artistRepository = AppDataSource.getRepository(Artist);
-                        
-            const checkUserArtist = await artistRepository.findOne(
-                {
-                    where: {
-                        user: {id: userId, is_active: true, is_artist: true},
-                    },
-                    relations: {
-                        user: true,
-                        cover_image: true
-                    },
-                    select: {
+            const checkUserArtist = await artistRepository.findOne({
+                where: {
+                    user: {
+                        id: userId, 
+                        is_active: true, 
+                        is_artist: true
+                    }
+                },
+                relations: {
+                    cover_image: true,
+                    banner_image: true,
+                    profile_image: true
+                },
+                select: {
+                    id: true,
+                    nick_name: true,
+                    bio: true,
+                    first_name: true,
+                    last_name: true,
+                    // monthly_listeners: true,
+                    cover_image: {
                         id: true,
-                        user: {
-                            is_active: true,
-                            is_artist: true
-                        },
-                        cover_image: {
-                            id: true,
-                            image_path: true
-                        }
+                        image_path: true
+                    },
+                    profile_image: {
+                        id: true,
+                        image_path: true
+                    },
+                    banner_image: {
+                        id: true,
+                        image_path: true
                     }
                 }
-            );
+            });
+
             if (!checkUserArtist) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "artist not found"
-                    }
-                );
+                return res.status(404).json({
+                    status: false,
+                    message: "artist not found"
+                });
             }
 
             // validate data
             if (!req.body) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "request body is required"
-                    }
-                );
+                return res.status(400).json({
+                    status: false,
+                    message: "request body is required"
+                });
             }
+
             const updateArtistProfile = plainToClass(UpdateArtistProfile, req.body);
             const errors = await validate(updateArtistProfile);
+            
             if (errors.length > 0) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "invalid data",
-                        error: errors.map(
-                            err => (
-                                {
-                                    field: err.property,
-                                    value: err.constraints
-                                }
-                            )
-                        )
-                    }
-                )
+                return res.status(400).json({
+                    status: false,
+                    message: "invalid data",
+                    error: errors.map(err => ({
+                        field: err.property,
+                        value: err.constraints
+                    }))
+                });
             }
 
-            // check image
-            // update
-            if (req.body.cover_image !== undefined) {
-                const imageRepository = AppDataSource.getRepository(Image);
-                const checkImageUpload = await imageRepository.findOne(
-                    {
-                        where: {
-                            id: updateArtistProfile.cover_image,
-                            is_active: true,
-                            user: {id: userId}
-                        },
-                        select: {id: true}
-                    }
-                );
+            const imageRepository = AppDataSource.getRepository(Image);
+
+            // Update cover image
+            if (updateArtistProfile.cover_image_id !== undefined) {
+                const checkImageUpload = await imageRepository.findOne({
+                    where: {
+                        id: updateArtistProfile.cover_image_id,
+                        is_active: true,
+                        user: {id: userId}
+                    },
+                    select: {id: true, image_path: true}
+                });
+                
                 if (!checkImageUpload) {
-                    return res.status(404).json(
-                        {
-                            status: false,
-                            message: "image not found"
-                        }
-                    )
+                    return res.status(404).json({
+                        status: false,
+                        message: "cover image id not found"
+                    });
                 }
-                checkUserArtist.cover_image = checkImageUpload
-            }
-        
-            if (req.body.bio !== undefined) {
-                checkUserArtist.bio = updateArtistProfile.bio
+                checkUserArtist.cover_image = checkImageUpload;
             }
 
-            if (req.body.nick_name !== undefined) {
-                checkUserArtist.nick_name = updateArtistProfile.nick_name
+            // Update profile image - اینجا مشکل بود
+            if (updateArtistProfile.profile_image_id !== undefined) {
+                const checkProfileImageId = await imageRepository.findOne({
+                    where: {
+                        user: {id: userId},
+                        is_active: true,
+                        id: updateArtistProfile.profile_image_id
+                    },
+                    select: {id: true, image_path: true}
+                });
+                
+                if (!checkProfileImageId) {
+                    return res.status(404).json({
+                        status: false,
+                        message: "profile image id not found"
+                    });
+                }
+                checkUserArtist.profile_image = checkProfileImageId;
             }
+
+            if (updateArtistProfile.banner_image_id !== undefined) {
+                const checkImage = await imageRepository.findOne({
+                    where: {
+                        id: updateArtistProfile.banner_image_id,
+                        is_active: true,
+                        user: {id: userId}
+                    },
+                    select: {id: true, image_path: true}
+                });
+                
+                if (!checkImage) {
+                    return res.status(404).json({
+                        status: false,
+                        message: "banner image id not found"
+                    });
+                }
+                checkUserArtist.banner_image = checkImage;
+            }
+
+            // Update other fields
+            if (updateArtistProfile.nick_name !== undefined) {
+                checkUserArtist.nick_name = updateArtistProfile.nick_name;
+            }
+
+            if (updateArtistProfile.bio !== undefined) {
+                checkUserArtist.bio = updateArtistProfile.bio;
+            }
+
+            if (updateArtistProfile.first_name !== undefined) {
+                checkUserArtist.first_name = updateArtistProfile.first_name
+            }
+
+            if (updateArtistProfile.last_name !== undefined) {
+                checkUserArtist.last_name = updateArtistProfile.last_name
+            }
+
             // save
             await artistRepository.save(checkUserArtist);
 
-            return res.status(200).json(
-                {
-                    status: "success",
-                    data: updateArtistProfile
-                }
-            );
-        } catch (error) {            
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            );
+            return res.status(200).json({
+                status: "success",
+                data: checkUserArtist
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error",
+                error: error.message
+            });
         }
     }
 );
+
 
 // artist list
 /**
@@ -588,7 +559,6 @@ artistReouter.patch(
  */
 
 // get artist public profile
-
 /**
  * @swagger
  * /v1/user/artist/get_artist_public_profile/{artistId}:
@@ -767,9 +737,9 @@ artistReouter.get(
                     },
                     relations: {
                         cover_image: true,
-                        user: {
-                            profile: true
-                        },
+                        profile_image: true,
+                        banner_image: true,
+                        user: true,
                         gallery_images: {
                             image: true
                         },
@@ -778,19 +748,25 @@ artistReouter.get(
                     select: {
                         id: true,
                         bio: true,
-                        monthly_listeners: true,
+                        first_name: true,
+                        last_name: true,
+                        // monthly_listeners: true,
                         nick_name: true,
                         cover_image: {
+                            id: true,
+                            image_path: true
+                        },
+                        profile_image: {
+                            id: true,
+                            image_path: true
+                        },
+                        banner_image: {
+                            id: true,
                             image_path: true
                         },
                         user: {
                             id: true,
                             username: true,
-                            profile: {
-                                id: true,
-                                first_name: true,
-                                last_name: true
-                            }
                         },
                         gallery_images: {
                             id: true,
@@ -838,10 +814,12 @@ artistReouter.get(
                 user_id: getArtist.user.id,
                 artist_id: getArtist.id,
                 artist_username: getArtist.user.username,
-                artist_image: getArtist.cover_image?.image_path || null,
-                artist_first_name: getArtist.user.profile?.first_name || null,
-                artist_last_name: getArtist.user.profile?.last_name || null,
-                monthly_listeners: getArtist.monthly_listeners,
+                artist_cover_image: getArtist.cover_image?.image_path || null,
+                artist_profile_image: getArtist.profile_image?.image_path || null,
+                artist_banner_image: getArtist.banner_image?.image_path || null,
+                artist_first_name: getArtist?.first_name || null,
+                artist_last_name: getArtist?.last_name || null,
+                // monthly_listeners: getArtist.monthly_listeners,
                 bio: getArtist.bio,
                 nick_name: getArtist.nick_name,
                 gallery_images: getArtist.gallery_images.filter(
@@ -880,6 +858,470 @@ artistReouter.get(
                     message: "server error"
                 }
             )
+        }
+    }
+);
+
+// create gallery images
+/**
+ * @swagger
+ * /v1/user/artist/public_artist_profile/gallery_images:
+ *   post:
+ *     tags:
+ *       - Artist
+ *     summary: افزودن تصویر جدید به گالری آرتیست
+ *     description: |
+ *       افزودن یک تصویر به گالری تصاویر آرتیست
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - کاربر باید آرتیست باشد (isArtistUser)
+ *       - تصویر باید متعلق به کاربر جاری باشد
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - image_id
+ *             properties:
+ *               image_id:
+ *                 type: integer
+ *                 description: آیدی تصویر
+ *                 example: 1
+ *               order:
+ *                 type: integer
+ *                 description: ترتیب نمایش تصویر در گالری
+ *                 default: 0
+ *                 example: 1
+ *     responses:
+ *       '201':
+ *         description: موفقیت‌آمیز - تصویر به گالری اضافه شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "created"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     artist_id:
+ *                       type: integer
+ *                       example: 1
+ *                     image_id:
+ *                       type: integer
+ *                       example: 1
+ *       '400':
+ *         description: داده‌های ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: آرتیست یا تصویر پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+artistReouter.post(
+    "/public_artist_profile/gallery_images",
+    authenticateJWT,
+    isArtistUser,
+    async (req: Request, res: Response) => {
+        try {
+            if (!req.body) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "request body is required"
+                    }
+                )
+            }
+
+            const artistGalleryImageDto = plainToClass(ArtistGalleryImageDto, req.body);
+            const errors = await validate(artistGalleryImageDto)
+            if (errors.length > 0) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "invalid data",
+                        error: errors.map(
+                            err => (
+                                {
+                                    field: err.property,
+                                    value: err.constraints
+                                }
+                            )
+                        )
+                    }
+                );
+            }
+
+            // check image
+            const userId = (req as any).user.user_id;
+            const imageRepository = AppDataSource.getRepository(Image);
+            const checkImage = await imageRepository.findOne(
+                {
+                    where: {
+                        id: artistGalleryImageDto.image_id,
+                        is_active: true,
+                        user: {id: userId}
+                    },
+                    select: {id: true}
+                }
+            )
+            if (!checkImage) {
+                return res.status(404).json(
+                    {
+                        status: false,
+                        message: "image not found"
+                    }
+                );
+            }
+            else {
+                const artistGalleryRepo = AppDataSource.getRepository(ArtistGallery);
+                const checkDuplicate = await artistGalleryRepo.findOne(
+                    {
+                        where: {
+                            is_active: true,
+                            artist: (req as any).artist,
+                            image: checkImage
+                        },
+                        select: {id: true}
+                    }
+                );
+                if (checkDuplicate) {
+                    return res.status(403).json(
+                        {
+                            status: false,
+                            message: "image already exists"
+                        }
+                    )
+                }
+            }
+
+            const gallaryImage = new ArtistGallery();
+            gallaryImage.order = artistGalleryImageDto.order;
+            gallaryImage.image = checkImage
+            gallaryImage.artist = (req as any).artist
+            await gallaryImage.save();
+
+            return res.status(201).json(
+                {
+                    status: false,
+                    message: "created",
+                    data: {
+                        id: gallaryImage.id,
+                        artist_id: gallaryImage.artist.id,
+                        image_id: gallaryImage.image.id
+                    }
+                }
+            );
+
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error",
+                    error: error.message
+                }
+            )
+        }
+    }
+);
+
+// get list artist gallery_image
+/**
+ * @swagger
+ * /v1/user/artist/public_artist_profile/gallery_images:
+ *   get:
+ *     tags:
+ *       - Artist
+ *     summary: دریافت لیست تصاویر گالری آرتیست جاری
+ *     description: |
+ *       دریافت تمام تصاویر فعال گالری آرتیست جاری
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - کاربر باید آرتیست باشد (isArtistUser)
+ *       - فقط تصاویر فعال برگردانده می‌شوند
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - لیست تصاویر گالری بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       image_id:
+ *                         type: integer
+ *                         example: 1
+ *                       image_path:
+ *                         type: string
+ *                         example: "https://example.com/image.jpg"
+ *                       order:
+ *                         type: integer
+ *                         example: 1
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-01-01T12:00:00.000Z"
+ *       '401':
+ *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: آرتیست پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+artistReouter.get(
+    "/public_artist_profile/gallery_images",
+    authenticateJWT,
+    isArtistUser,
+    async (req: Request, res: Response) => {
+        try {
+            const userId = (req as any).user.user_id;
+            
+            // پیدا کردن آرتیست جاری
+            const artistRepository = AppDataSource.getRepository(Artist);
+            const artist = await artistRepository.findOne({
+                where: {
+                    user: { id: userId },
+                    is_active: true
+                },
+                select: { id: true }
+            });
+
+            if (!artist) {
+                return res.status(404).json({
+                    status: false,
+                    message: "artist not found"
+                });
+            }
+
+            // دریافت تصاویر گالری
+            const galleryRepository = AppDataSource.getRepository(ArtistGallery);
+            const galleryImages = await galleryRepository.find({
+                where: {
+                    artist: { id: artist.id },
+                    is_active: true
+                },
+                relations: {
+                    image: true
+                },
+                order: {
+                    order: "ASC",
+                },
+                select: {
+                    id: true,
+                    order: true,
+                    image: {
+                        id: true,
+                        image_path: true
+                    }
+                }
+            });
+
+            const formattedImages = galleryImages.map(item => ({
+                id: item.id,
+                image_id: item.image.id,
+                image_path: item.image.image_path,
+                order: item.order,
+            }));
+
+            return res.status(200).json({
+                status: true,
+                data: formattedImages
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error",
+                error: error.message
+            });
+        }
+    }
+);
+
+// delete gallaery_image
+/**
+ * @swagger
+ * /v1/user/artist/public_artist_profile/gallery_images/{galleryImageId}:
+ *   delete:
+ *     tags:
+ *       - Artist
+ *     summary: حذف تصویر از گالری آرتیست
+ *     description: |
+ *       حذف یک تصویر از گالری آرتیست جاری
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - کاربر باید آرتیست باشد (isArtistUser)
+ *       - تصویر باید متعلق به آرتیست جاری باشد
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: galleryImageId
+ *         in: path
+ *         required: true
+ *         description: آیدی تصویر در گالری
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - تصویر از گالری حذف شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "gallery image deleted successfully"
+ *       '400':
+ *         description: پارامترهای ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: تصویر گالری پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+artistReouter.delete(
+    "/public_artist_profile/gallery_images/:galleryImageId",
+    authenticateJWT,
+    isArtistUser,
+    async (req: Request, res: Response) => {
+        try {
+            const galleryImageId = Number(req.params.galleryImageId);
+            if (isNaN(galleryImageId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "galleryImageId must be a valid number"
+                });
+            }
+
+            const userId = (req as any).user.user_id;
+            
+            // پیدا کردن آرتیست جاری
+            const artistRepository = AppDataSource.getRepository(Artist);
+            const artist = await artistRepository.findOne({
+                where: {
+                    user: { id: userId },
+                    is_active: true
+                },
+                select: { id: true }
+            });
+
+            if (!artist) {
+                return res.status(404).json({
+                    status: false,
+                    message: "artist not found"
+                });
+            }
+
+            // پیدا کردن تصویر گالری
+            const galleryRepository = AppDataSource.getRepository(ArtistGallery);
+            const galleryImage = await galleryRepository.findOne({
+                where: {
+                    id: galleryImageId,
+                    artist: { id: artist.id },
+                    is_active: true
+                }
+            });
+
+            if (!galleryImage) {
+                return res.status(404).json({
+                    status: false,
+                    message: "gallery image not found"
+                });
+            }
+
+            // حذف نرم (soft delete) با تغییر is_active به false
+            galleryImage.is_active = false;
+            await galleryRepository.save(galleryImage);
+
+            return res.status(200).json({
+                status: true,
+                message: "gallery image deleted successfully"
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error",
+                error: error.message
+            });
         }
     }
 );

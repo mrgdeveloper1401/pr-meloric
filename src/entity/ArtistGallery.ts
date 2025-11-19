@@ -9,11 +9,11 @@ export class ArtistGallery extends TimestampEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Artist, artist => artist.gallery_images, { onDelete: "CASCADE" })
+  @ManyToOne(() => Artist, artist => artist.gallery_images, { onDelete: "RESTRICT" })
   @JoinColumn({ name: "artist_id" })
   artist: Artist;
 
-  @ManyToOne(() => Image, { onDelete: "CASCADE" })
+  @ManyToOne(() => Image, { onDelete: "RESTRICT" })
   @JoinColumn({ name: "image_id" })
   image: Image;
 

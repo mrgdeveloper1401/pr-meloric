@@ -21,8 +21,16 @@ export class Artist extends TimestampEntity{
   monthly_listeners: number;
 
   @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
-  @JoinColumn({name: "image_id"})
+  @JoinColumn({name: "cover_image_id"})
   cover_image: Image;
+
+  @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
+  @JoinColumn({name: "profile_image_id"})
+  profile_image: Image;
+
+  @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
+  @JoinColumn({name: "banner_image_id"})
+  banner_image: Image;
 
   @OneToMany(() => ArtistGallery, gallery => gallery.artist)
   gallery_images: ArtistGallery[];
@@ -36,4 +44,10 @@ export class Artist extends TimestampEntity{
   @Column({nullable: true, length: 100})
   nick_name: string
 
+
+  @Column({ length: 100, nullable: true})
+  first_name: string;
+
+  @Column({ length: 100, nullable: true })
+  last_name: string;
 }
