@@ -12,6 +12,7 @@ import { ArtistGalleryImageDto } from "../../../../dtos/artist/ArtistGallery";
 import { isArtistUser } from "../../../../middlewares/IsArtist";
 import { ArtistSocial } from "../../../../entity/ArtistSocial";
 import { ArtistGallery } from "../../../../entity/ArtistGallery";
+import { ArtistSocialDto } from "../../../../dtos/artist/ArtistSocial";
 
 
 export const artistReouter = Router();
@@ -1314,6 +1315,578 @@ artistReouter.delete(
             return res.status(200).json({
                 status: true,
                 message: "gallery image deleted successfully"
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error",
+                error: error.message
+            });
+        }
+    }
+);
+
+// create artist scoial
+/**
+ * @swagger
+ * /v1/user/artist/public_artist_profile/social_links:
+ *   post:
+ *     tags:
+ *       - Artist Social
+ *     summary: افزودن لینک اجتماعی جدید برای آرتیست
+ *     description: |
+ *       افزودن یک لینک اجتماعی به پروفایل آرتیست
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - کاربر باید آرتیست باشد (isArtistUser)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - platform
+ *               - url
+ *             properties:
+ *               platform:
+ *                 type: string
+ *                 description: instagram,twitter,youtube
+ *                 example: "instagram"
+ *                 maxLength: 50
+ *               url:
+ *                 type: string
+ *                 description: آدرس کامل لینک اجتماعی
+ *                 example: "https://instagram.com/artistname"
+ *                 maxLength: 500
+ *     responses:
+ *       '201':
+ *         description: موفقیت‌آمیز - لینک اجتماعی اضافه شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "social link created successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     platform:
+ *                       type: string
+ *                       example: "instagram"
+ *                     url:
+ *                       type: string
+ *                       example: "https://instagram.com/artistname"
+ *                     is_active:
+ *                       type: boolean
+ *                       example: true
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *       '400':
+ *         description: داده‌های ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: عدم دسترسی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: آرتیست پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+artistReouter.post(
+    "/public_artist_profile/social_links",
+    authenticateJWT,
+    isArtistUser,
+    async (req: Request, res: Response) => {
+        try {
+            if (!req.body) {
+                return res.status(400).json({
+                    status: false,
+                    message: "request body is required"
+                });
+            }
+
+            const { platform, url } = req.body;
+
+            // اعتبارسنجی فیلدهای اجباری
+            if (!platform || !url) {
+                return res.status(400).json({
+                    status: false,
+                    message: "platform and url are required"
+                });
+            }
+
+            if (platform.length > 50) {
+                return res.status(400).json({
+                    status: false,
+                    message: "platform must be less than 50 characters"
+                });
+            }
+
+            if (url.length > 500) {
+                return res.status(400).json({
+                    status: false,
+                    message: "url must be less than 500 characters"
+                });
+            }
+
+            const userId = (req as any).user.user_id;
+            
+            // پیدا کردن آرتیست جاری
+            const artistRepository = AppDataSource.getRepository(Artist);
+            const artist = await artistRepository.findOne({
+                where: {
+                    user: { id: userId },
+                    is_active: true
+                },
+                select: { id: true }
+            });
+
+            if (!artist) {
+                return res.status(404).json({
+                    status: false,
+                    message: "artist not found"
+                });
+            }
+
+            // ایجاد لینک اجتماعی جدید
+            const socialRepository = AppDataSource.getRepository(ArtistSocial);
+            const newSocialLink = new ArtistSocial();
+            newSocialLink.platform = platform;
+            newSocialLink.url = url;
+            newSocialLink.artist = artist;
+            newSocialLink.is_active = true;
+
+            await socialRepository.save(newSocialLink);
+
+            return res.status(201).json({
+                status: true,
+                message: "social link created successfully",
+                data: {
+                    id: newSocialLink.id,
+                    platform: newSocialLink.platform,
+                    url: newSocialLink.url,
+                }
+            });
+
+        } catch (error) {
+            console.error("Error creating social link:", error);
+            return res.status(500).json({
+                status: false,
+                message: "server error",
+                error: error.message
+            });
+        }
+    }
+);
+
+// list artist scoial
+/**
+ * @swagger
+ * /v1/user/artist/public_artist_profile/social_links:
+ *   get:
+ *     tags:
+ *       - Artist Social
+ *     summary: دریافت لیست لینک‌های اجتماعی آرتیست
+ *     description: |
+ *       دریافت تمام لینک‌های اجتماعی فعال آرتیست جاری
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - لیست لینک‌های اجتماعی بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       platform:
+ *                         type: string
+ *                         example: "instagram"
+ *                       url:
+ *                         type: string
+ *                         example: "https://instagram.com/artistname"
+ *                       is_active:
+ *                         type: boolean
+ *                         example: true
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *       '401':
+ *         description: عدم دسترسی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: آرتیست پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+artistReouter.get(
+    "/public_artist_profile/social_links",
+    authenticateJWT,
+    isArtistUser,
+    async (req: Request, res: Response) => {
+        try {
+            const socialRepository = AppDataSource.getRepository(ArtistSocial);
+            const socialLinks = await socialRepository.find({
+                where: {
+                    artist: (req as any).artist,
+                    is_active: true
+                },
+                select: {
+                    id: true,
+                    platform: true,
+                    url: true,
+                }
+            });
+
+            return res.status(200).json({
+                status: true,
+                data: socialLinks
+            });
+
+        } catch (error) {
+            console.error("Error getting social links:", error);
+            return res.status(500).json({
+                status: false,
+                message: "server error",
+                error: error.message
+            });
+        }
+    }
+);
+
+// update artist social
+/**
+ * @swagger
+ * /v1/user/artist/public_artist_profile/social_links/{socialLinkId}:
+ *   patch:
+ *     tags:
+ *       - Artist Social
+ *     summary: به‌روزرسانی لینک اجتماعی
+ *     description: |
+ *       به‌روزرسانی اطلاعات یک لینک اجتماعی خاص
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: socialLinkId
+ *         in: path
+ *         required: true
+ *         description: آیدی لینک اجتماعی
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               platform:
+ *                 type: string
+ *                 description: پلتفرم اجتماعی
+ *                 example: "twitter"
+ *                 maxLength: 50
+ *               url:
+ *                 type: string
+ *                 description: آدرس کامل لینک اجتماعی
+ *                 example: "https://twitter.com/artistname"
+ *                 maxLength: 500
+ *               is_active:
+ *                 type: boolean
+ *                 description: وضعیت فعال بودن لینک
+ *                 example: true
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - لینک اجتماعی به‌روزرسانی شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "social link updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     platform:
+ *                       type: string
+ *                       example: "twitter"
+ *                     url:
+ *                       type: string
+ *                       example: "https://twitter.com/artistname"
+ *                     is_active:
+ *                       type: boolean
+ *                       example: true
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *       '400':
+ *         description: داده‌های ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: عدم دسترسی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: لینک اجتماعی پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+artistReouter.patch(
+    "/public_artist_profile/social_links/:socialLinkId",
+    authenticateJWT,
+    isArtistUser,
+    async (req: Request, res: Response) => {
+        try {
+            const socialLinkId = Number(req.params.socialLinkId);
+            if (isNaN(socialLinkId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "socialLinkId must be a valid number"
+                });
+            }
+
+            // validate
+            if (!req.body) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "request body json is required"
+                    }
+                )
+            }
+            const artistSocialDto = plainToClass(ArtistSocialDto, req.body);
+            const errors = await validate(artistSocialDto);
+            if (errors.length > 0) {
+                return res.status(400).json(
+                    {
+                        status: false,
+                        message: "invalid data",
+                        error: errors.map(
+                            err => (
+                                {
+                                    field: err.property,
+                                    value: err.constraints
+                                }
+                            )
+                        )
+                    }
+                );
+            }
+
+            // find social
+            const socialRepository = AppDataSource.getRepository(ArtistSocial);
+            const socialLink = await socialRepository.findOne({
+                where: {
+                    id: socialLinkId,
+                    artist: (req as any).artist,
+                    is_active: true
+                }
+            });
+
+            if (!socialLink) {
+                return res.status(404).json({
+                    status: false,
+                    message: "social link not found"
+                });
+            }
+
+            // update field
+            if (artistSocialDto.platform !== undefined) socialLink.platform = artistSocialDto.platform;
+            if (artistSocialDto.url !== undefined) socialLink.url = artistSocialDto.url;
+
+            await socialRepository.save(socialLink);
+
+            return res.status(200).json({
+                status: true,
+                message: "social link updated successfully",
+                data: {
+                    id: socialLink.id,
+                    platform: socialLink.platform,
+                    url: socialLink.url,
+                }
+            });
+
+        } catch (error) {
+            return res.status(500).json({
+                status: false,
+                message: "server error",
+                error: error.message
+            });
+        }
+    }
+);
+
+// delete artist social
+/**
+ * @swagger
+ * /v1/user/artist/public_artist_profile/social_links/{socialLinkId}:
+ *   delete:
+ *     tags:
+ *       - Artist Social
+ *     summary: حذف لینک اجتماعی
+ *     description: |
+ *       حذف یک لینک اجتماعی از پروفایل آرتیست
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: socialLinkId
+ *         in: path
+ *         required: true
+ *         description: آیدی لینک اجتماعی
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - لینک اجتماعی حذف شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "social link deleted successfully"
+ *       '400':
+ *         description: پارامترهای ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: عدم دسترسی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: لینک اجتماعی پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+artistReouter.delete(
+    "/public_artist_profile/social_links/:socialLinkId",
+    authenticateJWT,
+    isArtistUser,
+    async (req: Request, res: Response) => {
+        try {
+            const socialLinkId = Number(req.params.socialLinkId);
+            if (isNaN(socialLinkId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "socialLinkId must be a valid number"
+                });
+            }
+
+            // find social
+            const socialRepository = AppDataSource.getRepository(ArtistSocial);
+            const socialLink = await socialRepository.findOne({
+                where: {
+                    id: socialLinkId,
+                    artist: (req as any).artist,
+                    is_active: true
+                }
+            });
+
+            if (!socialLink) {
+                return res.status(404).json({
+                    status: false,
+                    message: "social link not found"
+                });
+            }
+
+            // (soft delete)
+            socialLink.is_active = false;
+            await socialRepository.save(socialLink);
+
+            return res.status(200).json({
+                status: true,
+                message: "social link deleted successfully"
             });
 
         } catch (error) {
