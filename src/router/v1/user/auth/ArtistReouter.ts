@@ -14,7 +14,6 @@ import { ArtistSocial } from "../../../../entity/ArtistSocial";
 import { ArtistGallery } from "../../../../entity/ArtistGallery";
 import { ArtistSocialDto } from "../../../../dtos/artist/ArtistSocial";
 
-
 export const artistReouter = Router();
 
 // get artist profile
@@ -109,107 +108,118 @@ export const artistReouter = Router();
  *       description: "JWT Token برای احراز هویت"
  */
 artistReouter.get(
-    "/artist_profile/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            const artistRepository = AppDataSource.getRepository(Artist);
-            
-            const getArtist = await artistRepository
-                .createQueryBuilder("artist")
-                .leftJoinAndSelect("artist.profile_image", "profile_image")
-                .leftJoinAndSelect("artist.cover_image", "cover_image")
-                .leftJoinAndSelect("artist.banner_image", "banner_image")
-                .leftJoinAndSelect("artist.user", "user")
-                .leftJoinAndSelect("artist.gallery_images", "gallery_images")
-                .leftJoinAndSelect("gallery_images.image", "gallery_image")
-                .leftJoinAndSelect("artist.social_links", "social_links")
-                .where("artist.is_active = :isActive", { isActive: true })
-                .andWhere("user.id = :userId", { userId })
-                .andWhere("user.is_active = :userActive", { userActive: true })
-                .andWhere("user.is_artist = :isArtist", { isArtist: true })
-                .andWhere("gallery_images.is_active = :galleryActive", { galleryActive: true })
-                .andWhere("social_links.is_active = :socialActive", { socialActive: true })
-                .select([
-                    "artist.id",
-                    "artist.monthly_listeners",
-                    "artist.bio",
-                    "artist.nick_name",
-                    "artist.first_name",
-                    "artist.last_name",
-                    "profile_image.id",
-                    "profile_image.image_path",
-                    "cover_image.id",
-                    "cover_image.image_path",
-                    "banner_image.id",
-                    "banner_image.image_path",
-                    "user.id",
-                    "user.username",
-                    "gallery_images.id",
-                    "gallery_image.id",
-                    "gallery_image.image_path",
-                    "social_links.id",
-                    "social_links.platform",
-                    "social_links.url",
-                    "social_links.is_active"
-                ])
-                .getOne();
+  "/artist_profile/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const artistRepository = AppDataSource.getRepository(Artist);
 
-            if (!getArtist) {
-                return res.status(404).json({
-                    status: false,
-                    message: "artist not found"
-                });
+      const getArtist = await artistRepository
+        .createQueryBuilder("artist")
+        .leftJoinAndSelect("artist.profile_image", "profile_image")
+        .leftJoinAndSelect("artist.cover_image", "cover_image")
+        .leftJoinAndSelect("artist.banner_image", "banner_image")
+        .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("artist.gallery_images", "gallery_images")
+        .leftJoinAndSelect("gallery_images.image", "gallery_image")
+        .leftJoinAndSelect("artist.social_links", "social_links")
+        .where("artist.is_active = :isActive", { isActive: true })
+        .andWhere("user.id = :userId", { userId })
+        .andWhere("user.is_active = :userActive", { userActive: true })
+        .andWhere("user.is_artist = :isArtist", { isArtist: true })
+        .andWhere("gallery_images.is_active = :galleryActive", {
+          galleryActive: true,
+        })
+        .andWhere("social_links.is_active = :socialActive", {
+          socialActive: true,
+        })
+        .select([
+          "artist.id",
+          "artist.monthly_listeners",
+          "artist.bio",
+          "artist.nick_name",
+          "artist.first_name",
+          "artist.last_name",
+          "profile_image.id",
+          "profile_image.image_path",
+          "cover_image.id",
+          "cover_image.image_path",
+          "banner_image.id",
+          "banner_image.image_path",
+          "user.id",
+          "user.username",
+          "gallery_images.id",
+          "gallery_image.id",
+          "gallery_image.image_path",
+          "social_links.id",
+          "social_links.platform",
+          "social_links.url",
+          "social_links.is_active",
+        ])
+        .getOne();
+
+      if (!getArtist) {
+        return res.status(404).json({
+          status: false,
+          message: "artist not found",
+        });
+      }
+
+      const simpleData = {
+        artist_id: getArtist.id,
+        monthly_listeners: getArtist.monthly_listeners,
+        cover_image: getArtist.cover_image
+          ? {
+              id: getArtist.cover_image.id,
+              image_path: getArtist.cover_image.image_path,
             }
+          : null,
+        bio: getArtist.bio,
+        profile_image: getArtist.profile_image
+          ? {
+              id: getArtist.profile_image.id,
+              image_path: getArtist.profile_image.image_path,
+            }
+          : null,
+        banner_image: getArtist.banner_image
+          ? {
+              id: getArtist.banner_image.id,
+              image_path: getArtist.banner_image.image_path,
+            }
+          : null,
+        nick_name: getArtist.nick_name,
+        first_name: getArtist.first_name,
+        last_name: getArtist.last_name,
+        username: getArtist.user.username,
+        gallary_image: getArtist.gallery_images
+          ? getArtist.gallery_images.map((gallery) => ({
+              id: gallery.id,
+              image_path: gallery.image?.image_path || null,
+            }))
+          : [],
+        social_links: getArtist.social_links
+          ? getArtist.social_links.map((social) => ({
+              id: social.id,
+              platform: social.platform,
+              url: social.url,
+            }))
+          : [],
+      };
 
-            const simpleData = {
-                artist_id: getArtist.id,
-                monthly_listeners: getArtist.monthly_listeners,
-                cover_image: getArtist.cover_image ? {
-                    id: getArtist.cover_image.id,
-                    image_path: getArtist.cover_image.image_path
-                } : null,
-                bio: getArtist.bio,
-                profile_image: getArtist.profile_image ? {
-                    id: getArtist.profile_image.id,
-                    image_path: getArtist.profile_image.image_path
-                } : null,
-                banner_image: getArtist.banner_image ? {
-                    id: getArtist.banner_image.id,
-                    image_path: getArtist.banner_image.image_path
-                } : null,
-                nick_name: getArtist.nick_name,
-                first_name: getArtist.first_name,
-                last_name: getArtist.last_name,
-                username: getArtist.user.username,
-                gallary_image: getArtist.gallery_images ? 
-                    getArtist.gallery_images.map(gallery => ({
-                        id: gallery.id,
-                        image_path: gallery.image?.image_path || null
-                    })) : [],
-                social_links: getArtist.social_links ? 
-                    getArtist.social_links.map(social => ({
-                        id: social.id,
-                        platform: social.platform,
-                        url: social.url,
-                    })) : []
-            };
-
-            return res.status(200).json({
-                status: "success",
-                data: simpleData
-            });
-            
-        } catch (error) {
-            console.error("Error in artist profile:", error);
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        data: simpleData,
+      });
+    } catch (error) {
+      console.error("Error in artist profile:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // update artiste profile
@@ -343,172 +353,171 @@ artistReouter.get(
  *                   message: "server error"
  */
 artistReouter.patch(
-    "/update_artist_profile/",
-    authenticateJWT,
-    async(req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
+  "/update_artist_profile/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
 
-            // check user artist
-            const artistRepository = AppDataSource.getRepository(Artist);
-            const checkUserArtist = await artistRepository.findOne({
-                where: {
-                    user: {
-                        id: userId, 
-                        is_active: true, 
-                        is_artist: true
-                    }
-                },
-                relations: {
-                    cover_image: true,
-                    banner_image: true,
-                    profile_image: true
-                },
-                select: {
-                    id: true,
-                    nick_name: true,
-                    bio: true,
-                    first_name: true,
-                    last_name: true,
-                    // monthly_listeners: true,
-                    cover_image: {
-                        id: true,
-                        image_path: true
-                    },
-                    profile_image: {
-                        id: true,
-                        image_path: true
-                    },
-                    banner_image: {
-                        id: true,
-                        image_path: true
-                    }
-                }
-            });
+      // check user artist
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const checkUserArtist = await artistRepository.findOne({
+        where: {
+          user: {
+            id: userId,
+            is_active: true,
+            is_artist: true,
+          },
+        },
+        relations: {
+          cover_image: true,
+          banner_image: true,
+          profile_image: true,
+        },
+        select: {
+          id: true,
+          nick_name: true,
+          bio: true,
+          first_name: true,
+          last_name: true,
+          // monthly_listeners: true,
+          cover_image: {
+            id: true,
+            image_path: true,
+          },
+          profile_image: {
+            id: true,
+            image_path: true,
+          },
+          banner_image: {
+            id: true,
+            image_path: true,
+          },
+        },
+      });
 
-            if (!checkUserArtist) {
-                return res.status(404).json({
-                    status: false,
-                    message: "artist not found"
-                });
-            }
+      if (!checkUserArtist) {
+        return res.status(404).json({
+          status: false,
+          message: "artist not found",
+        });
+      }
 
-            // validate data
-            if (!req.body) {
-                return res.status(400).json({
-                    status: false,
-                    message: "request body is required"
-                });
-            }
+      // validate data
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
 
-            const updateArtistProfile = plainToClass(UpdateArtistProfile, req.body);
-            const errors = await validate(updateArtistProfile);
-            
-            if (errors.length > 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "invalid data",
-                    error: errors.map(err => ({
-                        field: err.property,
-                        value: err.constraints
-                    }))
-                });
-            }
+      const updateArtistProfile = plainToClass(UpdateArtistProfile, req.body);
+      const errors = await validate(updateArtistProfile);
 
-            const imageRepository = AppDataSource.getRepository(Image);
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "invalid data",
+          error: errors.map((err) => ({
+            field: err.property,
+            value: err.constraints,
+          })),
+        });
+      }
 
-            // Update cover image
-            if (updateArtistProfile.cover_image_id !== undefined) {
-                const checkImageUpload = await imageRepository.findOne({
-                    where: {
-                        id: updateArtistProfile.cover_image_id,
-                        is_active: true,
-                        user: {id: userId}
-                    },
-                    select: {id: true, image_path: true}
-                });
-                
-                if (!checkImageUpload) {
-                    return res.status(404).json({
-                        status: false,
-                        message: "cover image id not found"
-                    });
-                }
-                checkUserArtist.cover_image = checkImageUpload;
-            }
+      const imageRepository = AppDataSource.getRepository(Image);
 
-            // Update profile image - اینجا مشکل بود
-            if (updateArtistProfile.profile_image_id !== undefined) {
-                const checkProfileImageId = await imageRepository.findOne({
-                    where: {
-                        user: {id: userId},
-                        is_active: true,
-                        id: updateArtistProfile.profile_image_id
-                    },
-                    select: {id: true, image_path: true}
-                });
-                
-                if (!checkProfileImageId) {
-                    return res.status(404).json({
-                        status: false,
-                        message: "profile image id not found"
-                    });
-                }
-                checkUserArtist.profile_image = checkProfileImageId;
-            }
+      // Update cover image
+      if (updateArtistProfile.cover_image_id !== undefined) {
+        const checkImageUpload = await imageRepository.findOne({
+          where: {
+            id: updateArtistProfile.cover_image_id,
+            is_active: true,
+            user: { id: userId },
+          },
+          select: { id: true, image_path: true },
+        });
 
-            if (updateArtistProfile.banner_image_id !== undefined) {
-                const checkImage = await imageRepository.findOne({
-                    where: {
-                        id: updateArtistProfile.banner_image_id,
-                        is_active: true,
-                        user: {id: userId}
-                    },
-                    select: {id: true, image_path: true}
-                });
-                
-                if (!checkImage) {
-                    return res.status(404).json({
-                        status: false,
-                        message: "banner image id not found"
-                    });
-                }
-                checkUserArtist.banner_image = checkImage;
-            }
-
-            // Update other fields
-            if (updateArtistProfile.nick_name !== undefined) {
-                checkUserArtist.nick_name = updateArtistProfile.nick_name;
-            }
-
-            if (updateArtistProfile.bio !== undefined) {
-                checkUserArtist.bio = updateArtistProfile.bio;
-            }
-
-            if (updateArtistProfile.first_name !== undefined) {
-                checkUserArtist.first_name = updateArtistProfile.first_name
-            }
-
-            if (updateArtistProfile.last_name !== undefined) {
-                checkUserArtist.last_name = updateArtistProfile.last_name
-            }
-
-            // save
-            await artistRepository.save(checkUserArtist);
-
-            return res.status(200).json({
-                status: "success",
-                data: checkUserArtist
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message
-            });
+        if (!checkImageUpload) {
+          return res.status(404).json({
+            status: false,
+            message: "cover image id not found",
+          });
         }
+        checkUserArtist.cover_image = checkImageUpload;
+      }
+
+      // Update profile image - اینجا مشکل بود
+      if (updateArtistProfile.profile_image_id !== undefined) {
+        const checkProfileImageId = await imageRepository.findOne({
+          where: {
+            user: { id: userId },
+            is_active: true,
+            id: updateArtistProfile.profile_image_id,
+          },
+          select: { id: true, image_path: true },
+        });
+
+        if (!checkProfileImageId) {
+          return res.status(404).json({
+            status: false,
+            message: "profile image id not found",
+          });
+        }
+        checkUserArtist.profile_image = checkProfileImageId;
+      }
+
+      if (updateArtistProfile.banner_image_id !== undefined) {
+        const checkImage = await imageRepository.findOne({
+          where: {
+            id: updateArtistProfile.banner_image_id,
+            is_active: true,
+            user: { id: userId },
+          },
+          select: { id: true, image_path: true },
+        });
+
+        if (!checkImage) {
+          return res.status(404).json({
+            status: false,
+            message: "banner image id not found",
+          });
+        }
+        checkUserArtist.banner_image = checkImage;
+      }
+
+      // Update other fields
+      if (updateArtistProfile.nick_name !== undefined) {
+        checkUserArtist.nick_name = updateArtistProfile.nick_name;
+      }
+
+      if (updateArtistProfile.bio !== undefined) {
+        checkUserArtist.bio = updateArtistProfile.bio;
+      }
+
+      if (updateArtistProfile.first_name !== undefined) {
+        checkUserArtist.first_name = updateArtistProfile.first_name;
+      }
+
+      if (updateArtistProfile.last_name !== undefined) {
+        checkUserArtist.last_name = updateArtistProfile.last_name;
+      }
+
+      // save
+      await artistRepository.save(checkUserArtist);
+
+      return res.status(200).json({
+        status: "success",
+        data: checkUserArtist,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // get artist public profile
@@ -521,7 +530,7 @@ artistReouter.patch(
  *     summary: دریافت پروفایل عمومی یک آرتیست
  *     description: |
  *       دریافت اطلاعات کامل پروفایل عمومی یک آرتیست خاص
- *       
+ *
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - آرتیست باید فعال (is_active=true) باشد
@@ -680,126 +689,112 @@ artistReouter.patch(
  *                   message: "server error"
  */
 artistReouter.get(
-    "/get_artist_public_profile/:artistId",
-    authenticateJWT,
-    async (req: Request, res:Response) => {
-        try {
-            const artistId = Number(req.params.artistId);
-            if (isNaN(artistId)) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "artist_id must be a valid number"
-                    }
-                );
-            }
+  "/get_artist_public_profile/:artistId",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const artistId = Number(req.params.artistId);
+      if (isNaN(artistId)) {
+        return res.status(400).json({
+          status: false,
+          message: "artist_id must be a valid number",
+        });
+      }
 
-            const artistRepository = AppDataSource.getRepository(Artist);
-            const getArtist = await artistRepository
-                .createQueryBuilder("artist")
-                .leftJoinAndSelect("artist.cover_image", "cover_image")
-                .leftJoinAndSelect("artist.profile_image", "profile_image")
-                .leftJoinAndSelect("artist.banner_image", "banner_image")
-                .leftJoinAndSelect("artist.user", "user")
-                .leftJoinAndSelect("artist.gallery_images", "gallery_images")
-                .leftJoinAndSelect("gallery_images.image", "gallery_image")
-                .leftJoinAndSelect("artist.social_links", "social_links")
-                .where("artist.id = :artistId", { artistId })
-                .andWhere("artist.is_active = :isActive", { isActive: true })
-                .andWhere("gallery_images.is_active = :galleryActive", { galleryActive: true })
-                .andWhere("social_links.is_active = :socialActive", { socialActive: true })
-                .select([
-                    "artist.id",
-                    "artist.bio",
-                    "artist.first_name",
-                    "artist.last_name",
-                    "artist.nick_name",
-                    "artist.monthly_listeners",
-                    "cover_image.id",
-                    "cover_image.image_path",
-                    "profile_image.id",
-                    "profile_image.image_path",
-                    "banner_image.id",
-                    "banner_image.image_path",
-                    "user.id",
-                    "user.username",
-                    "gallery_images.id",
-                    "gallery_image.id",
-                    "gallery_image.image_path",
-                    "social_links.id",
-                    "social_links.platform",
-                    "social_links.url"
-                ])
-                .getOne();
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const getArtist = await artistRepository
+        .createQueryBuilder("artist")
+        .leftJoinAndSelect("artist.cover_image", "cover_image")
+        .leftJoinAndSelect("artist.profile_image", "profile_image")
+        .leftJoinAndSelect("artist.banner_image", "banner_image")
+        .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("artist.gallery_images", "gallery_images")
+        .leftJoinAndSelect("gallery_images.image", "gallery_image")
+        .leftJoinAndSelect("artist.social_links", "social_links")
+        .where("artist.id = :artistId", { artistId })
+        .andWhere("artist.is_active = :is_active", { is_active: true })
+        .select([
+          "artist.id",
+          "artist.bio",
+          "artist.first_name",
+          "artist.last_name",
+          "artist.nick_name",
+          "artist.monthly_listeners",
+          "cover_image.id",
+          "cover_image.image_path",
+          "profile_image.id",
+          "profile_image.image_path",
+          "banner_image.id",
+          "banner_image.image_path",
+          "user.id",
+          "user.username",
+          "gallery_images.id",
+          "gallery_images.is_active",
+          "gallery_image.id",
+          "gallery_image.image_path",
+          "social_links.id",
+          "social_links.platform",
+          "social_links.url",
+          "social_links.is_active",
+        ])
+        .getOne();
 
-            if (!getArtist) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "artist not found"
-                    }
-                )
-            }
+      if (!getArtist) {
+        return res.status(404).json({
+          status: false,
+          message: "artist not found",
+        });
+      }
 
-            const followRepository = AppDataSource.getRepository(Follow);
-            const request_user_id = (req as any).user.user_id;
-            const checkFollow = await followRepository.findOne(
-                {
-                    where: {
-                        from_user : {id: request_user_id},
-                        is_active: true,
-                        to_user: {id: getArtist.user.id}
-                    }
-                }
-            )
-            
-            const isFollow: boolean = !!checkFollow;
+      const followRepository = AppDataSource.getRepository(Follow);
+      const request_user_id = (req as any).user.user_id;
+      const checkFollow = await followRepository.findOne({
+        where: {
+          from_user: { id: request_user_id },
+          is_active: true,
+          to_user: { id: getArtist.user.id },
+        },
+      });
 
-            const simpleData = {
-                user_id: getArtist.user.id,
-                artist_id: getArtist.id,
-                artist_username: getArtist.user.username,
-                artist_cover_image: getArtist.cover_image?.image_path || null,
-                artist_profile_image: getArtist.profile_image?.image_path || null,
-                artist_banner_image: getArtist.banner_image?.image_path || null,
-                artist_first_name: getArtist.first_name || null,
-                artist_last_name: getArtist.last_name || null,
-                monthly_listeners: getArtist.monthly_listeners || 0,
-                bio: getArtist.bio,
-                nick_name: getArtist.nick_name,
-                gallery_images: getArtist.gallery_images.map(
-                    gallery => ({
-                        id: gallery.id,
-                        image_path: gallery.image?.image_path || null
-                    })
-                ),
-                artist_social: getArtist.social_links.map(
-                    social => ({
-                        id: social.id,
-                        platform: social.platform,
-                        url: social.url
-                    })
-                )
-            }
+      const isFollow: boolean = !!checkFollow;
 
-            return res.status(200).json(
-                {
-                    status: "success",
-                    data: simpleData,
-                    is_follow: isFollow,
-                }
-            )
-        } catch (error) {
-            console.error("Error in public artist profile:", error);
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error",
-                    error: error.message
-                }
-            )
-        }
+      const simpleData = {
+        user_id: getArtist.user.id,
+        artist_id: getArtist.id,
+        artist_username: getArtist.user.username,
+        artist_cover_image: getArtist.cover_image?.image_path || null,
+        artist_profile_image: getArtist.profile_image?.image_path || null,
+        artist_banner_image: getArtist.banner_image?.image_path || null,
+        artist_first_name: getArtist.first_name || null,
+        artist_last_name: getArtist.last_name || null,
+        monthly_listeners: getArtist.monthly_listeners || 0,
+        bio: getArtist.bio,
+        nick_name: getArtist.nick_name,
+        gallery_images: getArtist.gallery_images.map((gallery) => ({
+          id: gallery.id,
+          image_path: gallery.image?.image_path || null,
+        })),
+        artist_social: getArtist.social_links.map((social) => ({
+          id: social.id,
+          platform: social.platform,
+          url: social.url,
+        })),
+      };
+
+      return res.status(200).json({
+        status: "success",
+        data: simpleData,
+        is_follow: isFollow,
+      });
+    } catch (error) {
+      console.error("Error in public artist profile:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // create gallery images
@@ -812,7 +807,7 @@ artistReouter.get(
  *     summary: افزودن تصویر جدید به گالری آرتیست
  *     description: |
  *       افزودن یک تصویر به گالری تصاویر آرتیست
- *       
+ *
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - کاربر باید آرتیست باشد (isArtistUser)
@@ -889,110 +884,91 @@ artistReouter.get(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 artistReouter.post(
-    "/public_artist_profile/gallery_images",
-    authenticateJWT,
-    isArtistUser,
-    async (req: Request, res: Response) => {
-        try {
-            if (!req.body) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "request body is required"
-                    }
-                )
-            }
+  "/public_artist_profile/gallery_images",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
 
-            const artistGalleryImageDto = plainToClass(ArtistGalleryImageDto, req.body);
-            const errors = await validate(artistGalleryImageDto)
-            if (errors.length > 0) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "invalid data",
-                        error: errors.map(
-                            err => (
-                                {
-                                    field: err.property,
-                                    value: err.constraints
-                                }
-                            )
-                        )
-                    }
-                );
-            }
+      const artistGalleryImageDto = plainToClass(
+        ArtistGalleryImageDto,
+        req.body
+      );
+      const errors = await validate(artistGalleryImageDto);
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "invalid data",
+          error: errors.map((err) => ({
+            field: err.property,
+            value: err.constraints,
+          })),
+        });
+      }
 
-            // check image
-            const userId = (req as any).user.user_id;
-            const imageRepository = AppDataSource.getRepository(Image);
-            const checkImage = await imageRepository.findOne(
-                {
-                    where: {
-                        id: artistGalleryImageDto.image_id,
-                        is_active: true,
-                        user: {id: userId}
-                    },
-                    select: {id: true}
-                }
-            )
-            if (!checkImage) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "image not found"
-                    }
-                );
-            }
-            else {
-                const artistGalleryRepo = AppDataSource.getRepository(ArtistGallery);
-                const checkDuplicate = await artistGalleryRepo.findOne(
-                    {
-                        where: {
-                            is_active: true,
-                            artist: (req as any).artist,
-                            image: checkImage
-                        },
-                        select: {id: true}
-                    }
-                );
-                if (checkDuplicate) {
-                    return res.status(403).json(
-                        {
-                            status: false,
-                            message: "image already exists"
-                        }
-                    )
-                }
-            }
-
-            const gallaryImage = new ArtistGallery();
-            gallaryImage.order = artistGalleryImageDto.order;
-            gallaryImage.image = checkImage
-            gallaryImage.artist = (req as any).artist
-            await gallaryImage.save();
-
-            return res.status(201).json(
-                {
-                    status: false,
-                    message: "created",
-                    data: {
-                        id: gallaryImage.id,
-                        artist_id: gallaryImage.artist.id,
-                        image_id: gallaryImage.image.id
-                    }
-                }
-            );
-
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error",
-                    error: error.message
-                }
-            )
+      // check image
+      const userId = (req as any).user.user_id;
+      const imageRepository = AppDataSource.getRepository(Image);
+      const checkImage = await imageRepository.findOne({
+        where: {
+          id: artistGalleryImageDto.image_id,
+          is_active: true,
+          user: { id: userId },
+        },
+        select: { id: true },
+      });
+      if (!checkImage) {
+        return res.status(404).json({
+          status: false,
+          message: "image not found",
+        });
+      } else {
+        const artistGalleryRepo = AppDataSource.getRepository(ArtistGallery);
+        const checkDuplicate = await artistGalleryRepo.findOne({
+          where: {
+            is_active: true,
+            artist: (req as any).artist,
+            image: checkImage,
+          },
+          select: { id: true },
+        });
+        if (checkDuplicate) {
+          return res.status(403).json({
+            status: false,
+            message: "image already exists",
+          });
         }
+      }
+
+      const gallaryImage = new ArtistGallery();
+      gallaryImage.order = artistGalleryImageDto.order;
+      gallaryImage.image = checkImage;
+      gallaryImage.artist = (req as any).artist;
+      await gallaryImage.save();
+
+      return res.status(201).json({
+        status: false,
+        message: "created",
+        data: {
+          id: gallaryImage.id,
+          artist_id: gallaryImage.artist.id,
+          image_id: gallaryImage.image.id,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // get list artist gallery_image
@@ -1005,7 +981,7 @@ artistReouter.post(
  *     summary: دریافت لیست تصاویر گالری آرتیست جاری
  *     description: |
  *       دریافت تمام تصاویر فعال گالری آرتیست جاری
- *       
+ *
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - کاربر باید آرتیست باشد (isArtistUser)
@@ -1064,73 +1040,72 @@ artistReouter.post(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 artistReouter.get(
-    "/public_artist_profile/gallery_images",
-    authenticateJWT,
-    isArtistUser,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            
-            // پیدا کردن آرتیست جاری
-            const artistRepository = AppDataSource.getRepository(Artist);
-            const artist = await artistRepository.findOne({
-                where: {
-                    user: { id: userId },
-                    is_active: true
-                },
-                select: { id: true }
-            });
+  "/public_artist_profile/gallery_images",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
 
-            if (!artist) {
-                return res.status(404).json({
-                    status: false,
-                    message: "artist not found"
-                });
-            }
+      // پیدا کردن آرتیست جاری
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const artist = await artistRepository.findOne({
+        where: {
+          user: { id: userId },
+          is_active: true,
+        },
+        select: { id: true },
+      });
 
-            // دریافت تصاویر گالری
-            const galleryRepository = AppDataSource.getRepository(ArtistGallery);
-            const galleryImages = await galleryRepository.find({
-                where: {
-                    artist: { id: artist.id },
-                    is_active: true
-                },
-                relations: {
-                    image: true
-                },
-                order: {
-                    order: "ASC",
-                },
-                select: {
-                    id: true,
-                    order: true,
-                    image: {
-                        id: true,
-                        image_path: true
-                    }
-                }
-            });
+      if (!artist) {
+        return res.status(404).json({
+          status: false,
+          message: "artist not found",
+        });
+      }
 
-            const formattedImages = galleryImages.map(item => ({
-                id: item.id,
-                image_id: item.image.id,
-                image_path: item.image.image_path,
-                order: item.order,
-            }));
+      // دریافت تصاویر گالری
+      const galleryRepository = AppDataSource.getRepository(ArtistGallery);
+      const galleryImages = await galleryRepository.find({
+        where: {
+          artist: { id: artist.id },
+          is_active: true,
+        },
+        relations: {
+          image: true,
+        },
+        order: {
+          order: "ASC",
+        },
+        select: {
+          id: true,
+          order: true,
+          image: {
+            id: true,
+            image_path: true,
+          },
+        },
+      });
 
-            return res.status(200).json({
-                status: true,
-                data: formattedImages
-            });
+      const formattedImages = galleryImages.map((item) => ({
+        id: item.id,
+        image_id: item.image.id,
+        image_path: item.image.image_path,
+        order: item.order,
+      }));
 
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message
-            });
-        }
+      return res.status(200).json({
+        status: true,
+        data: formattedImages,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // delete gallaery_image
@@ -1143,7 +1118,7 @@ artistReouter.get(
  *     summary: حذف تصویر از گالری آرتیست
  *     description: |
  *       حذف یک تصویر از گالری آرتیست جاری
- *       
+ *
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - کاربر باید آرتیست باشد (isArtistUser)
@@ -1198,72 +1173,71 @@ artistReouter.get(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 artistReouter.delete(
-    "/public_artist_profile/gallery_images/:galleryImageId",
-    authenticateJWT,
-    isArtistUser,
-    async (req: Request, res: Response) => {
-        try {
-            const galleryImageId = Number(req.params.galleryImageId);
-            if (isNaN(galleryImageId)) {
-                return res.status(400).json({
-                    status: false,
-                    message: "galleryImageId must be a valid number"
-                });
-            }
+  "/public_artist_profile/gallery_images/:galleryImageId",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    try {
+      const galleryImageId = Number(req.params.galleryImageId);
+      if (isNaN(galleryImageId)) {
+        return res.status(400).json({
+          status: false,
+          message: "galleryImageId must be a valid number",
+        });
+      }
 
-            const userId = (req as any).user.user_id;
-            
-            // پیدا کردن آرتیست جاری
-            const artistRepository = AppDataSource.getRepository(Artist);
-            const artist = await artistRepository.findOne({
-                where: {
-                    user: { id: userId },
-                    is_active: true
-                },
-                select: { id: true }
-            });
+      const userId = (req as any).user.user_id;
 
-            if (!artist) {
-                return res.status(404).json({
-                    status: false,
-                    message: "artist not found"
-                });
-            }
+      // پیدا کردن آرتیست جاری
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const artist = await artistRepository.findOne({
+        where: {
+          user: { id: userId },
+          is_active: true,
+        },
+        select: { id: true },
+      });
 
-            // پیدا کردن تصویر گالری
-            const galleryRepository = AppDataSource.getRepository(ArtistGallery);
-            const galleryImage = await galleryRepository.findOne({
-                where: {
-                    id: galleryImageId,
-                    artist: { id: artist.id },
-                    is_active: true
-                }
-            });
+      if (!artist) {
+        return res.status(404).json({
+          status: false,
+          message: "artist not found",
+        });
+      }
 
-            if (!galleryImage) {
-                return res.status(404).json({
-                    status: false,
-                    message: "gallery image not found"
-                });
-            }
+      // پیدا کردن تصویر گالری
+      const galleryRepository = AppDataSource.getRepository(ArtistGallery);
+      const galleryImage = await galleryRepository.findOne({
+        where: {
+          id: galleryImageId,
+          artist: { id: artist.id },
+          is_active: true,
+        },
+      });
 
-            // حذف نرم (soft delete) با تغییر is_active به false
-            galleryImage.is_active = false;
-            await galleryRepository.save(galleryImage);
+      if (!galleryImage) {
+        return res.status(404).json({
+          status: false,
+          message: "gallery image not found",
+        });
+      }
 
-            return res.status(200).json({
-                status: true,
-                message: "gallery image deleted successfully"
-            });
+      // حذف نرم (soft delete) با تغییر is_active به false
+      galleryImage.is_active = false;
+      await galleryRepository.save(galleryImage);
 
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message
-            });
-        }
+      return res.status(200).json({
+        status: true,
+        message: "gallery image deleted successfully",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // create artist scoial
@@ -1276,7 +1250,7 @@ artistReouter.delete(
  *     summary: افزودن لینک اجتماعی جدید برای آرتیست
  *     description: |
  *       افزودن یک لینک اجتماعی به پروفایل آرتیست
- *       
+ *
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - کاربر باید آرتیست باشد (isArtistUser)
@@ -1360,90 +1334,89 @@ artistReouter.delete(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 artistReouter.post(
-    "/public_artist_profile/social_links",
-    authenticateJWT,
-    isArtistUser,
-    async (req: Request, res: Response) => {
-        try {
-            if (!req.body) {
-                return res.status(400).json({
-                    status: false,
-                    message: "request body is required"
-                });
-            }
+  "/public_artist_profile/social_links",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
 
-            const { platform, url } = req.body;
+      const { platform, url } = req.body;
 
-            // اعتبارسنجی فیلدهای اجباری
-            if (!platform || !url) {
-                return res.status(400).json({
-                    status: false,
-                    message: "platform and url are required"
-                });
-            }
+      // اعتبارسنجی فیلدهای اجباری
+      if (!platform || !url) {
+        return res.status(400).json({
+          status: false,
+          message: "platform and url are required",
+        });
+      }
 
-            if (platform.length > 50) {
-                return res.status(400).json({
-                    status: false,
-                    message: "platform must be less than 50 characters"
-                });
-            }
+      if (platform.length > 50) {
+        return res.status(400).json({
+          status: false,
+          message: "platform must be less than 50 characters",
+        });
+      }
 
-            if (url.length > 500) {
-                return res.status(400).json({
-                    status: false,
-                    message: "url must be less than 500 characters"
-                });
-            }
+      if (url.length > 500) {
+        return res.status(400).json({
+          status: false,
+          message: "url must be less than 500 characters",
+        });
+      }
 
-            const userId = (req as any).user.user_id;
-            
-            // پیدا کردن آرتیست جاری
-            const artistRepository = AppDataSource.getRepository(Artist);
-            const artist = await artistRepository.findOne({
-                where: {
-                    user: { id: userId },
-                    is_active: true
-                },
-                select: { id: true }
-            });
+      const userId = (req as any).user.user_id;
 
-            if (!artist) {
-                return res.status(404).json({
-                    status: false,
-                    message: "artist not found"
-                });
-            }
+      // پیدا کردن آرتیست جاری
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const artist = await artistRepository.findOne({
+        where: {
+          user: { id: userId },
+          is_active: true,
+        },
+        select: { id: true },
+      });
 
-            // ایجاد لینک اجتماعی جدید
-            const socialRepository = AppDataSource.getRepository(ArtistSocial);
-            const newSocialLink = new ArtistSocial();
-            newSocialLink.platform = platform;
-            newSocialLink.url = url;
-            newSocialLink.artist = artist;
-            newSocialLink.is_active = true;
+      if (!artist) {
+        return res.status(404).json({
+          status: false,
+          message: "artist not found",
+        });
+      }
 
-            await socialRepository.save(newSocialLink);
+      // ایجاد لینک اجتماعی جدید
+      const socialRepository = AppDataSource.getRepository(ArtistSocial);
+      const newSocialLink = new ArtistSocial();
+      newSocialLink.platform = platform;
+      newSocialLink.url = url;
+      newSocialLink.artist = artist;
+      newSocialLink.is_active = true;
 
-            return res.status(201).json({
-                status: true,
-                message: "social link created successfully",
-                data: {
-                    id: newSocialLink.id,
-                    platform: newSocialLink.platform,
-                    url: newSocialLink.url,
-                }
-            });
+      await socialRepository.save(newSocialLink);
 
-        } catch (error) {
-            console.error("Error creating social link:", error);
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message
-            });
-        }
+      return res.status(201).json({
+        status: true,
+        message: "social link created successfully",
+        data: {
+          id: newSocialLink.id,
+          platform: newSocialLink.platform,
+          url: newSocialLink.url,
+        },
+      });
+    } catch (error) {
+      console.error("Error creating social link:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // list artist scoial
@@ -1512,38 +1485,37 @@ artistReouter.post(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 artistReouter.get(
-    "/public_artist_profile/social_links",
-    authenticateJWT,
-    isArtistUser,
-    async (req: Request, res: Response) => {
-        try {
-            const socialRepository = AppDataSource.getRepository(ArtistSocial);
-            const socialLinks = await socialRepository.find({
-                where: {
-                    artist: (req as any).artist,
-                    is_active: true
-                },
-                select: {
-                    id: true,
-                    platform: true,
-                    url: true,
-                }
-            });
+  "/public_artist_profile/social_links",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    try {
+      const socialRepository = AppDataSource.getRepository(ArtistSocial);
+      const socialLinks = await socialRepository.find({
+        where: {
+          artist: (req as any).artist,
+          is_active: true,
+        },
+        select: {
+          id: true,
+          platform: true,
+          url: true,
+        },
+      });
 
-            return res.status(200).json({
-                status: true,
-                data: socialLinks
-            });
-
-        } catch (error) {
-            console.error("Error getting social links:", error);
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message
-            });
-        }
+      return res.status(200).json({
+        status: true,
+        data: socialLinks,
+      });
+    } catch (error) {
+      console.error("Error getting social links:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // update artist social
@@ -1645,88 +1617,81 @@ artistReouter.get(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 artistReouter.patch(
-    "/public_artist_profile/social_links/:socialLinkId",
-    authenticateJWT,
-    isArtistUser,
-    async (req: Request, res: Response) => {
-        try {
-            const socialLinkId = Number(req.params.socialLinkId);
-            if (isNaN(socialLinkId)) {
-                return res.status(400).json({
-                    status: false,
-                    message: "socialLinkId must be a valid number"
-                });
-            }
+  "/public_artist_profile/social_links/:socialLinkId",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    try {
+      const socialLinkId = Number(req.params.socialLinkId);
+      if (isNaN(socialLinkId)) {
+        return res.status(400).json({
+          status: false,
+          message: "socialLinkId must be a valid number",
+        });
+      }
 
-            // validate
-            if (!req.body) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "request body json is required"
-                    }
-                )
-            }
-            const artistSocialDto = plainToClass(ArtistSocialDto, req.body);
-            const errors = await validate(artistSocialDto);
-            if (errors.length > 0) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "invalid data",
-                        error: errors.map(
-                            err => (
-                                {
-                                    field: err.property,
-                                    value: err.constraints
-                                }
-                            )
-                        )
-                    }
-                );
-            }
+      // validate
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body json is required",
+        });
+      }
+      const artistSocialDto = plainToClass(ArtistSocialDto, req.body);
+      const errors = await validate(artistSocialDto);
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "invalid data",
+          error: errors.map((err) => ({
+            field: err.property,
+            value: err.constraints,
+          })),
+        });
+      }
 
-            // find social
-            const socialRepository = AppDataSource.getRepository(ArtistSocial);
-            const socialLink = await socialRepository.findOne({
-                where: {
-                    id: socialLinkId,
-                    artist: (req as any).artist,
-                    is_active: true
-                }
-            });
+      // find social
+      const socialRepository = AppDataSource.getRepository(ArtistSocial);
+      const socialLink = await socialRepository.findOne({
+        where: {
+          id: socialLinkId,
+          artist: (req as any).artist,
+          is_active: true,
+        },
+      });
 
-            if (!socialLink) {
-                return res.status(404).json({
-                    status: false,
-                    message: "social link not found"
-                });
-            }
+      if (!socialLink) {
+        return res.status(404).json({
+          status: false,
+          message: "social link not found",
+        });
+      }
 
-            // update field
-            if (artistSocialDto.platform !== undefined) socialLink.platform = artistSocialDto.platform;
-            if (artistSocialDto.url !== undefined) socialLink.url = artistSocialDto.url;
+      // update field
+      if (artistSocialDto.platform !== undefined)
+        socialLink.platform = artistSocialDto.platform;
+      if (artistSocialDto.url !== undefined)
+        socialLink.url = artistSocialDto.url;
 
-            await socialRepository.save(socialLink);
+      await socialRepository.save(socialLink);
 
-            return res.status(200).json({
-                status: true,
-                message: "social link updated successfully",
-                data: {
-                    id: socialLink.id,
-                    platform: socialLink.platform,
-                    url: socialLink.url,
-                }
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message
-            });
-        }
+      return res.status(200).json({
+        status: true,
+        message: "social link updated successfully",
+        data: {
+          id: socialLink.id,
+          platform: socialLink.platform,
+          url: socialLink.url,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // delete artist social
@@ -1789,51 +1754,50 @@ artistReouter.patch(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 artistReouter.delete(
-    "/public_artist_profile/social_links/:socialLinkId",
-    authenticateJWT,
-    isArtistUser,
-    async (req: Request, res: Response) => {
-        try {
-            const socialLinkId = Number(req.params.socialLinkId);
-            if (isNaN(socialLinkId)) {
-                return res.status(400).json({
-                    status: false,
-                    message: "socialLinkId must be a valid number"
-                });
-            }
+  "/public_artist_profile/social_links/:socialLinkId",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    try {
+      const socialLinkId = Number(req.params.socialLinkId);
+      if (isNaN(socialLinkId)) {
+        return res.status(400).json({
+          status: false,
+          message: "socialLinkId must be a valid number",
+        });
+      }
 
-            // find social
-            const socialRepository = AppDataSource.getRepository(ArtistSocial);
-            const socialLink = await socialRepository.findOne({
-                where: {
-                    id: socialLinkId,
-                    artist: (req as any).artist,
-                    is_active: true
-                }
-            });
+      // find social
+      const socialRepository = AppDataSource.getRepository(ArtistSocial);
+      const socialLink = await socialRepository.findOne({
+        where: {
+          id: socialLinkId,
+          artist: (req as any).artist,
+          is_active: true,
+        },
+      });
 
-            if (!socialLink) {
-                return res.status(404).json({
-                    status: false,
-                    message: "social link not found"
-                });
-            }
+      if (!socialLink) {
+        return res.status(404).json({
+          status: false,
+          message: "social link not found",
+        });
+      }
 
-            // (soft delete)
-            socialLink.is_active = false;
-            await socialRepository.save(socialLink);
+      // (soft delete)
+      socialLink.is_active = false;
+      await socialRepository.save(socialLink);
 
-            return res.status(200).json({
-                status: true,
-                message: "social link deleted successfully"
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message
-            });
-        }
+      return res.status(200).json({
+        status: true,
+        message: "social link deleted successfully",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
