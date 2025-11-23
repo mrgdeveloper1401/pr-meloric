@@ -1,4 +1,4 @@
-import { IsArray, IsDate, IsEmail, IsNumber, IsOptional, isString, IsString } from "class-validator";
+import { IsNumber, IsOptional, IsString } from "class-validator";
 
 export class ProfileDto {
 
