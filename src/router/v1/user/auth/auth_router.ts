@@ -1742,6 +1742,10 @@ userAuthRouter.get(
  *                 type: string
  *                 nullable: true
  *                 example: "جان"
+ *               full_name:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "جان دو"
  *               last_name:
  *                 type: string
  *                 nullable: true

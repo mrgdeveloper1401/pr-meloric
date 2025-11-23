@@ -1,4 +1,4 @@
-import { IsArray, IsDate, IsNumber, IsOptional, isString, IsString } from "class-validator";
+import { IsArray, IsDate, IsEmail, IsNumber, IsOptional, isString, IsString } from "class-validator";
 
 export class ProfileDto {
 
@@ -38,4 +38,7 @@ export class ProfileDto {
     @IsNumber()
     banner_galery_image_id?: number;
     
+    @IsOptional()
+    @IsString()
+    full_name?: string
 }
