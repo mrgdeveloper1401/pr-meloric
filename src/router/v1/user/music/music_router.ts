@@ -1182,7 +1182,7 @@ musicRouter.get(
             const skip = (page - 1) * limit;
             const date = new Date();
 
-            // تبدیل رشته ژانرها به آرایه اعداد
+            // convert into array
             const genreIdArray = genreIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
             
             if (genreIdArray.length === 0) {
@@ -1194,7 +1194,7 @@ musicRouter.get(
 
             const musicRepository = AppDataSource.getRepository(Song);
 
-            // استفاده از Query Builder برای کوئری بهینه
+            // query builder
             const queryBuilder = musicRepository
                 .createQueryBuilder("song")
                 .leftJoinAndSelect("song.audio", "audio")
@@ -1264,7 +1264,6 @@ musicRouter.get(
             });
 
         } catch (error) {
-            console.error("Error in show_music_by_genres:", error);
             return res.status(500).json({
                 status: "error",
                 message: "Internal server error"
