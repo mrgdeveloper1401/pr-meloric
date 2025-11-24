@@ -1131,22 +1131,22 @@ musicRouter.delete(
 // show music by genre id
 /**
  * @swagger
- * /v1/user/music/show_music_by_genre/{genreId}:
+ * /v1/user/music/show_music_by_genres:
  *   get:
  *     tags:
  *       - Music
- *     summary: دریافت آهنگ‌های بر اساس ژانر
- *     description: دریافت لیست آهنگ‌های مرتبط با یک ژانر خاص با قابلیت صفحه‌بندی
+ *     summary: دریافت آهنگ‌های بر اساس لیست ژانرها
+ *     description: دریافت لیست آهنگ‌های مرتبط با چندین ژانر با قابلیت صفحه‌بندی
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - name: genreId
- *         in: path
+ *       - name: genreIds
+ *         in: query
  *         required: true
- *         description: آیدی ژانر
+ *         description: لیست آیدی ژانرها (با کاما جدا شده)
  *         schema:
- *           type: integer
- *           example: 1
+ *           type: string
+ *           example: "1,2,3"
  *       - name: page
  *         in: query
  *         required: false
@@ -1165,197 +1165,106 @@ musicRouter.delete(
  *           example: 20
  *     responses:
  *       '200':
- *         description: موفقیت‌آمیز - لیست آهنگ‌های ژانر مورد نظر بازگردانده می‌شود
+ *         description: موفقیت‌آمیز
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/PaginatedSongsResponse'
- *             examples:
- *               success:
- *                 summary: نمونه پاسخ موفق
- *                 value:
- *                   status: "success"
- *                   total: 50
- *                   page: 1
- *                   skip: 0
- *                   data:
- *                     - id: 1
- *                       title: "Beautiful Song"
- *                       release_date: "2025-09-28T11:57:16.000Z"
- *                       created_at: "2025-09-28T05:10:19.604Z"
- *                       release_data: "2025-09-28T05:10:11.000Z"
- *                       nick_name: "ali rezaei"
- *                       first_name: "جان"
- *                       last_name: "دو"
- *                       username: "john_doe"
- *                       music_cover_image: null
- *                       album_title: "test music"
- *                       audio: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/19/1758719801056-109228681.mp3"
- *                       music_lyric: null
- *                       play_count: 0
- *       '400':
- *         description: پارامترهای ورودی نامعتبر
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       '401':
- *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده یا منقضی شده است
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       '404':
- *         description: ژانر مورد نظر یافت نشد
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       '500':
- *         description: خطای داخلی سرور
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 musicRouter.get(
-    "/show_music_by_genre/:genreId",
+    "/show_music_by_genres",
     authenticateJWT,
     async (req: Request, res: Response) => {
-        const date = new Date();
         try {
-            const genreId = Number(req.params.genreId);
+            const genreIds = req.query.genreIds as string;
             const limit = Number(req.query.limit) || 20;
             const page = Number(req.query.page) || 1;
             const skip = (page - 1) * limit;
-            const musicRepository = AppDataSource.getRepository(Song);
-            const [musics, total] = await musicRepository.findAndCount({
-                skip: skip,
-                take: limit,
-                where: {
-                    is_active: true,
-                    release_date: LessThan(date),
-                    album: {
-                        is_active: true,
-                        release_date: LessThan(date),
-                        genre: {
-                            id: genreId
-                        }
-                    }
-                },
-                relations: {
-                    audio: true,
-                    album: {
-                        cover_image: true
-                    },
-                    image: true,
-                    artist: {
-                        cover_image: true,
-                        user: {
-                            profile: true
-                        }
-                    }
-                },
-                select: {
-                    id: true,
-                    title: true,
-                    createdAt: true,
-                    release_date: true,
-                    play_count: true,
-                    image: {
-                        image_path: true
-                    },
-                    audio: {
-                        audio_file_path: true
-                    },
-                    album: {
-                        id: true,
-                        title: true
-                    },
-                    artist: {
-                        id: true,
-                        nick_name: true,
-                        user: {
-                            id: true,
-                            username: true,
-                            profile: {
-                                id: true,
-                                first_name: true,
-                                last_name: true
-                            }
-                        },
-                        cover_image: {
-                            id: true,
-                            image_path: true
-                        }
-                    }
+            const date = new Date();
 
-                }
-            })
-            // const simpleData = musics.map(
-            //     item => (
-            //         {
-            //             id: item.id,
-            //             artist_id: item.artist.id,
-            //             title: item.title,
-            //             created_at: item.createdAt,
-            //             release_data: item.release_date,
-            //             nick_name: item.artist?.nick_name || null,
-            //             first_name: item.artist.user.profile?.first_name || null,
-            //             last_name: item.artist.user.profile?.last_name || null,
-            //             username: item.artist.user.username || null,
-            //             music_cover_image: item.image?.image_path || null,
-            //             album_title: item.album.title,
-            //             audio: item.audio.audio_file_path,
-            //             music_lyric: item?.music_lyrics || null,
-            //             play_count: item.play_count
-            //         }
-            //     )
-            // )
-            const data = musics.map(
-                item => (
-                    {
-                        id: item.id,
-                        title: item.title,
-                        release_date: item.release_date,
-                        play_count: item.play_count,
-                        music_lyrics: item.music_lyrics,
-                        created_at: item.createdAt,
-                        image: {
-                            image_path: item.image?.image_path || null,
-                        },
-                        album: {
-                            id: item.album?.id || null,
-                            title: item.album?.title || null,
-                            cover_image: item.album.cover_image?.image_path || null
-                        },
-                        artist: {
-                            id: item.artist.id,
-                            nicke_name: item.artist?.nick_name || null,
-                            first_name: item.artist.user.profile?.first_name || null,
-                            last_name: item.artist.user.profile?.last_name || null,
-                            username: item.artist.user.username,
-                            cover_image: {
-                                id: item.artist.cover_image?.id || null,
-                                image_path: item.artist.cover_image?.image_path || null
-                            },
-                            audio: {
-                                audio_file_path: item.audio.audio_file_path,
-                                audio_format: item.audio.audio_format
-                            }
-                        }
+            // تبدیل رشته ژانرها به آرایه اعداد
+            const genreIdArray = genreIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            
+            if (genreIdArray.length === 0) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "حداقل یک ژانر ID معتبر وارد کنید"
+                });
+            }
+
+            const musicRepository = AppDataSource.getRepository(Song);
+
+            // استفاده از Query Builder برای کوئری بهینه
+            const queryBuilder = musicRepository
+                .createQueryBuilder("song")
+                .leftJoinAndSelect("song.audio", "audio")
+                .leftJoinAndSelect("song.album", "album")
+                .leftJoinAndSelect("song.image", "image")
+                .leftJoinAndSelect("song.artist", "artist")
+                .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
+                .leftJoinAndSelect("artist.user", "user")
+                .leftJoinAndSelect("user.profile", "profile")
+                .leftJoinAndSelect("album.cover_image", "album_cover_image")
+                .leftJoinAndSelect("album.genre", "genre")
+                .where("song.is_active = :isActive", { isActive: true })
+                .andWhere("song.release_date < :currentDate", { currentDate: date })
+                .andWhere("album.is_active = :albumIsActive", { albumIsActive: true })
+                .andWhere("album.release_date < :albumReleaseDate", { albumReleaseDate: date })
+                .andWhere("genre.id IN (:...genreIds)", { genreIds: genreIdArray })
+                .orderBy("song.release_date", "DESC")
+                .skip(skip)
+                .take(limit);
+
+            const [musics, total] = await queryBuilder.getManyAndCount();
+
+            const data = musics.map(item => ({
+                id: item.id,
+                title: item.title,
+                release_date: item.release_date,
+                play_count: item.play_count,
+                music_lyrics: item.music_lyrics,
+                created_at: item.createdAt,
+                image: {
+                    image_path: item.image?.image_path || null,
+                },
+                album: {
+                    id: item.album?.id || null,
+                    title: item.album?.title || null,
+                    cover_image: item.album?.cover_image?.image_path || null,
+                    genre: {
+                        id: item.album?.genre?.id || null,
+                        name: item.album?.genre?.name || null
                     }
-                )
-            )
+                },
+                artist: {
+                    id: item.artist.id,
+                    nick_name: item.artist?.nick_name || null,
+                    first_name: item.artist.user?.profile?.first_name || null,
+                    last_name: item.artist.user?.profile?.last_name || null,
+                    username: item.artist.user?.username || null,
+                    cover_image: {
+                        id: item.artist.cover_image?.id || null,
+                        image_path: item.artist.cover_image?.image_path || null
+                    }
+                },
+                audio: {
+                    audio_file_path: item.audio?.audio_file_path || null,
+                    audio_format: item.audio?.audio_format || null
+                }
+            }));
+
             return res.status(200).json({
                 status: "success",
                 total: total,
                 page: page,
                 skip: skip,
+                limit: limit,
+                genre_ids: genreIdArray,
                 data: data
             });
+
         } catch (error) {
-            console.error("Error in show_music_by_genre:", error);
+            console.error("Error in show_music_by_genres:", error);
             return res.status(500).json({
                 status: "error",
                 message: "Internal server error"
