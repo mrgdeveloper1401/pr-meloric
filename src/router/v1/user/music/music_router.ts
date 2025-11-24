@@ -413,11 +413,6 @@ musicRouter.get(
                             user: {
                                 id: true,
                                 username: true,
-                                profile: {
-                                    id: true,
-                                    first_name: true,
-                                    last_name: true
-                                }
                             }
                         }
                     },
@@ -494,8 +489,8 @@ musicRouter.get(
                 artist: {
                     id: getMusic.artist.id,
                     nicke_name: getMusic.artist?.nick_name || null,
-                    first_name: getMusic.artist.user.profile?.first_name || null,
-                    last_name: getMusic.artist.user.profile?.last_name || null,
+                    first_name: getMusic.artist?.first_name || null,
+                    last_name: getMusic.artist?.last_name || null,
                     username: getMusic.artist.user.username,
                     cover_image: {
                         id: getMusic.artist.cover_image?.id || null,
