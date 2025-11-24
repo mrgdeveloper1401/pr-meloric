@@ -716,7 +716,7 @@ favoriteRouter.delete(
             const favortiSong = await favoriteRepository.findOne(
                 {
                     where: {
-                        id: favoriteMusicId,
+                        song: {id: favoriteMusicId},
                         is_active: true,
                         user: {id: userId}
                     },
@@ -744,7 +744,8 @@ favoriteRouter.delete(
         } catch (error) {
             return res.status(500).json({
                 status: false,
-                message: "server error"
+                message: "server error",
+                error: error.message
             });
         }
     }
