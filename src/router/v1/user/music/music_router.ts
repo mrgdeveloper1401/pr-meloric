@@ -14,6 +14,8 @@ import { Image } from "../../../../entity/Image";
 import { FavoriteSong } from "../../../../entity/FavoriteSong";
 import { ILike, In, LessThan, Like } from "typeorm";
 import { Genre } from "../../../../entity/Genre";
+import { Playlist } from "../../../../entity/Playlist";
+import { PlaylistSong } from "../../../../entity/PlaylistSong";
 
 
 export const musicRouter = Router();
@@ -424,9 +426,7 @@ musicRouter.get(
                         audio: true,
                         artist: {
                             cover_image: true,
-                            user: {
-                                profile: true
-                            }
+                            user: true
                         }
                     }
                 }
@@ -471,6 +471,35 @@ musicRouter.get(
                 }
             );
 
+            // check playlistSong
+            const playListRepository = AppDataSource.getRepository(PlaylistSong);
+            const checkPlayList = await playListRepository.findOne(
+                {
+                    where: {
+                        is_active: true,
+                        song: {id: musicId},
+                        playlist: {
+                            user: {id: userId},
+                            is_active: true
+                        }
+                        
+                    },
+                    select: {
+                        id: true,
+                        playlist: {
+                            id: true,
+                            is_active: true
+                        }
+                    },
+                    relations: {
+                        playlist: true
+                    }
+                }
+            );
+            let is_in_playList = false;
+            if (checkPlayList) {
+                is_in_playList = true;
+            }
             const data = {
                 id: getMusic.id,
                 title: getMusic.title,
@@ -499,6 +528,8 @@ musicRouter.get(
                     audio: {
                         isLiked: isLiked,
                         likeCount: likeCount,
+                        isInPlayList: is_in_playList,
+                        playListId: checkPlayList?.id || null,
                         audio_file_path: getMusic.audio.audio_file_path,
                         audio_format: getMusic.audio.audio_format
                     }
