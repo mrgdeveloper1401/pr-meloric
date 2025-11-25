@@ -8,11 +8,8 @@ services:
       dockerfile: Dockerfile
     expose:
       - 3000
-    env_file: ".env"
+    env_file: "nodejs.env"
     restart: always
-    depends_on:
-      - db
-      - redis
   
   db:
     container_name: music_db
@@ -44,7 +41,6 @@ services:
     container_name: music_nginx
     volumes:
       - static_files:/var/www/static/
-      # - flower:/var/www/static/flower/
       - log_nginx:/var/log/nginx
       # - log_rotate:/var/log/rotate/nginx
     ports:
@@ -57,25 +53,6 @@ services:
     depends_on:
       - app
 
-  # dj-admin-pannel:
-  #   build:
-  #     context: /root/online-melo
-  #     dockerfile: Dockerfile
-  #   env_file: "/root/online-melo/.env"
-  #   restart: always
-  #   expose:
-  #     - 8000
-  #   ports:
-  #     - "8000:8000"
-  #   volumes:
-  #     - static_files:/home/app/staticfiles
-  #     - flower:/home/app/static_files_flowers
-  #   depends_on:
-  #     - db
-  #     - app
-  #     - redis
-  #     - nginx
-
   # dj-celery:
   #   build:
   #     context: /root/online-melo
@@ -85,18 +62,6 @@ services:
   #   depends_on:
   #     - dj-admin-pannel
   #   entrypoint: "celery -A melo_music.dj_celery worker -l INFO"
-
-  # flower:
-  #   build:
-  #     context: /root/online-melo
-  #     dockerfile: Dockerfile
-  #   env_file: "/root/online-melo/.env"
-  #   restart: always
-  #   expose:
-  #     - 5555
-  #   depends_on:
-  #     - dj-celery
-  #   entrypoint: "celery -A melo_music.dj_celery flower --port=5555"
 
   # pghero:
   #   restart: always
@@ -120,6 +85,7 @@ services:
     container_name: pgadmin_music
     image: dpage/pgadmin4
     restart: always
+    env_file: "pgadmin.env"
     ports:
       - "8081:80"
     environment:
@@ -132,7 +98,6 @@ volumes:
   music_volume:
   static_files:
   redis_data:
-  # flower:
   log_nginx:
   pgadmin_data:
   # log_rotate:
