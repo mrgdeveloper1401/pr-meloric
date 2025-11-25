@@ -1,7 +1,7 @@
-FROM meloric:1.1.0
+FROM base_melo_nodejs:1.0.0
 
 WORKDIR /home/app
 
-COPY . .
+COPY ./melo .
 
 ENTRYPOINT [ "npm", "run", "start" ]
