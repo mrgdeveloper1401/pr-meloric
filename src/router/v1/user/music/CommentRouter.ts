@@ -212,7 +212,7 @@ router.post("/comments", authenticateJWT, async (req: Request, res: Response) =>
  * /v1/user/comment_music/comments/{id}:
  *   get:
  *     summary: دریافت نظر خاص
- *     description: دریافت اطلاعات یک نظر خاص
+ *     description: دریافت اطلاعات یک نظر خاص با نمایش پروفایل کاربر عادی یا آرتیست
  *     tags: [Comments]
  *     security:
  *       - bearerAuth: []
@@ -225,7 +225,7 @@ router.post("/comments", authenticateJWT, async (req: Request, res: Response) =>
  *         description: شناسه نظر
  *     responses:
  *       200:
- *         description: اطلاعات نظر
+ *         description: اطلاعات نظر با پروفایل کاربر
  *         content:
  *           application/json:
  *             schema:
@@ -235,7 +235,35 @@ router.post("/comments", authenticateJWT, async (req: Request, res: Response) =>
  *                   type: string
  *                   example: success
  *                 data:
- *                   $ref: '#/components/schemas/Comment'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: شناسه نظر
+ *                     user_id:
+ *                       type: integer
+ *                       description: شناسه کاربر
+ *                     username:
+ *                       type: string
+ *                       description: نام کاربری
+ *                     profile_image:
+ *                       type: string
+ *                       nullable: true
+ *                       description: آدرس تصویر پروفایل
+ *                     song_id:
+ *                       type: integer
+ *                       description: شناسه آهنگ
+ *                     body:
+ *                       type: string
+ *                       description: متن نظر
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: پارامتر ورودی نامعتبر
  *       404:
  *         description: نظر پیدا نشد
  *       500:
@@ -244,37 +272,44 @@ router.post("/comments", authenticateJWT, async (req: Request, res: Response) =>
 router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response) => {
     try {
         if (isNaN(Number(req.params.id))){
-            return res.status(400).json(
-                {
-                    status: false,
-                    message: "params must be required"
-                }
-            );
+            return res.status(400).json({
+                status: false,
+                message: "Comment ID must be a valid number"
+            });
         }
+        
         const commentId = Number(req.params.id);
         const commentRepository = AppDataSource.getRepository(Comment);
 
-        const comment = await commentRepository.findOne({
-            where: { id: commentId, is_active: true },
-            relations: {
-                user: true,
-                song: true
-            },
-            select: {
-                id: true,
-                user: { 
-                    id: true, 
-                    username: true 
-                },
-                song: { 
-                    id: true, 
-                    title: true 
-                },
-                body: true,
-                createdAt: true,
-                updatedAt: true
-            }
-        });
+        const query = commentRepository
+            .createQueryBuilder("comment")
+            .leftJoinAndSelect("comment.user", "user")
+            .leftJoinAndSelect("user.profile", "profile")
+            .leftJoinAndSelect("profile.profile_image", "user_profile_image")
+            .leftJoinAndSelect("user.user_artist_set", "artist")
+            .leftJoinAndSelect("artist.profile_image", "artist_profile_image")
+            .leftJoinAndSelect("comment.song", "song")
+            .where("comment.id = :commentId", { commentId })
+            .andWhere("comment.is_active = :isActive", { isActive: true })
+            .select([
+                "comment.id",
+                "comment.body",
+                "comment.createdAt",
+                "comment.updatedAt",
+                "user.id",
+                "user.username",
+                "user.is_artist",
+                "profile.id",
+                "user_profile_image.id",
+                "user_profile_image.image_path",
+                "artist.id",
+                "artist.nick_name",
+                "artist_profile_image.id",
+                "artist_profile_image.image_path",
+                "song.id",
+            ]);
+
+        const comment = await query.getOne();
 
         if (!comment) {
             return res.status(404).json({
@@ -283,16 +318,22 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
             });
         }
 
+        const isArtist = comment.user.is_artist;
+        const profileImage = isArtist 
+            ? comment.user.user_artist_set?.profile_image?.image_path
+            : comment.user.profile?.profile_image?.image_path;
+
         const simpleData = {
             id: comment.id,
-            body: comment.body,
             user_id: comment.user.id,
             username: comment.user.username,
+            profile_image: profileImage || null,
             song_id: comment.song.id,
-            song_title: comment.song.title,
+            body: comment.body,
             created_at: comment.createdAt,
             updated_at: comment.updatedAt
-        }
+        };
+
         res.json({
             status: "success",
             data: simpleData
@@ -301,18 +342,19 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
     } catch (error) {
         res.status(500).json({
             status: false,
-            message: "Server error"
+            message: "Server error",
+            error: error.message
         });
     }
 });
 
-// read detail by song_id
+// read comment by song_id
 /**
  * @swagger
  * /v1/user/comment_music/songs/{songId}/comments:
  *   get:
  *     summary: دریافت نظرات یک آهنگ
- *     description: دریافت لیست نظرات یک آهنگ خاص با صفحه‌بندی
+ *     description: دریافت لیست نظرات یک آهنگ خاص با صفحه‌بندی - نمایش پروفایل کاربر عادی یا آرتیست
  *     tags: [Comments]
  *     security:
  *       - bearerAuth: []
@@ -340,7 +382,7 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
  *         description: تعداد آیتم در صفحه
  *     responses:
  *       200:
- *         description: لیست نظرات
+ *         description: لیست نظرات با اطلاعات پروفایل کاربر
  *         content:
  *           application/json:
  *             schema:
@@ -352,66 +394,120 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Comment'
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         description: شناسه نظر
+ *                       username:
+ *                         type: string
+ *                         description: نام کاربری
+ *                       profile_image:
+ *                         type: string
+ *                         nullable: true
+ *                         description: آدرس تصویر پروفایل
+ *                       song_id:
+ *                         type: integer
+ *                         description: شناسه آهنگ
+ *                       body:
+ *                         type: string
+ *                         description: متن نظر
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         description: تاریخ ایجاد
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                         description: تاریخ بروزرسانی
  *                 pagination:
  *                   type: object
  *                   properties:
  *                     currentPage:
  *                       type: integer
+ *                       example: 1
  *                     totalPages:
  *                       type: integer
+ *                       example: 5
  *                     totalItems:
  *                       type: integer
+ *                       example: 100
  *                     itemsPerPage:
  *                       type: integer
+ *                       example: 20
+ *       400:
+ *         description: پارامترهای ورودی نامعتبر
  *       500:
  *         description: خطای سرور
  */
 router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res: Response) => {
     try {
         const songId = parseInt(req.params.songId);
+        if (isNaN(songId)) {
+            return res.status(400).json({
+                status: false,
+                message: "songId must be a valid number"
+            });
+        }
+
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 20;
         const skip = (page - 1) * limit;
 
         const commentRepository = AppDataSource.getRepository(Comment);
+        
+        const query = commentRepository
+            .createQueryBuilder("comment")
+            .leftJoinAndSelect("comment.user", "user")
+            .leftJoinAndSelect("user.profile", "profile")
+            .leftJoinAndSelect("profile.profile_image", "user_profile_image")
+            .leftJoinAndSelect("user.user_artist_set", "artist")
+            .leftJoinAndSelect("artist.profile_image", "artist_profile_image")
+            .leftJoinAndSelect("comment.song", "song")
+            .where("comment.song_id = :songId", { songId })
+            .andWhere("comment.is_active = :isActive", { isActive: true })
+            .andWhere("song.is_active = :isActive", { isActive: true })
+            .select([
+                "comment.id",
+                "comment.body",
+                "comment.createdAt",
+                "comment.updatedAt",
+                "user.id",
+                "user.username",
+                "user.is_artist",
+                "profile.id",
+                "user_profile_image.id",
+                "user_profile_image.image_path",
+                "artist.id",
+                "artist.nick_name",
+                "artist_profile_image.id",
+                "artist_profile_image.image_path",
+                "song.id"
+            ])
+            .orderBy("comment.createdAt", "DESC")
+            .skip(skip)
+            .take(limit);
 
-        const [comments, total] = await commentRepository.findAndCount({
-            where: { song: { id: songId }, is_active: true },
-            relations: ["user", "song", "user.profile.profile_image"],
-            select: {
-                user: { 
-                    id: true, 
-                    username: true,
-                    profile: {
-                        id: true,
-                        profile_image: {
-                            id: true,
-                            image_path: true
-                        }
-                    }
-                },
-                song: { id: true, title: true },
-            },
-            skip,
-            take: limit
-        });
-
+        const [comments, total] = await query.getManyAndCount();
         const totalPages = Math.ceil(total / limit);
 
-        const simpleData = comments.map(
-            item => (
-                {
-                    id: item.id,
-                    username: item.user.username,
-                    profile_image: item.user.profile.profile_image?.image_path || null,
-                    song_id: item.song.id,
-                    body: item.body,
-                    created_at: item.createdAt,
-                    updated_at: item.updatedAt
-                }
-            )
-        );
+        const simpleData = comments.map(item => {
+            const isArtist = item.user.is_artist;
+            const profileImage = isArtist 
+                ? item.user.user_artist_set?.profile_image?.image_path
+                : item.user.profile?.profile_image?.image_path;
+
+            return {
+                id: item.id,
+                username: item.user.username,
+                profile_image: profileImage || null,
+                song_id: item.song.id,
+                body: item.body,
+                created_at: item.createdAt,
+                updated_at: item.updatedAt
+            };
+        });
+
         res.json({
             status: "success",
             pagination: {
@@ -426,7 +522,8 @@ router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res:
     } catch (error) {
         res.status(500).json({
             status: false,
-            message: "Server error"
+            message: "Server error",
+            error: error.message
         });
     }
 });

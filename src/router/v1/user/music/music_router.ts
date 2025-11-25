@@ -552,7 +552,6 @@ musicRouter.get(
     }
 );
 
-
 // create song by artist
 /**
  * @swagger
