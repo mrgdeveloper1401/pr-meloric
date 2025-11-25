@@ -31,7 +31,7 @@
       "uuid": "^13.0.0"
    },
    "scripts": {
-      "start": "node build/index.js",
+      "start": "node /home/app/build/index.js",
       "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
       "build": "tsc",
       "build:watch": "tsc --watch"
