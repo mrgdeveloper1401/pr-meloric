@@ -4,4 +4,6 @@ WORKDIR /home/app
 
 COPY . .
 
-ENTRYPOINT [ "npm", "run", "start" ]
+RUN chmod +x ./scripts/*
+
+ENTRYPOINT ["./scripts/start.sh"]
