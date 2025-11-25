@@ -1,6 +1,6 @@
 FROM docker.arvancloud.ir/node:24-alpine
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm typescript ts-node
 
 WORKDIR /app
 
