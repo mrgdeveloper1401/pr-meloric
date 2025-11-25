@@ -5,7 +5,7 @@ RUN mkdir -p certbot/api.meloricdns.com && \
     mkdir -p /var/www/static/flower && \
     mkdir -p /var/log/nginx
 
-COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
+COPY ./nginx.conf /etc/nginx/nginx.conf
 
 
 ENTRYPOINT ["nginx", "-g", "daemon off;"]
