@@ -1,16 +1,4 @@
 services:
-  app:
-    container_name: music_app
-    ports:
-      - "3000:3000"
-    build:
-      context: .
-      dockerfile: Dockerfile
-    expose:
-      - 3000
-    env_file: ".env"
-    restart: always
-  
   db:
     container_name: music_db
     ports:
@@ -37,11 +25,39 @@ services:
     expose:
       - 6379
 
+  app:
+    container_name: music_app
+    ports:
+      - "3000:3000"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - 3000
+    env_file: ".env"
+    restart: always
+
+  # pgadmin:
+  #   depends_on:
+  #     - db
+  #   container_name: pgadmin_music
+  #   image: dpage/pgadmin4
+  #   restart: always
+  #   env_file: "pgadmin.env"
+  #   ports:
+  #     - "8081:80"
+  #   environment:
+  #    - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+  #    - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+  #   volumes:
+  #     - pgadmin_data:/var/lib/pgadmin
+
   nginx:
     container_name: music_nginx
     volumes:
       - static_files:/var/www/static/
       - log_nginx:/var/log/nginx
+      - /root/nginx/certbot:/etc/letsencrypt:ro
       # - log_rotate:/var/log/rotate/nginx
     ports:
       - "80:80"
@@ -52,21 +68,7 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - app
-  
-  pgadmin:
-    depends_on:
-      - db
-    container_name: pgadmin_music
-    image: dpage/pgadmin4
-    restart: always
-    env_file: "pgadmin.env"
-    ports:
-      - "8081:80"
-    environment:
-     - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
-     - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      # - pgadmin
 
 volumes:
   music_volume:
