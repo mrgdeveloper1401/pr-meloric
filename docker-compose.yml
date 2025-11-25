@@ -17,8 +17,8 @@ services:
       - pg_stat_statements.track=all
 
   redis:
-    volumes:
-      - redis_data:/data
+    # volumes:
+    #   - redis_data:/data
     container_name: music_db_redis
     image: docker.arvancloud.ir/redis:8.2-alpine
     restart: always
@@ -37,28 +37,12 @@ services:
     env_file: ".env"
     restart: always
 
-  # pgadmin:
-  #   depends_on:
-  #     - db
-  #   container_name: pgadmin_music
-  #   image: dpage/pgadmin4
-  #   restart: always
-  #   env_file: "pgadmin.env"
-  #   ports:
-  #     - "8081:80"
-  #   environment:
-  #    - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
-  #    - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
-  #   volumes:
-  #     - pgadmin_data:/var/lib/pgadmin
-
   nginx:
     container_name: music_nginx
     volumes:
       - static_files:/var/www/static/
       - log_nginx:/var/log/nginx
       - /root/nginx/certbot:/etc/letsencrypt:ro
-      # - log_rotate:/var/log/rotate/nginx
     ports:
       - "80:80"
       - "443:443"
@@ -68,12 +52,9 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - app
-      # - pgadmin
 
 volumes:
   music_volume:
   static_files:
-  redis_data:
+  # redis_data:
   log_nginx:
-  pgadmin_data:
-  # log_rotate:
