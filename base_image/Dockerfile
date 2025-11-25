@@ -2,9 +2,12 @@ FROM docker.arvancloud.ir/node:24-alpine
 
 RUN npm install -g pnpm
 
-COPY ./package.json .
+WORKDIR /app
+
+COPY package.json ./
 
 LABEL maintainer="mysum325g@gmail.com"
 
-RUN pnpm i && \
-    pnpm audit fix
+RUN pnpm install --prod
+
+RUN pnpm store prune
