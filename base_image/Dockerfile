@@ -14,6 +14,6 @@ RUN cp /dev/null /etc/apk/repositories && \
     apk update && \
     apk upgrade && \
     apk add bash && \
-    pnpm install --prod
+    pnpm install
 
 RUN pnpm store prune
