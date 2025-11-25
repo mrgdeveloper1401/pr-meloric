@@ -14,7 +14,7 @@ RUN cp /dev/null /etc/apk/repositories && \
     apk update && \
     apk upgrade && \
     apk add bash && \
-    npm -i
+    npm install
 
 
 ENTRYPOINT ["/bin/bash"]
