@@ -19,3 +19,4 @@ test_code
 uploads
 test.ts
 nodejs.env
+pgadmin.env
