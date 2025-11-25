@@ -4,6 +4,7 @@ WORKDIR /home/app
 
 COPY . .
 
-RUN chmod +x ./scripts/*
+RUN pnpm install --dev && \
+    chmod +x ./scripts/* 
 
 ENTRYPOINT ["/home/app/scripts/start.sh"]

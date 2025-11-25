@@ -15,7 +15,8 @@ RUN cp /dev/null /etc/apk/repositories && \
     apk upgrade && \
     apk add bash
 
-# همه چیز نصب شود
-RUN pnpm install
+RUN pnpm install --prod
 
 RUN pnpm store prune
+
+VOLUME /app/node_modules

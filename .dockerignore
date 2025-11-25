@@ -1,4 +1,3 @@
-.env
 base_image
 uploads
 send_request
