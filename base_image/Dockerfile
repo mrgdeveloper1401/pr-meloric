@@ -14,6 +14,9 @@ RUN cp /dev/null /etc/apk/repositories && \
     apk update && \
     apk upgrade && \
     apk add bash && \
-    pnpm install
+    pnpm install --prod
+
+
+RUN pnpm add -D @types/node @types/express @types/cors @types/bcrypt @types/jsonwebtoken @types/multer
 
 RUN pnpm store prune
