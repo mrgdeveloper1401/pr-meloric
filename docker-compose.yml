@@ -52,32 +52,6 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - app
-
-  # dj-celery:
-  #   build:
-  #     context: /root/online-melo
-  #     dockerfile: Dockerfile
-  #   env_file: "/root/online-melo/.env"
-  #   restart: always
-  #   depends_on:
-  #     - dj-admin-pannel
-  #   entrypoint: "celery -A melo_music.dj_celery worker -l INFO"
-
-  # pghero:
-  #   restart: always
-  #   depends_on:
-  #     - db
-  #   container_name: pghero_gapchi
-  #   ports:
-  #     - "8080:8080"
-  #   expose:
-  #     - 8080
-  #   image: ankane/pghero
-  #   environment:
-  #     # - DATABASE_URL=postgres://[username]:[password]@[hostname]:[port]/[database_name]
-  #     - DATABASE_URL=${PG_HERO_DATABASE_URL}
-  #     - PGHERO_USERNAME=${PGHERO_USERNAME}
-  #     - PGHERO_PASSWORD=${PGHERO_PASSWORD}
   
   pgadmin:
     depends_on:
