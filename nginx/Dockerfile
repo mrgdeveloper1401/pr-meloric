@@ -1,4 +1,4 @@
-FROM melo_nginx:1.0.0
+FROM base_melo_nginx:1.0.0
 
 RUN mkdir -p certbot/api.meloricdns.com && \
     mkdir -p /var/www/static/flower && \

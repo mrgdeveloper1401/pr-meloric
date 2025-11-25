@@ -1,8 +1,8 @@
 FROM docker.arvancloud.ir/node:24-alpine
 
-WORKDIR /home/app
+COPY ./package.json .
 
-COPY ./melo .
+LABEL maintainer="mysum325g@gmail.com"
 
 RUN npm i && \
     npm audit fix
