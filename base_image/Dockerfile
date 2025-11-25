@@ -8,6 +8,12 @@ COPY package.json ./
 
 LABEL maintainer="mysum325g@gmail.com"
 
-RUN pnpm install --prod
+RUN cp /dev/null /etc/apk/repositories && \
+    echo "https://mirror.mobinhost.com/alpine/v3.22/main" >> /etc/apk/repositories && \
+    echo "https://mirror.mobinhost.com/alpine/v3.22/community" >> /etc/apk/repositories && \
+    apk update && \
+    apk upgrade && \
+    apk add bash && \
+    pnpm install --prod
 
 RUN pnpm store prune
