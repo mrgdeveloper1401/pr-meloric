@@ -13,10 +13,9 @@ RUN cp /dev/null /etc/apk/repositories && \
     echo "https://mirror.mobinhost.com/alpine/v3.22/community" >> /etc/apk/repositories && \
     apk update && \
     apk upgrade && \
-    apk add bash && \
-    pnpm install --prod
+    apk add bash
 
-
-RUN pnpm add -D @types/node @types/express @types/cors @types/bcrypt @types/jsonwebtoken @types/multer
+# همه چیز نصب شود
+RUN pnpm install
 
 RUN pnpm store prune
