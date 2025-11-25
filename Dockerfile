@@ -6,4 +6,4 @@ COPY . .
 
 RUN chmod +x ./scripts/*
 
-ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT ["/bin/sh"]
