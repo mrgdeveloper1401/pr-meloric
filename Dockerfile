@@ -6,4 +6,4 @@ COPY . .
 
 RUN chmod +x ./scripts/*
 
-ENTRYPOINT ["/bin/sh"]
+ENTRYPOINT ["/home/app/scripts/start.sh"]
