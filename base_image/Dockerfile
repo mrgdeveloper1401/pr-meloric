@@ -6,5 +6,5 @@ COPY ./package.json .
 
 LABEL maintainer="mysum325g@gmail.com"
 
-RUN npm i && \
-    npm audit fix
+RUN pnpm i && \
+    pnpm audit fix
