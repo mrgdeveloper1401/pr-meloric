@@ -1,6 +1,6 @@
 FROM docker.arvancloud.ir/node:24-alpine
 
-RUN npm install -g pnpm typescript ts-node
+RUN npm install -g typescript ts-node
 
 WORKDIR /app
 
@@ -14,9 +14,7 @@ RUN cp /dev/null /etc/apk/repositories && \
     apk update && \
     apk upgrade && \
     apk add bash
+    npm -i
 
-RUN pnpm install --prod
 
-RUN pnpm store prune
-
-VOLUME /app/node_modules
+ENTRYPOINT ["/bin/bash"]
