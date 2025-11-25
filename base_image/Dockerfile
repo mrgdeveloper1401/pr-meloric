@@ -1,6 +1,8 @@
-FROM docker.arvancloud.ir/node
+FROM docker.arvancloud.ir/node:24-alpine
 
-COPY . .
+WORKDIR /home/app
+
+COPY ./melo .
 
 RUN npm i && \
     npm audit fix
