@@ -2,7 +2,7 @@ FROM docker.arvancloud.ir/node:24-alpine
 
 RUN npm install -g typescript ts-node
 
-WORKDIR /app
+WORKDIR /home/app
 
 COPY package.json ./
 
