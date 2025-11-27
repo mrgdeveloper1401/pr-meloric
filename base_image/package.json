@@ -33,7 +33,8 @@
       "yml": "^1.0.0"
    },
    "scripts": {
-      "start": "node /home/app/build/index.js",
+      "start": "node build/index.js",
+      "start:ts": "ts-node-dev src/index.ts",
       "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
       "build": "tsc",
       "build:watch": "tsc --watch"
