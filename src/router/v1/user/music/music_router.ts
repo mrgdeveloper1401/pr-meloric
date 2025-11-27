@@ -1317,7 +1317,7 @@ musicRouter.get(
 );
 
 
-// get music by artist_id
+// show music by artist id
 /**
  * @swagger
  * components:
