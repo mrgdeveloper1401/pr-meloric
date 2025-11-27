@@ -1513,19 +1513,36 @@ playListRouter.post(
     }
 );
 
-// get all music by playlist
+// get all music by playlist with pagination
+
 /**
  * @swagger
  * /v1/user/play_list/get_my_playlist_songs:
  *   get:
- *     summary: دریافت آهنگ‌های آخرین پلی‌لیست کاربر
+ *     summary: دریافت آهنگ‌های آخرین پلی‌لیست کاربر با صفحه‌بندی
  *     description: |
- *       این endpoint آخرین پلی‌لیست فعال کاربر و آهنگ‌های موجود در آن را برمی‌گرداند.
+ *       این endpoint آخرین پلی‌لیست فعال کاربر و آهنگ‌های موجود در آن را با قابلیت صفحه‌بندی برمی‌گرداند.
  *       نیاز به احراز هویت JWT دارد.
  *     tags:
  *       - Playlists
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: تعداد آیتم‌ها در هر صفحه
  *     responses:
  *       200:
  *         description: اطلاعات پلی‌لیست و آهنگ‌های آن با موفقیت برگردانده شد
@@ -1539,7 +1556,22 @@ playListRouter.post(
  *                   example: "success"
  *                 total:
  *                   type: integer
+ *                   example: 50
+ *                 page:
+ *                   type: integer
+ *                   example: 1
+ *                 limit:
+ *                   type: integer
+ *                   example: 10
+ *                 totalPages:
+ *                   type: integer
  *                   example: 5
+ *                 hasNext:
+ *                   type: boolean
+ *                   example: true
+ *                 hasPrev:
+ *                   type: boolean
+ *                   example: false
  *                 data:
  *                   type: array
  *                   items:
@@ -1577,6 +1609,19 @@ playListRouter.post(
  *                         type: string
  *                         nullable: true
  *                         example: "JD"
+ *       400:
+ *         description: پارامترهای صفحه‌بندی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid pagination parameters"
  *       404:
  *         description: پلی‌لیستی برای کاربر یافت نشد
  *         content:
@@ -1611,6 +1656,18 @@ playListRouter.get(
     async (req: Request, res: Response) => {
         try {
             const userId = (req as any).user.user_id;
+            
+            // pagination
+            let page = parseInt(req.query.page as string) || 1;
+            let limit = parseInt(req.query.limit as string) || 10;
+            const take = limit;
+            
+            // validate
+            if (page < 1) page = 1;
+            if (limit < 1) limit = 1;
+            if (limit > 100) limit = 100;
+            
+            const skip = (page - 1) * limit;
 
             const playListRepository = AppDataSource.getRepository(Playlist);
             const userPlaylist = await playListRepository.findOne({
@@ -1631,7 +1688,20 @@ playListRouter.get(
             }
 
             const playlistSongRepository = AppDataSource.getRepository(PlaylistSong);
-            const [playlistSongs, total] = await playlistSongRepository.findAndCount({
+            
+            // count item
+            const total = await playlistSongRepository.count({
+                where: {
+                    playlist: { id: userPlaylist.id },
+                    is_active: true
+                }
+            });
+
+            // calc number of page
+            const totalPages = Math.ceil(total / limit);
+            
+            // get data by pagination
+            const playlistSongs = await playlistSongRepository.find({
                 where: {
                     playlist: { id: userPlaylist.id },
                     is_active: true
@@ -1639,11 +1709,8 @@ playListRouter.get(
                 relations: {
                     song: {
                         image: true,
-                        artist: true // اضافه کردن رابطه artist
+                        artist: true
                     }
-                },
-                order: {
-                    createdAt: "ASC"
                 },
                 select: {
                     id: true,
@@ -1661,16 +1728,18 @@ playListRouter.get(
                             image_path: true
                         }
                     }
-                }
+                },
+                skip: skip,
+                take: take
             });
 
             const simpleData = playlistSongs.map(item => ({
                 id: item.id,
-                play_list_id: userPlaylist.id, // اضافه کردن play_list_id
+                play_list_id: userPlaylist.id,
                 music_id: item.song?.id,
                 music_title: item.song?.title,
                 music_cover_image: item.song?.image?.image_path || null,
-                artist_id: item.song?.artist?.id || null, // استفاده از optional chaining
+                artist_id: item.song?.artist?.id || null,
                 artist_first_name: item.song?.artist?.first_name || null,
                 artist_last_name: item.song?.artist?.last_name || null,
                 artist_nick_name: item.song?.artist?.nick_name || null,
@@ -1679,6 +1748,11 @@ playListRouter.get(
             return res.status(200).json({
                 status: "success",
                 total: total,
+                page: page,
+                limit: limit,
+                totalPages: totalPages,
+                hasNext: page < totalPages,
+                hasPrev: page > 1,
                 data: simpleData
             });
 
