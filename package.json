@@ -29,7 +29,8 @@
       "swagger-ui-express": "^5.0.1",
       "tsoa": "^6.6.0",
       "typeorm": "^0.3.25",
-      "uuid": "^13.0.0"
+      "uuid": "^13.0.0",
+      "yml": "^1.0.0"
    },
    "scripts": {
       "start": "node /home/app/build/index.js",

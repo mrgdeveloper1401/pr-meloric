@@ -3,7 +3,7 @@ import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import { version } from "../../package.json";
 import path from "path";
-
+import yaml from 'yaml';
 
 const options: swaggerJsdoc.Options = {
     definition: {
@@ -43,11 +43,16 @@ const swaggerSpec = swaggerJsdoc(options);
 function swaggerDocs(app: Express, port: string){
     app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-    app.get('docs.json', (req: Request, res: Response) => {
+    app.get('/docs.yml', (req: Request, res: Response) => {
+        res.setHeader("Content-Type", "application/x-yml");
+        const yamlSpec = yaml.stringify(swaggerSpec);
+        res.send(yamlSpec);
+    });
+
+    app.get('/docs.json', (req: Request, res: Response) => {
         res.setHeader("Content-Type", "application/json");
         res.send(swaggerSpec);
     });
-
     // log.info(`docs available at http://localhost:${port}/docs`);
 }
 
