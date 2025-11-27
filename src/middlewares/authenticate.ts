@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import path from "path";
+import { AppDataSource } from "../data-source";
+import { User } from "../entity/User";
 
 const envPath = path.resolve(process.cwd(), "../../.env");
 dotenv.config({path: envPath});
@@ -47,4 +49,35 @@ export const notAuthenticateJwt = (
     if (checkOne || checkTwo) {
             return res.status(400).json({message: "Authentication credentials were provided."})
     }
+}
+
+export const checkUserAuthenticateJwt = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const userId = (req as any).user.user_id;
+  const userRepository = AppDataSource.getRepository(User);
+  const checkUser = userRepository.findOne(
+    {
+      where: {
+        id: userId,
+        is_active: true
+      },
+      select: {
+        id: true
+      }
+    }
+  );
+  if (!checkUser) {
+    return res.status(404).json(
+        {
+            status: false,
+            message: "user not found"
+        }
+    )
+  }
+  else {
+    next();
+  }
 }

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { authenticateJWT } from "../../../../middlewares/authenticate";
+import { authenticateJWT, checkUserAuthenticateJwt } from "../../../../middlewares/authenticate";
 import { AppDataSource } from "../../../../data-source";
 import { Playlist } from "../../../../entity/Playlist";
 import { plainToClass } from "class-transformer";
@@ -1316,6 +1316,82 @@ playListRouter.delete(
                 status: false,
                 message: "server error"
             });
+        }
+    }
+);
+
+// add music into one playList
+playListRouter.post(
+    "/add_music_one_play_list/add_music/:musicId",
+    authenticateJWT,
+    checkUserAuthenticateJwt,
+    async (req: Request, res: Response) => {
+        try {
+        const userId = (req as any).user.user_id;
+        const musicId = Number(req.params.musicId);
+
+        if (isNaN(musicId)) {
+            return res.status(400).json(
+                {
+                    status: false,
+                    message: "music id is required"
+                }
+            )
+        }
+
+        if (!req.body) {
+            return res.status(400).json(
+                {
+                    status: false,
+                    message: "request body is required"
+                }
+            )
+        }
+
+        // check music
+        const musicRepository = AppDataSource.getRepository(Song);
+        const checkMusic = await musicRepository.findOne(
+            {
+                where: {
+                    id: musicId,
+                    is_active: true
+                },
+                select: {id: true}
+            }
+        )
+        if (!checkMusic) {
+            return res.status(404).json(
+                {
+                    status: false,
+                    message: "music not found"
+                }
+            )
+        }
+        const playListRepository = AppDataSource.getRepository(Playlist);
+        const checkPlayList = await playListRepository.findOne(
+            {
+                where: {
+                    user: {id: userId},
+                    is_active: true
+                },
+                select: {id: true}
+            }
+        );
+        if (!checkPlayList) {
+            const newPlayList = new Playlist();
+            newPlayList.user = userId
+            newPlayList.title = `play list one user ${userId}`
+            newPlayList.description = `description play list user ${userId}`
+            await newPlayList.save()
+        }
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error",
+                    error: error.message
+                }
+            )
         }
     }
 );

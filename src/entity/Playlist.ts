@@ -14,7 +14,7 @@ export class Playlist extends TimestampEntity{
   @Column({ length: 255 })
   title: string;
 
-  @Column('text')
+  @Column('text', {nullable: true})
   description: string
 
   @Column({ default: true })
