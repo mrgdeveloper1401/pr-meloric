@@ -1513,8 +1513,8 @@ playListRouter.post(
     }
 );
 
-// get all music by playlist with pagination
 
+// get all music by playlist with pagination
 /**
  * @swagger
  * /v1/user/play_list/get_my_playlist_songs:
@@ -1572,6 +1572,18 @@ playListRouter.post(
  *                 hasPrev:
  *                   type: boolean
  *                   example: false
+ *                 playlist:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     title:
+ *                       type: string
+ *                       example: "My Playlist"
+ *                     description:
+ *                       type: string
+ *                       example: "My favorite songs"
  *                 data:
  *                   type: array
  *                   items:
@@ -1583,19 +1595,21 @@ playListRouter.post(
  *                       play_list_id:
  *                         type: integer
  *                         example: 1
- *                       music_id:
+ *                       song_id:
  *                         type: integer
  *                         example: 123
- *                       music_title:
+ *                       title:
  *                         type: string
  *                         example: "Song Title"
- *                       music_cover_image:
+ *                       audio_path:
+ *                         type: string
+ *                         example: "https://example.com/audio.mp3"
+ *                       image_path:
  *                         type: string
  *                         nullable: true
  *                         example: "https://example.com/image.jpg"
  *                       artist_id:
  *                         type: integer
- *                         nullable: true
  *                         example: 456
  *                       artist_first_name:
  *                         type: string
@@ -1609,6 +1623,20 @@ playListRouter.post(
  *                         type: string
  *                         nullable: true
  *                         example: "JD"
+ *                       username:
+ *                         type: string
+ *                         example: "johndoe"
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2023-01-01T00:00:00.000Z"
+ *                       release_date:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2023-01-01T00:00:00.000Z"
+ *                       play_count:
+ *                         type: integer
+ *                         example: 150
  *       400:
  *         description: پارامترهای صفحه‌بندی نامعتبر
  *         content:
@@ -1660,7 +1688,6 @@ playListRouter.get(
             // pagination
             let page = parseInt(req.query.page as string) || 1;
             let limit = parseInt(req.query.limit as string) || 10;
-            const take = limit;
             
             // validate
             if (page < 1) page = 1;
@@ -1669,16 +1696,15 @@ playListRouter.get(
             
             const skip = (page - 1) * limit;
 
+            // Find user's latest active playlist using Query Builder
             const playListRepository = AppDataSource.getRepository(Playlist);
-            const userPlaylist = await playListRepository.findOne({
-                where: {
-                    user: { id: userId },
-                    is_active: true
-                },
-                order: {
-                    createdAt: "DESC"
-                },
-            });
+            const userPlaylist = await playListRepository
+                .createQueryBuilder("playlist")
+                .where("playlist.user_id = :userId", { userId })
+                .andWhere("playlist.is_active = :isActive", { isActive: true })
+                .orderBy("playlist.createdAt", "DESC")
+                .select(["playlist.id", "playlist.title", "playlist.description"])
+                .getOne();
 
             if (!userPlaylist) {
                 return res.status(404).json({
@@ -1689,60 +1715,64 @@ playListRouter.get(
 
             const playlistSongRepository = AppDataSource.getRepository(PlaylistSong);
             
-            // count item
-            const total = await playlistSongRepository.count({
-                where: {
-                    playlist: { id: userPlaylist.id },
-                    is_active: true
-                }
-            });
+            // Count total songs using Query Builder
+            const total = await playlistSongRepository
+                .createQueryBuilder("playlistSong")
+                .where("playlistSong.playlist_id = :playlistId", { playlistId: userPlaylist.id })
+                .andWhere("playlistSong.is_active = :isActive", { isActive: true })
+                .getCount();
 
-            // calc number of page
+            // Calculate pagination info
             const totalPages = Math.ceil(total / limit);
             
-            // get data by pagination
-            const playlistSongs = await playlistSongRepository.find({
-                where: {
-                    playlist: { id: userPlaylist.id },
-                    is_active: true
-                },
-                relations: {
-                    song: {
-                        image: true,
-                        artist: true
-                    }
-                },
-                select: {
-                    id: true,
-                    song: {
-                        id: true,
-                        title: true,
-                        artist: {
-                            id: true,
-                            first_name: true,
-                            last_name: true,
-                            nick_name: true
-                        },
-                        image: {
-                            id: true,
-                            image_path: true
-                        }
-                    }
-                },
-                skip: skip,
-                take: take
-            });
+            // Get paginated data using optimized Query Builder with joins
+            const playlistSongs = await playlistSongRepository
+                .createQueryBuilder("playlistSong")
+                .innerJoinAndSelect("playlistSong.song", "song")
+                .innerJoinAndSelect("song.artist", "artist")
+                .innerJoinAndSelect("artist.user", "user")
+                .leftJoinAndSelect("song.audio", "audio")
+                .leftJoinAndSelect("song.image", "image")
+                .where("playlistSong.playlist_id = :playlistId", { playlistId: userPlaylist.id })
+                .andWhere("playlistSong.is_active = :isActive", { isActive: true })
+                .andWhere("song.is_active = :songIsActive", { songIsActive: true })
+                .select([
+                    "playlistSong.id",
+                    "playlistSong.createdAt",
+                    "playlistSong.updatedAt",
+                    "song.id",
+                    "song.title",
+                    "song.play_count",
+                    "song.release_date",
+                    "audio.audio_file_path",
+                    "image.image_path",
+                    "artist.id",
+                    "artist.first_name",
+                    "artist.last_name",
+                    "artist.nick_name",
+                    "user.username"
+                ])
+                .orderBy("playlistSong.createdAt", "DESC")
+                .skip(skip)
+                .take(limit)
+                .getMany();
 
+            // Transform data to simple format
             const simpleData = playlistSongs.map(item => ({
                 id: item.id,
                 play_list_id: userPlaylist.id,
-                music_id: item.song?.id,
-                music_title: item.song?.title,
-                music_cover_image: item.song?.image?.image_path || null,
-                artist_id: item.song?.artist?.id || null,
-                artist_first_name: item.song?.artist?.first_name || null,
-                artist_last_name: item.song?.artist?.last_name || null,
-                artist_nick_name: item.song?.artist?.nick_name || null,
+                song_id: item.song?.id,
+                artist_id: item.song.artist.id,
+                title: item.song?.title,
+                audio_path: item.song.audio?.audio_file_path,
+                image_path: item.song.image?.image_path || null,
+                artist_first_name: item.song.artist?.first_name || null,
+                artist_last_name: item.song.artist?.last_name || null,
+                artist_nick_name: item.song.artist?.nick_name || null,
+                username: item.song.artist.user.username,
+                created_at: item.createdAt,
+                release_date: item.song.release_date,
+                play_count: item.song.play_count
             }));
 
             return res.status(200).json({
@@ -1753,6 +1783,11 @@ playListRouter.get(
                 totalPages: totalPages,
                 hasNext: page < totalPages,
                 hasPrev: page > 1,
+                playlist: {
+                    id: userPlaylist.id,
+                    title: userPlaylist.title,
+                    description: userPlaylist.description
+                },
                 data: simpleData
             });
 
