@@ -631,10 +631,63 @@ playListRouter.patch(
  *                   type: integer
  *                   description: تعداد کل آهنگ‌های پلی‌لیست
  *                   example: 15
+ *                 totalPages:
+ *                   type: integer
+ *                   description: تعداد کل صفحات
+ *                   example: 1
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/PlaylistSongResponse'
+ *                     type: object
+ *                     properties:
+ *                       play_list_id:
+ *                         type: integer
+ *                         example: 1
+ *                       song_id:
+ *                         type: integer
+ *                         example: 123
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       release_data:
+ *                         type: string
+ *                         format: date
+ *                       title:
+ *                         type: string
+ *                         example: "آهنگ نمونه ۱"
+ *                       audio_path:
+ *                         type: string
+ *                         format: uri
+ *                         example: "https://example.com/audio/song1.mp3"
+ *                       image_path:
+ *                         type: string
+ *                         format: uri
+ *                         nullable: true
+ *                         example: "https://example.com/images/song1.jpg"
+ *                       artist_id:
+ *                         type: integer
+ *                         example: 1
+ *                       album_title:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "آلبوم نمونه"
+ *                       artist_first_name:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "جان"
+ *                       artist_last_name:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "داویی"
+ *                       username:
+ *                         type: string
+ *                         example: "johndoe"
+ *                       release_date:
+ *                         type: string
+ *                         format: date
+ *                       play_count:
+ *                         type: integer
+ *                         example: 150
  *             examples:
  *               success:
  *                 summary: نمونه پاسخ موفق
@@ -644,35 +697,22 @@ playListRouter.patch(
  *                   skip: 0
  *                   page: 1
  *                   total: 15
+ *                   totalPages: 1
  *                   data:
- *                     - id: 1
- *                       song:
- *                         id: 123
- *                         title: "آهنگ نمونه ۱"
- *                         audio:
- *                           audio_file_path: "https://example.com/audio/song1.mp3"
- *                         image:
- *                           image_path: "https://example.com/images/song1.jpg"
- *                         artist:
- *                           id: 1
- *                           user:
- *                             profile:
- *                               first_name: "جان"
- *                               last_name: "داویی"
- *                     - id: 2
- *                       song:
- *                         id: 124
- *                         title: "آهنگ نمونه ۲"
- *                         audio:
- *                           audio_file_path: "https://example.com/audio/song2.mp3"
- *                         image:
- *                           image_path: "https://example.com/images/song2.jpg"
- *                         artist:
- *                           id: 2
- *                           user:
- *                             profile:
- *                               first_name: "مریم"
- *                               last_name: "احمدی"
+ *                     - play_list_id: 1
+ *                       song_id: 123
+ *                       created_at: "2023-01-15T10:30:00.000Z"
+ *                       release_data: "2023-01-01"
+ *                       title: "آهنگ نمونه ۱"
+ *                       audio_path: "https://example.com/audio/song1.mp3"
+ *                       image_path: "https://example.com/images/song1.jpg"
+ *                       artist_id: 1
+ *                       album_title: "آلبوم نمونه"
+ *                       artist_first_name: "جان"
+ *                       artist_last_name: "داویی"
+ *                       username: "johndoe"
+ *                       release_date: "2023-01-01"
+ *                       play_count: 150
  *       400:
  *         description: پارامترهای ورودی نامعتبر
  *         content:
@@ -685,13 +725,12 @@ playListRouter.patch(
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "id must be number, not set empty"
  *             examples:
  *               invalid_id:
  *                 summary: شناسه پلی‌لیست نامعتبر
  *                 value:
  *                   status: false
- *                   message: "id must be number, not set empty"
+ *                   message: "Playlist ID must be a valid positive number"
  *       401:
  *         description: عدم احراز هویت
  *         content:
@@ -723,7 +762,7 @@ playListRouter.patch(
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Playlist not found"
+ *                   example: "Playlist not found or you don't have access"
  *       500:
  *         description: خطای سرور داخلی
  *         content:
@@ -736,143 +775,140 @@ playListRouter.patch(
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "server error"
+ *                   example: "Internal server error"
  */
 playListRouter.get(
-    "/my_play_list/:id/musics/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const playlistId = Number(req.params.id);
-            const userId = (req as any).user.user_id;
-            const limit = Number(req.query.limit) || 20;
-            const page = Number(req.query.page) || 1;
-            const skip = (page - 1) * limit;
+  "/my_play_list/:id/musics/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const playlistId = Number(req.params.id);
+      const userId = (req as any).user.user_id;
+      const limit = Math.min(Number(req.query.limit) || 20, 100); // Ensure max limit is 100
+      const page = Number(req.query.page) || 1;
+      const skip = (page - 1) * limit;
 
-            if (isNaN(playlistId)) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "id must be number, not set empty"
-                    }
-                );
-            }
+      // Validate playlist ID
+      if (!playlistId || isNaN(playlistId) || playlistId < 1) {
+        return res.status(400).json({
+          status: false,
+          message: "Playlist ID must be a valid positive number"
+        });
+      }
 
-            const playListSongRepository = AppDataSource.getRepository(PlaylistSong);
-            const [playListSongs, total] = await playListSongRepository.findAndCount(
-                {
-                    where: {
-                        is_active: true,
-                        playlist: {
-                            id: playlistId,
-                            is_active: true,
-                            user: {
-                                id: userId
-                            }
-                        }
-                    },
-                    relations: {
-                        song: {
-                            audio: true,
-                            album: true,
-                            image: true,
-                            artist: {
-                                user: {
-                                    profile: true
-                                }
-                            }
-                        }
-                    },
-                    select: {
-                        id: true,
-                        song: {
-                            play_count: true,
-                            id: true,
-                            title: true,
-                            music_lyrics: true,
-                            createdAt: true,
-                            release_date: true,
-                            audio: {
-                                audio_file_path: true,
-                                audio_format: true
-                            },
-                            image: {
-                                image_path: true
-                            },
-                            artist: {
-                                id: true,
-                                nick_name: true,
-                                user: {
-                                    id: true,
-                                    username: true,
-                                    profile: {
-                                        first_name: true,
-                                        last_name: true
-                                    }
-                                }
-                            }
-                        },
-                        playlist: {
-                            id: true,
-                        }
-                    },
-                    take: limit,
-                    skip: skip
-                }
-            );
+      const playListSongRepository = AppDataSource.getRepository(PlaylistSong);
 
-            // check playlist
-            // if (playListSongs.length === 0 && page === 1) {
-            //     return res.status(404).json({
-            //         status: false,
-            //         message: "Playlist not found or you don't have access"
-            //     });
-            // }
-            
-            // simple data
-            const simpleData = playListSongs.map(
-                item => (
-                    {
-                        music_id: item.song.id,
-                        artist_id: item.song.artist.id,
-                        created_at: item.song.createdAt,
-                        release_data: item.song.release_date,
-                        song_title: item.song.title,
-                        music_lyric: item.song.music_lyrics,
-                        music_audio: item.song.audio.audio_file_path,
-                        music_audio_format: item.song.audio.audio_format,
-                        music_cover_image: item.song.image?.image_path || null,
-                        playlist_id: item.id,
-                        album_title: item.song.album.title,
-                        first_name: item.song.artist.user.profile?.first_name || null,
-                        last_name: item.song.artist.user.profile?.last_name || null,
-                        username: item.song.artist.user.username,
-                        nick_name: item.song.artist?.nick_name || null,
-                        play_count: item.song.play_count,
-                    }
-                )
-            )
-            return res.status(200).json(
-                {
-                    status: "success",
-                    limit: limit,
-                    skip: skip,
-                    page: page,
-                    total: total,
-                    data: simpleData
-                }
-            );
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            )
+      // First check if playlist exists and user has access
+      const playlistExists = await playListSongRepository.findOne({
+        where: {
+          playlist: {
+            id: playlistId,
+            is_active: true,
+            user: { id: userId }
+          }
         }
-    }
-);
+      });
 
+      if (!playlistExists) {
+        return res.status(404).json({
+          status: false,
+          message: "Playlist not found or you don't have access"
+        });
+      }
+
+      // Get songs with pagination
+      const [playListSongs, total] = await playListSongRepository.findAndCount({
+        where: {
+          is_active: true,
+          playlist: {
+            id: playlistId,
+            is_active: true,
+            user: { id: userId }
+          }
+        },
+        relations: {
+          playlist: true,
+          song: {
+            audio: true,
+            album: true,
+            image: true,
+            artist: {
+              user: true
+            }
+          }
+        },
+        select: {
+          id: true,
+          song: {
+            play_count: true,
+            id: true,
+            title: true,
+            createdAt: true,
+            release_date: true,
+            audio: {
+              id: true,
+              audio_file_path: true,
+            },
+            image: {
+              id: true,
+              image_path: true
+            },
+            artist: {
+              id: true,
+              user: {
+                id: true,
+                username: true,
+              }
+            }
+          },
+          playlist: {
+            id: true,
+          }
+        },
+        order: {
+          id: "ASC" // Add ordering for consistent pagination
+        },
+        take: limit,
+        skip: skip
+      });
+
+      // Transform data
+      const simplifiedData = playListSongs.map(item => ({
+        play_list_id: item.playlist.id,
+        song_id: item.song.id,
+        created_at: item.song.createdAt,
+        release_data: item.song.release_date,
+        title: item.song.title,
+        audio_path: item.song.audio.audio_file_path,
+        image_path: item.song.image?.image_path || null,
+        artist_id: item.song.artist.id,
+        album_title: item.song.album?.title || null, // Added null check for album
+        artist_first_name: item.song.artist?.first_name || null,
+        artist_last_name: item.song.artist?.last_name || null,
+        username: item.song.artist.user.username,
+        release_date: item.song.release_date,
+        play_count: item.song.play_count,
+      }));
+
+      return res.status(200).json({
+        status: "success",
+        limit: limit,
+        skip: skip,
+        page: page,
+        total: total,
+        totalPages: Math.ceil(total / limit),
+        data: simplifiedData
+      });
+
+    } catch (error) {
+      console.error("Error fetching playlist songs:", error);
+      return res.status(500).json({
+        status: false,
+        message: "Internal server error"
+      });
+    }
+  }
+);
 
 // add music in playlist
 /**
@@ -1135,6 +1171,7 @@ playListRouter.post(
 );
 
 
+// remove music in play_list
 /**
  * @swagger
  * /v1/user/play_list/{playlist_id}/remove_song/:
