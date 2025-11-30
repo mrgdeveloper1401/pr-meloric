@@ -1,5 +1,8 @@
 import { Router, Request, Response } from "express";
-import { authenticateJWT, checkUserAuthenticateJwt } from "../../../../middlewares/authenticate";
+import {
+  authenticateJWT,
+  checkUserAuthenticateJwt,
+} from "../../../../middlewares/authenticate";
 import { AppDataSource } from "../../../../data-source";
 import { Playlist } from "../../../../entity/Playlist";
 import { plainToClass } from "class-transformer";
@@ -10,7 +13,6 @@ import { PlaylistSong } from "../../../../entity/PlaylistSong";
 import { Song } from "../../../../entity/Song";
 
 export const playListRouter = Router();
-
 
 // // get all playlist
 /**
@@ -83,54 +85,47 @@ export const playListRouter = Router();
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 playListRouter.get(
-    "/my_play_list/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            // get user by request
-            const userId = (req as any).user.user_id;
+  "/my_play_list/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      // get user by request
+      const userId = (req as any).user.user_id;
 
-            // pagination
-            const limit = parseInt(req.query.limit as string) || 20;
-            const page = parseInt(req.query.page as string) || 1;
-            const skip = (page - 1) * limit;
-            // repository
-            const playListRepository = AppDataSource.getRepository(Playlist);
-            const [allPlayList, total] = await playListRepository.findAndCount(
-                {
-                    where: {
-                        user: {
-                            id: userId
-                        },
-                        is_active: true
-                    },
-                    take: limit,
-                    skip: skip,
-                    select: ['id', 'title', 'description']
-                }
-            );
+      // pagination
+      const limit = parseInt(req.query.limit as string) || 20;
+      const page = parseInt(req.query.page as string) || 1;
+      const skip = (page - 1) * limit;
+      // repository
+      const playListRepository = AppDataSource.getRepository(Playlist);
+      const [allPlayList, total] = await playListRepository.findAndCount({
+        where: {
+          user: {
+            id: userId,
+          },
+          is_active: true,
+        },
+        take: limit,
+        skip: skip,
+        select: ["id", "title", "description"],
+      });
 
-            return res.status(200).json(
-                {
-                    status: "success",
-                    page: page,
-                    limit: limit,
-                    skip: skip,
-                    total: total,
-                    data: allPlayList
-                }
-            )
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            )
-        }
+      return res.status(200).json({
+        status: "success",
+        page: page,
+        limit: limit,
+        skip: skip,
+        total: total,
+        data: allPlayList,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
-
 
 // // create playlist
 /**
@@ -225,7 +220,7 @@ playListRouter.get(
  *           description: توضیحات پلی‌لیست (اختیاری)
  *           maxLength: 255
  *           example: "لیست آهنگ‌های مورد علاقه برای مهمانی"
- * 
+ *
  *     ErrorResponse:
  *       type: object
  *       properties:
@@ -235,7 +230,7 @@ playListRouter.get(
  *         message:
  *           type: string
  *           example: Server error
- * 
+ *
  *   securitySchemes:
  *     bearerAuth:
  *       type: http
@@ -243,71 +238,57 @@ playListRouter.get(
  *       bearerFormat: JWT
  */
 playListRouter.post(
-    "/create_play_list/",
-    authenticateJWT,
-    async(req: Request, res: Response) => {
-        try {
-            // get user id 
-            const userId = (req as any).user.user_id;
+  "/create_play_list/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      // get user id
+      const userId = (req as any).user.user_id;
 
-            // check req body
-            if (!req.body) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "request body is required"
-                    }
-                );
-            }
+      // check req body
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
 
-            // dto
-            const playListDto = plainToClass(CreatePLayListDto, req.body);
-            const errors = await validate(playListDto);
-            
-            if (errors.length > 0) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        error: errors.map(
-                            err => (
-                                {
-                                    field: err.property,
-                                    value: err.constraints
-                                }
-                            )
-                        )
-                    }
-                );
-            }
-            // create playlist
-            const playList = new Playlist();
-            playList.user = {id: Number(userId)} as User;
-            playList.title = playListDto.title;
-            playList.description = playListDto.description;
-            await playList.save()
+      // dto
+      const playListDto = plainToClass(CreatePLayListDto, req.body);
+      const errors = await validate(playListDto);
 
-            return res.status(201).json(
-                {
-                    status: "success",
-                    data: {
-                        id: playList.id,
-                        title: playList.title
-                    }
-                }
-            )
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          error: errors.map((err) => ({
+            field: err.property,
+            value: err.constraints,
+          })),
+        });
+      }
+      // create playlist
+      const playList = new Playlist();
+      playList.user = { id: Number(userId) } as User;
+      playList.title = playListDto.title;
+      playList.description = playListDto.description;
+      await playList.save();
 
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "Server error",
-                    error: error.message
-                }
-            );
-        }
+      return res.status(201).json({
+        status: "success",
+        data: {
+          id: playList.id,
+          title: playList.title,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "Server error",
+        error: error.message,
+      });
     }
+  }
 );
-
 
 // delete playlist
 /**
@@ -366,56 +347,54 @@ playListRouter.post(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 playListRouter.delete(
-    "/delete_play_list/:play_list_id",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            const playListId = parseInt(req.params.play_list_id);
+  "/delete_play_list/:play_list_id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const playListId = parseInt(req.params.play_list_id);
 
-            // is valid playlistId params
-            if (isNaN(playListId)) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid playlist ID"
-                });
-            }
+      // is valid playlistId params
+      if (isNaN(playListId)) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid playlist ID",
+        });
+      }
 
-            const playListRepository = AppDataSource.getRepository(Playlist);
-            
-            // find playlist
-            const playList = await playListRepository.findOne({
-                where: { id: playListId, is_active: true, user: {id: userId} },
-                select: ['id'],
-            });
+      const playListRepository = AppDataSource.getRepository(Playlist);
 
-            if (!playList) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Playlist not found"
-                });
-            }
+      // find playlist
+      const playList = await playListRepository.findOne({
+        where: { id: playListId, is_active: true, user: { id: userId } },
+        select: ["id"],
+      });
 
-            // delete playlist
-            playList.is_active = false;
-            await playListRepository.save(playList);
+      if (!playList) {
+        return res.status(404).json({
+          status: false,
+          message: "Playlist not found",
+        });
+      }
 
-            return res.status(200).json({
-                status: true,
-                message: "Playlist deleted successfully"
-            });
+      // delete playlist
+      playList.is_active = false;
+      await playListRepository.save(playList);
 
-        } catch (error) {
-            console.error("Delete playlist error:", error);
-            return res.status(500).json({
-                status: false,
-                message: "Server error",
-                error: error.message
-            });
-        }
+      return res.status(200).json({
+        status: true,
+        message: "Playlist deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete playlist error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "Server error",
+        error: error.message,
+      });
     }
+  }
 );
-
 
 // update playlist
 /**
@@ -486,84 +465,82 @@ playListRouter.delete(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 playListRouter.patch(
-    "/update_play_list/:play_list_id",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            const playListId = parseInt(req.params.play_list_id);
+  "/update_play_list/:play_list_id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const playListId = parseInt(req.params.play_list_id);
 
-            // check playlistId in params
-            if (isNaN(playListId)) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid playlist ID"
-                });
-            }
+      // check playlistId in params
+      if (isNaN(playListId)) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid playlist ID",
+        });
+      }
 
-            // check request body
-            if (!req.body) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Request body is required"
-                });
-            }
+      // check request body
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "Request body is required",
+        });
+      }
 
-            const playListRepository = AppDataSource.getRepository(Playlist);
-            
-            // find playlist
-            const playList = await playListRepository.findOne({
-                where: { id: playListId, is_active: true },
-                relations: ["user"]
-            });
-            if (!playList) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Playlist not found"
-                });
-            }
+      const playListRepository = AppDataSource.getRepository(Playlist);
 
-            // check ownwer playlist
-            if (playList.user.id !== Number(userId)) {
-                return res.status(403).json({
-                    status: false,
-                    message: "You don't have permission to update this playlist"
-                });
-            }
+      // find playlist
+      const playList = await playListRepository.findOne({
+        where: { id: playListId, is_active: true },
+        relations: ["user"],
+      });
+      if (!playList) {
+        return res.status(404).json({
+          status: false,
+          message: "Playlist not found",
+        });
+      }
 
-            // update field
-            if (req.body.title !== undefined) {
-                playList.title = req.body.title;
-            }
-            
-            if (req.body.description !== undefined) {
-                playList.description = req.body.description;
-            }
+      // check ownwer playlist
+      if (playList.user.id !== Number(userId)) {
+        return res.status(403).json({
+          status: false,
+          message: "You don't have permission to update this playlist",
+        });
+      }
 
-            // save after update
-            await playListRepository.save(playList);
+      // update field
+      if (req.body.title !== undefined) {
+        playList.title = req.body.title;
+      }
 
-            return res.status(200).json({
-                status: true,
-                data: {
-                    id: playList.id,
-                    title: playList.title,
-                    description: playList.description,
-                    is_active: playList.is_active
-                }
-            });
+      if (req.body.description !== undefined) {
+        playList.description = req.body.description;
+      }
 
-        } catch (error) {
-            console.error("Update playlist error:", error);
-            return res.status(500).json({
-                status: false,
-                message: "Server error",
-                error: error.message
-            });
-        }
+      // save after update
+      await playListRepository.save(playList);
+
+      return res.status(200).json({
+        status: true,
+        data: {
+          id: playList.id,
+          title: playList.title,
+          description: playList.description,
+          is_active: playList.is_active,
+        },
+      });
+    } catch (error) {
+      console.error("Update playlist error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "Server error",
+        error: error.message,
+      });
     }
+  }
 );
-
 
 // show music by playlist
 /**
@@ -784,7 +761,7 @@ playListRouter.get(
     try {
       const playlistId = Number(req.params.id);
       const userId = (req as any).user.user_id;
-      const limit = Math.min(Number(req.query.limit) || 20, 100); // Ensure max limit is 100
+      const limit = Math.min(Number(req.query.limit) || 20, 100);
       const page = Number(req.query.page) || 1;
       const skip = (page - 1) * limit;
 
@@ -798,79 +775,62 @@ playListRouter.get(
 
       const playListSongRepository = AppDataSource.getRepository(PlaylistSong);
 
-      // First check if playlist exists and user has access
-      const playlistExists = await playListSongRepository.findOne({
-        where: {
-          playlist: {
-            id: playlistId,
-            is_active: true,
-            user: { id: userId }
-          }
-        }
-      });
+      // First, check if playlist exists and user has access (simple query)
+      const playlistAccess = await playListSongRepository
+        .createQueryBuilder("ps")
+        .innerJoin("ps.playlist", "p")
+        .where("p.id = :playlistId", { playlistId })
+        .andWhere("p.is_active = :isActive", { isActive: true })
+        .andWhere("p.user_id = :userId", { userId })
+        .andWhere("ps.is_active = :isActive", { isActive: true })
+        .select("ps.id")
+        .limit(1)
+        .getOne();
 
-      if (!playlistExists) {
+      if (!playlistAccess) {
         return res.status(404).json({
           status: false,
           message: "Playlist not found or you don't have access"
         });
       }
 
-      // Get songs with pagination
-      const [playListSongs, total] = await playListSongRepository.findAndCount({
-        where: {
-          is_active: true,
-          playlist: {
-            id: playlistId,
-            is_active: true,
-            user: { id: userId }
-          }
-        },
-        relations: {
-          playlist: true,
-          song: {
-            audio: true,
-            album: true,
-            image: true,
-            artist: {
-              user: true
-            }
-          }
-        },
-        select: {
-          id: true,
-          song: {
-            play_count: true,
-            id: true,
-            title: true,
-            createdAt: true,
-            release_date: true,
-            audio: {
-              id: true,
-              audio_file_path: true,
-            },
-            image: {
-              id: true,
-              image_path: true
-            },
-            artist: {
-              id: true,
-              user: {
-                id: true,
-                username: true,
-              }
-            }
-          },
-          playlist: {
-            id: true,
-          }
-        },
-        order: {
-          id: "ASC" // Add ordering for consistent pagination
-        },
-        take: limit,
-        skip: skip
-      });
+      // Main query with optimized joins and selected fields only
+      const queryBuilder = playListSongRepository
+        .createQueryBuilder("ps")
+        .innerJoinAndSelect("ps.playlist", "p")
+        .innerJoinAndSelect("ps.song", "s")
+        .innerJoinAndSelect("s.audio", "audio")
+        .innerJoinAndSelect("s.album", "album")
+        .leftJoinAndSelect("s.image", "image")
+        .innerJoinAndSelect("s.artist", "artist")
+        .innerJoinAndSelect("artist.user", "user")
+        .where("ps.is_active = :isActive", { isActive: true })
+        .andWhere("p.id = :playlistId", { playlistId })
+        .andWhere("p.is_active = :isActive", { isActive: true })
+        .andWhere("p.user_id = :userId", { userId })
+        .orderBy("ps.id", "ASC")
+        .skip(skip)
+        .take(limit);
+
+      // Select only needed fields to reduce data transfer
+      queryBuilder.select([
+        "ps.id",
+        "p.id",
+        "s.id",
+        "s.title",
+        "s.createdAt",
+        "s.release_date",
+        "s.play_count",
+        "audio.audio_file_path",
+        "album.title",
+        "image.image_path",
+        "artist.id",
+        "artist.first_name",
+        "artist.last_name",
+        "user.username"
+      ]);
+
+      const [playListSongs, total] = await queryBuilder.getManyAndCount();
 
       // Transform data
       const simplifiedData = playListSongs.map(item => ({
@@ -882,9 +842,9 @@ playListRouter.get(
         audio_path: item.song.audio.audio_file_path,
         image_path: item.song.image?.image_path || null,
         artist_id: item.song.artist.id,
-        album_title: item.song.album?.title || null, // Added null check for album
-        artist_first_name: item.song.artist?.first_name || null,
-        artist_last_name: item.song.artist?.last_name || null,
+        album_title: item.song.album?.title || null,
+        artist_first_name: item.song.artist.first_name,
+        artist_last_name: item.song.artist.last_name,
         username: item.song.artist.user.username,
         release_date: item.song.release_date,
         play_count: item.song.play_count,
@@ -909,7 +869,6 @@ playListRouter.get(
     }
   }
 );
-
 // add music in playlist
 /**
  * @swagger
@@ -1045,131 +1004,129 @@ playListRouter.get(
  *                   example: "server error"
  */
 playListRouter.post(
-    "/:playlist_id/add_song/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const playlistId = Number(req.params.playlist_id);
-            const userId = (req as any).user.user_id;
-            const { song_id, position = 0 } = req.body;
+  "/:playlist_id/add_song/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const playlistId = Number(req.params.playlist_id);
+      const userId = (req as any).user.user_id;
+      const { song_id, position = 0 } = req.body;
 
-            // check playlist_id
-            if (isNaN(playlistId) || playlistId <= 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid playlist ID"
-                });
-            }
+      // check playlist_id
+      if (isNaN(playlistId) || playlistId <= 0) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid playlist ID",
+        });
+      }
 
-            //check song_id
-            if (!song_id || isNaN(Number(song_id)) || Number(song_id) <= 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid song ID"
-                });
-            }
+      //check song_id
+      if (!song_id || isNaN(Number(song_id)) || Number(song_id) <= 0) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid song ID",
+        });
+      }
 
-            const songId = Number(song_id);
+      const songId = Number(song_id);
 
-            // check playlist
-            const playlistRepository = AppDataSource.getRepository(Playlist);
-            const playlist = await playlistRepository.findOne({
-                where: {
-                    id: playlistId,
-                    is_active: true,
-                    user: { id: userId }
-                },
-                select: ['id']
-            });
+      // check playlist
+      const playlistRepository = AppDataSource.getRepository(Playlist);
+      const playlist = await playlistRepository.findOne({
+        where: {
+          id: playlistId,
+          is_active: true,
+          user: { id: userId },
+        },
+        select: ["id"],
+      });
 
-            if (!playlist) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Playlist not found or you don't have access"
-                });
-            }
+      if (!playlist) {
+        return res.status(404).json({
+          status: false,
+          message: "Playlist not found or you don't have access",
+        });
+      }
 
-            // check music
-            const songRepository = AppDataSource.getRepository(Song);
-            const song = await songRepository.findOne({
-                where: {
-                    id: songId,
-                    is_active: true,
-                    album: {
-                        is_active: true
-                    }
-                },
-                select: ['id']
-            });
+      // check music
+      const songRepository = AppDataSource.getRepository(Song);
+      const song = await songRepository.findOne({
+        where: {
+          id: songId,
+          is_active: true,
+          album: {
+            is_active: true,
+          },
+        },
+        select: ["id"],
+      });
 
-            if (!song) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Song not found"
-                });
-            }
+      if (!song) {
+        return res.status(404).json({
+          status: false,
+          message: "Song not found",
+        });
+      }
 
-            // check song dose exist same playlist
-            const playlistSongRepository = AppDataSource.getRepository(PlaylistSong);
-            const existingSong = await playlistSongRepository.findOne({
-                where: {
-                    playlist: { id: playlistId },
-                    song: { id: songId },
-                    is_active: true
-                },
-                select: ['id']
-            });
+      // check song dose exist same playlist
+      const playlistSongRepository = AppDataSource.getRepository(PlaylistSong);
+      const existingSong = await playlistSongRepository.findOne({
+        where: {
+          playlist: { id: playlistId },
+          song: { id: songId },
+          is_active: true,
+        },
+        select: ["id"],
+      });
 
-            if (existingSong) {
-                return res.status(409).json({
-                    status: false,
-                    message: "Song already exists in this playlist"
-                });
-            }
+      if (existingSong) {
+        return res.status(409).json({
+          status: false,
+          message: "Song already exists in this playlist",
+        });
+      }
 
-            // calc position
-            // let finalPosition = position;
-            // if (!position || position < 0) {
-            //     const lastPosition = await playlistSongRepository
-            //         .createQueryBuilder("playlistSong")
-            //         .select("MAX(playlistSong.position)", "maxPosition")
-            //         .where("playlistSong.playlist_id = :playlistId", { playlistId })
-            //         .andWhere("playlistSong.is_active = :isActive", { isActive: true })
-            //         .getRawOne();
+      // calc position
+      // let finalPosition = position;
+      // if (!position || position < 0) {
+      //     const lastPosition = await playlistSongRepository
+      //         .createQueryBuilder("playlistSong")
+      //         .select("MAX(playlistSong.position)", "maxPosition")
+      //         .where("playlistSong.playlist_id = :playlistId", { playlistId })
+      //         .andWhere("playlistSong.is_active = :isActive", { isActive: true })
+      //         .getRawOne();
 
-            //     finalPosition = (lastPosition.maxPosition || 0) + 1;
-            // }
+      //     finalPosition = (lastPosition.maxPosition || 0) + 1;
+      // }
 
-            // create data
-            const playlistSong = new PlaylistSong();
-            playlistSong.playlist = playlist;
-            playlistSong.song = song;
-            // playlistSong.position = finalPosition;
-            playlistSong.is_active = true;
+      // create data
+      const playlistSong = new PlaylistSong();
+      playlistSong.playlist = playlist;
+      playlistSong.song = song;
+      // playlistSong.position = finalPosition;
+      playlistSong.is_active = true;
 
-            await playlistSongRepository.save(playlistSong);
+      await playlistSongRepository.save(playlistSong);
 
-            return res.status(201).json({
-                status: "success",
-                message: "Song added to playlist successfully",
-                data: {
-                    id: playlistSong.id,
-                    playlist_id: playlistId,
-                    song_id: songId,
-                    // position: finalPosition,
-                    // created_at: playlistSong.created_at
-                }
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
-        }
+      return res.status(201).json({
+        status: "success",
+        message: "Song added to playlist successfully",
+        data: {
+          id: playlistSong.id,
+          playlist_id: playlistId,
+          song_id: songId,
+          // position: finalPosition,
+          // created_at: playlistSong.created_at
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
-
 
 // remove music in play_list
 /**
@@ -1289,78 +1246,77 @@ playListRouter.post(
  *                   example: "server error"
  */
 playListRouter.delete(
-    "/:playlist_id/remove_song/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const playlistId = Number(req.params.playlist_id);
-            const userId = (req as any).user.user_id;
-            const { song_id } = req.body;
+  "/:playlist_id/remove_song/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const playlistId = Number(req.params.playlist_id);
+      const userId = (req as any).user.user_id;
+      const { song_id } = req.body;
 
-            // check playlist_id
-            if (isNaN(playlistId) || playlistId <= 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid playlist ID"
-                });
-            }
+      // check playlist_id
+      if (isNaN(playlistId) || playlistId <= 0) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid playlist ID",
+        });
+      }
 
-            // check song_id
-            if (!song_id || isNaN(Number(song_id)) || Number(song_id) <= 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid song ID"
-                });
-            }
+      // check song_id
+      if (!song_id || isNaN(Number(song_id)) || Number(song_id) <= 0) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid song ID",
+        });
+      }
 
-            const songId = Number(song_id);
+      const songId = Number(song_id);
 
-            // find PlaylistSong
-            const playlistSongRepository = AppDataSource.getRepository(PlaylistSong);
-            const playlistSong = await playlistSongRepository.findOne({
-                where: {
-                    playlist: {
-                        id: playlistId,
-                        user: { id: userId },
-                        is_active: true
-                    },
-                    song: {
-                        id: songId,
-                        is_active: true
-                    },
-                    is_active: true
-                },
-                relations: ['playlist']
-            });
+      // find PlaylistSong
+      const playlistSongRepository = AppDataSource.getRepository(PlaylistSong);
+      const playlistSong = await playlistSongRepository.findOne({
+        where: {
+          playlist: {
+            id: playlistId,
+            user: { id: userId },
+            is_active: true,
+          },
+          song: {
+            id: songId,
+            is_active: true,
+          },
+          is_active: true,
+        },
+        relations: ["playlist"],
+      });
 
-            if (!playlistSong) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Playlist or song not found in playlist"
-                });
-            }
+      if (!playlistSong) {
+        return res.status(404).json({
+          status: false,
+          message: "Playlist or song not found in playlist",
+        });
+      }
 
-            // delete
-            playlistSong.is_active = false;
-            await playlistSongRepository.save(playlistSong);
+      // delete
+      playlistSong.is_active = false;
+      await playlistSongRepository.save(playlistSong);
 
-            return res.status(200).json({
-                status: "success",
-                message: "Song removed from playlist successfully",
-                data: {
-                    id: playlistSong.id,
-                    playlist_id: playlistId,
-                    song_id: songId
-                }
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        message: "Song removed from playlist successfully",
+        data: {
+          id: playlistSong.id,
+          playlist_id: playlistId,
+          song_id: songId,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 // −−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
@@ -1557,7 +1513,6 @@ playListRouter.delete(
 //     }
 // );
 
-
 // // get all music by playlist with pagination
 // /**
 //  * @swagger
@@ -1728,16 +1683,16 @@ playListRouter.delete(
 //     async (req: Request, res: Response) => {
 //         try {
 //             const userId = (req as any).user.user_id;
-            
+
 //             // pagination
 //             let page = parseInt(req.query.page as string) || 1;
 //             let limit = parseInt(req.query.limit as string) || 10;
-            
+
 //             // validate
 //             if (page < 1) page = 1;
 //             if (limit < 1) limit = 1;
 //             if (limit > 100) limit = 100;
-            
+
 //             const skip = (page - 1) * limit;
 
 //             // Find user's latest active playlist using Query Builder
@@ -1758,7 +1713,7 @@ playListRouter.delete(
 //             }
 
 //             const playlistSongRepository = AppDataSource.getRepository(PlaylistSong);
-            
+
 //             // Count total songs using Query Builder
 //             const total = await playlistSongRepository
 //                 .createQueryBuilder("playlistSong")
@@ -1768,7 +1723,7 @@ playListRouter.delete(
 
 //             // Calculate pagination info
 //             const totalPages = Math.ceil(total / limit);
-            
+
 //             // Get paginated data using optimized Query Builder with joins
 //             const playlistSongs = await playlistSongRepository
 //                 .createQueryBuilder("playlistSong")
