@@ -756,7 +756,10 @@ artistReouter.get(
         },
       });
 
-      const isFollow: boolean = !!checkFollow;
+      let isFollow = false;
+      if (checkFollow) {
+        isFollow = true;
+      }
 
       const simpleData = {
         user_id: getArtist.user.id,
