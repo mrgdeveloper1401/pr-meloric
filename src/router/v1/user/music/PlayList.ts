@@ -14,6 +14,7 @@ import { Song } from "../../../../entity/Song";
 
 export const playListRouter = Router();
 
+
 // // get all playlist
 /**
  * @swagger
@@ -126,6 +127,7 @@ playListRouter.get(
     }
   }
 );
+
 
 // // create playlist
 /**
@@ -290,6 +292,7 @@ playListRouter.post(
   }
 );
 
+
 // delete playlist
 /**
  * @swagger
@@ -395,6 +398,7 @@ playListRouter.delete(
     }
   }
 );
+
 
 // update playlist
 /**
@@ -542,6 +546,7 @@ playListRouter.patch(
   }
 );
 
+
 // show music by playlist
 /**
  * @swagger
@@ -620,6 +625,9 @@ playListRouter.patch(
  *                       play_list_id:
  *                         type: integer
  *                         example: 1
+ *                       playlist_title:
+ *                         type: string
+ *                         example: play list one
  *                       song_id:
  *                         type: integer
  *                         example: 123
@@ -816,6 +824,7 @@ playListRouter.get(
       queryBuilder.select([
         "ps.id",
         "p.id",
+        "p.title",
         "s.id",
         "s.title",
         "s.createdAt",
@@ -835,6 +844,7 @@ playListRouter.get(
       // Transform data
       const simplifiedData = playListSongs.map(item => ({
         play_list_id: item.playlist.id,
+        playlist_title: item.playlist.title,
         song_id: item.song.id,
         created_at: item.song.createdAt,
         release_data: item.song.release_date,
@@ -869,6 +879,8 @@ playListRouter.get(
     }
   }
 );
+
+
 // add music in playlist
 /**
  * @swagger
