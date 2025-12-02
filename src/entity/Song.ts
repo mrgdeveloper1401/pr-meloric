@@ -14,7 +14,7 @@ export class Song extends TimestampEntity{
   @JoinColumn({name: "artist_id"})
   artist: Artist;
 
-  @ManyToOne(() => Album, {onDelete: "RESTRICT"})
+  @ManyToOne(() => Album, {onDelete: "RESTRICT", nullable: true})
   @JoinColumn({name: "album_id"})
   album: Album;
 
@@ -40,5 +40,8 @@ export class Song extends TimestampEntity{
   @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
   @JoinColumn({name: "image_id"})
   image: Image
+
+  @Column({default: false, name: "is_single"})
+  is_single: boolean;
 
 }

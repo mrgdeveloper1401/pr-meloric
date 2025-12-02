@@ -13,6 +13,7 @@ import { isArtistUser } from "../../../../middlewares/IsArtist";
 import { ArtistSocial } from "../../../../entity/ArtistSocial";
 import { ArtistGallery } from "../../../../entity/ArtistGallery";
 import { ArtistSocialDto } from "../../../../dtos/artist/ArtistSocial";
+import { count } from "console";
 
 export const artistReouter = Router();
 
@@ -221,6 +222,7 @@ artistReouter.get(
     }
   }
 );
+
 
 // update artiste profile
 /**
@@ -520,6 +522,7 @@ artistReouter.patch(
   }
 );
 
+
 // get artist public profile
 /**
  * @swagger
@@ -799,6 +802,7 @@ artistReouter.get(
     }
   }
 );
+
 
 // create gallery images
 /**
@@ -1111,6 +1115,7 @@ artistReouter.get(
   }
 );
 
+
 // delete gallaery_image
 /**
  * @swagger
@@ -1242,6 +1247,7 @@ artistReouter.delete(
     }
   }
 );
+
 
 // create artist scoial
 /**
@@ -1422,6 +1428,7 @@ artistReouter.post(
   }
 );
 
+
 // list artist scoial
 /**
  * @swagger
@@ -1520,6 +1527,7 @@ artistReouter.get(
     }
   }
 );
+
 
 // update artist social
 /**
@@ -1697,6 +1705,7 @@ artistReouter.patch(
   }
 );
 
+
 // delete artist social
 /**
  * @swagger
@@ -1800,6 +1809,201 @@ artistReouter.delete(
         status: false,
         message: "server error",
         error: error.message,
+      });
+    }
+  }
+);
+
+
+/**
+ * @swagger
+ * /v1/user/artist/music/artist_list:
+ *   get:
+ *     tags:
+ *       - Artist
+ *     summary: دریافت لیست آرتیست‌ها
+ *     description: |
+ *       دریافت لیست آرتیست‌های فعال با امکان جستجو و صفحه‌بندی
+ *       - امکان جستجو بر اساس username
+ *       - صفحه‌بندی خودکار
+ *       - فقط آرتیست‌های فعال نمایش داده می‌شوند
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: limit
+ *         in: query
+ *         required: false
+ *         description: تعداد آیتم در هر صفحه (پیش‌فرض ۲۰)
+ *         schema:
+ *           type: integer
+ *           example: 20
+ *           minimum: 1
+ *           maximum: 100
+ *       - name: page
+ *         in: query
+ *         required: false
+ *         description: شماره صفحه (پیش‌فرض ۱)
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *           minimum: 1
+ *       - name: search
+ *         in: query
+ *         required: false
+ *         description: عبارت جستجو برای فیلتر کردن نتایج (username)
+ *         schema:
+ *           type: string
+ *           example: "ali"
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - لیست آرتیست‌ها
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "success"
+ *                 page:
+ *                   type: integer
+ *                   example: 1
+ *                 limit:
+ *                   type: integer
+ *                   example: 20
+ *                 total:
+ *                   type: integer
+ *                   example: 150
+ *                 total_pages:
+ *                   type: integer
+ *                   example: 8
+ *                 count:
+ *                   type: integer
+ *                   example: 20
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       full_name:
+ *                         type: string
+ *                         example: "علی محمدی"
+ *                       nick_name:
+ *                         type: string
+ *                         example: "علی"
+ *                         nullable: true
+ *                       monthly_listeners:
+ *                         type: integer
+ *                         example: 15000
+ *                       username:
+ *                         type: string
+ *                         example: "ali_mohammadi"
+ *                       cover_image:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 123
+ *                           image_path:
+ *                             type: string
+ *                             example: "/uploads/artists/cover/123.jpg"
+ *       '400':
+ *         description: پارامترهای ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '401':
+ *         description: عدم احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '403':
+ *         description: دسترسی غیرمجاز (کاربر آرتیست نیست)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+artistReouter.get(
+  "/music/artist_list/",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    try {
+      const limit = Number(req.query.limit) || 20;
+      const page = Number(req.query.page) || 1;
+      const search = req.query.search as string;
+      const skip = (page - 1) * limit;
+
+      const artistRepository = AppDataSource.getRepository(Artist);
+
+      const query = artistRepository.createQueryBuilder("artist")
+        .leftJoinAndSelect("artist.cover_image", "cover_image")
+        .leftJoinAndSelect("artist.user", "user")
+        .where("artist.is_active = :isActive", { isActive: true })
+        .select([
+          "artist.id",
+          "artist.first_name",
+          "artist.last_name",
+          "artist.nick_name",
+          "artist.monthly_listeners",
+          "cover_image.id",
+          "cover_image.image_path",
+          "user.id",
+          "user.username"
+        ]);
+
+      if (search) {
+        query.andWhere(
+          "(user.username LIKE :search)",
+          { search: `%${search}%` }
+        );
+      }
+
+      query.skip(skip).take(limit);
+
+      const [artists, total] = await query.getManyAndCount();
+
+      const simpleData = artists.map(artist => ({
+        id: artist.id,
+        full_name: artist.first_name && artist.last_name 
+          ? `${artist.first_name} ${artist.last_name}`
+          : artist.nick_name || "بدون نام",
+        nick_name: artist.nick_name,
+        monthly_listeners: artist.monthly_listeners,
+        username: artist.user?.username,
+        cover_image: artist.cover_image ? {
+          id: artist.cover_image.id,
+          image_path: artist.cover_image.image_path
+        } : null
+      }));
+
+      return res.status(200).json({
+        message: "success",
+        page: page,
+        limit: limit,
+        total: total,
+        total_pages: Math.ceil(total / limit),
+        count: artists.length,
+        data: simpleData
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message
       });
     }
   }
