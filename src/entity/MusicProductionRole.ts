@@ -23,7 +23,7 @@ export enum ProductionRoleType {
   OTHER = "other", // سایر
 }
 
-@Entity()
+@Entity({name: "song_production_role"})
 export class SongProductionRole extends TimestampEntity {
   @PrimaryGeneratedColumn()
   id: number;

@@ -17,10 +17,12 @@ import { Genre } from "../../../../entity/Genre";
 import { Playlist } from "../../../../entity/Playlist";
 import { PlaylistSong } from "../../../../entity/PlaylistSong";
 import { isArtistUser } from "../../../../middlewares/IsArtist";
-import { ProductionRoleDto, SingleMusicDto } from "../../../../dtos/music/SingleMusic";
+import {
+  ProductionRoleDto,
+  SingleMusicDto,
+} from "../../../../dtos/music/SingleMusic";
 import { SongProductionRole } from "../../../../entity/MusicProductionRole";
 import { count } from "console";
-
 
 export const musicRouter = Router();
 
@@ -111,173 +113,161 @@ export const musicRouter = Router();
  *                   example: "server error"
  */
 musicRouter.get(
-    "/:album_id/songs/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            // pagination
-            const limit = parseInt(req.query.limit as string) || 20;
-            const page = 1;
-            const skip = (page - 1) * limit;
+  "/:album_id/songs/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      // pagination
+      const limit = parseInt(req.query.limit as string) || 20;
+      const page = 1;
+      const skip = (page - 1) * limit;
 
-            // query params
-            const albumId = parseInt(req.params.album_id)
-            const date = new Date();
-            // get album id by query params
-            const albumRepository = AppDataSource.getRepository(Album);
-            const getAlbum = await albumRepository.findOne(
-                {
-                    where: {
-                        id: albumId,
-                        is_active: true,
-                        release_date: LessThan(date)
-                    },
-                    select: ['id']
-                }
-            )
-            if (!getAlbum) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "album not found"
-                    }
-                );
-            }
+      // query params
+      const albumId = parseInt(req.params.album_id);
+      const date = new Date();
+      // get album id by query params
+      const albumRepository = AppDataSource.getRepository(Album);
+      const getAlbum = await albumRepository.findOne({
+        where: {
+          id: albumId,
+          is_active: true,
+          release_date: LessThan(date),
+        },
+        select: ["id"],
+      });
+      if (!getAlbum) {
+        return res.status(404).json({
+          status: false,
+          message: "album not found",
+        });
+      }
 
-            // all songs
-            const musicRepository = AppDataSource.getRepository(Song);
-            const [songs, count] = await musicRepository.findAndCount(
-                {
-                    where: { album: getAlbum, is_active: true, release_date: LessThan(date) },
-                    take: limit,
-                    skip: skip,
-                    select: {
-                        id: true,
-                        title: true,
-                        release_date: true,
-                        play_count: true,
-                        music_lyrics: true,
-                        createdAt: true,
-                        album: {
-                            id: true,
-                            title: true,
-                            cover_image: {
-                                image_path: true
-                            }
-                        },
-                        audio: {
-                            audio_file_path: true,
-                            audio_format: true
-                        },
-                        image: {
-                            id: true,
-                            image_path: true
-                        },
-                        artist: {
-                            id: true,
-                            nick_name: true,
-                            user: {
-                                id: true,
-                                username: true,
-                                profile: {
-                                    id: true,
-                                    first_name: true,
-                                    last_name: true
-                                }
-                            }
-                        }
-
-                    },
-                    relations: {
-                        audio: true,
-                        image: true,
-                        album: {
-                            cover_image: true
-                        },
-                        artist: {
-                            cover_image: true,
-                            user: {
-                                profile: true
-                            }
-                        }
-                    },
-                }
-            );
-            // const simpleData = songs.map(
-            //     item => (
-            //         {
-            //             music_id: item.id,
-            //             artist_id: item.artist.id,
-            //             nick_name: item.artist?.nick_name || null,
-            //             first_name: item.artist.user.profile?.first_name || null,
-            //             last_name: item.artist.user.profile?.last_name || null,
-            //             username: item.artist.user.username,
-            //             title: item.title,
-            //             release_date: item.release_date,
-            //             created_at: item.createdAt,
-            //             play_count: item.play_count,
-            //             music_lyrics: item.music_lyrics,
-            //             audio_file_path: item.audio.audio_file_path,
-            //             music_cover_image: item.image?.image_path || null
-            //         }
-            //     )
-            // )
-            const data = songs.map(
-                item => (
-                    {
-                        id: item.id,
-                        title: item.title,
-                        release_date: item.release_date,
-                        play_count: item.play_count,
-                        music_lyrics: item.music_lyrics,
-                        created_at: item.createdAt,
-                        image: {
-                            image_path: item.image?.image_path || null,
-                        },
-                        album: {
-                            id: item.album?.id || null,
-                            title: item.album?.title || null,
-                            cover_image: item.album.cover_image?.image_path || null
-                        },
-                        artist: {
-                            id: item.artist.id,
-                            nicke_name: item.artist?.nick_name || null,
-                            first_name: item.artist.user.profile?.first_name || null,
-                            last_name: item.artist.user.profile?.last_name || null,
-                            username: item.artist.user.username,
-                            cover_image: {
-                                id: item.artist.cover_image?.id || null,
-                                image_path: item.artist.cover_image?.image_path || null
-                            },
-                            audio: {
-                                audio_file_path: item.audio.audio_file_path,
-                                audio_format: item.audio.audio_format
-                            }
-                        }
-                    }
-                )
-            )
-            return res.status(200).json(
-                {
-                    status: "success",
-                    count: count,
-                    page: page,
-                    limit: limit,
-                    data: data
-                }
-            )
-        } catch (error) {
-            console.log(error)
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            );
-        }
+      // all songs
+      const musicRepository = AppDataSource.getRepository(Song);
+      const [songs, count] = await musicRepository.findAndCount({
+        where: {
+          album: getAlbum,
+          is_active: true,
+          release_date: LessThan(date),
+        },
+        take: limit,
+        skip: skip,
+        select: {
+          id: true,
+          title: true,
+          release_date: true,
+          play_count: true,
+          music_lyrics: true,
+          createdAt: true,
+          album: {
+            id: true,
+            title: true,
+            cover_image: {
+              image_path: true,
+            },
+          },
+          audio: {
+            audio_file_path: true,
+            audio_format: true,
+          },
+          image: {
+            id: true,
+            image_path: true,
+          },
+          artist: {
+            id: true,
+            nick_name: true,
+            user: {
+              id: true,
+              username: true,
+              profile: {
+                id: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
+        relations: {
+          audio: true,
+          image: true,
+          album: {
+            cover_image: true,
+          },
+          artist: {
+            cover_image: true,
+            user: {
+              profile: true,
+            },
+          },
+        },
+      });
+      // const simpleData = songs.map(
+      //     item => (
+      //         {
+      //             music_id: item.id,
+      //             artist_id: item.artist.id,
+      //             nick_name: item.artist?.nick_name || null,
+      //             first_name: item.artist.user.profile?.first_name || null,
+      //             last_name: item.artist.user.profile?.last_name || null,
+      //             username: item.artist.user.username,
+      //             title: item.title,
+      //             release_date: item.release_date,
+      //             created_at: item.createdAt,
+      //             play_count: item.play_count,
+      //             music_lyrics: item.music_lyrics,
+      //             audio_file_path: item.audio.audio_file_path,
+      //             music_cover_image: item.image?.image_path || null
+      //         }
+      //     )
+      // )
+      const data = songs.map((item) => ({
+        id: item.id,
+        title: item.title,
+        release_date: item.release_date,
+        play_count: item.play_count,
+        music_lyrics: item.music_lyrics,
+        created_at: item.createdAt,
+        image: {
+          image_path: item.image?.image_path || null,
+        },
+        album: {
+          id: item.album?.id || null,
+          title: item.album?.title || null,
+          cover_image: item.album.cover_image?.image_path || null,
+        },
+        artist: {
+          id: item.artist.id,
+          nicke_name: item.artist?.nick_name || null,
+          first_name: item.artist.user.profile?.first_name || null,
+          last_name: item.artist.user.profile?.last_name || null,
+          username: item.artist.user.username,
+          cover_image: {
+            id: item.artist.cover_image?.id || null,
+            image_path: item.artist.cover_image?.image_path || null,
+          },
+          audio: {
+            audio_file_path: item.audio.audio_file_path,
+            audio_format: item.audio.audio_format,
+          },
+        },
+      }));
+      return res.status(200).json({
+        status: "success",
+        count: count,
+        page: page,
+        limit: limit,
+        data: data,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
-
-)
+  }
+);
 
 // detail music
 /**
@@ -378,186 +368,171 @@ musicRouter.get(
  *                   message: "server error"
  */
 musicRouter.get(
-    "/music/:musicId/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        const musicId = Number(req.params.musicId);
-        const date = new Date();
+  "/music/:musicId/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    const musicId = Number(req.params.musicId);
+    const date = new Date();
 
-        try {
-            const musicRepository = AppDataSource.getRepository(Song);
-            const getMusic = await musicRepository.findOne(
-                {
-                    where: {
-                        id: musicId,
-                        is_active: true,
-                        release_date: LessThan(date)
-                    },
-                    select: {
-                        id: true,
-                        title: true,
-                        release_date: true,
-                        play_count: true,
-                        music_lyrics: true,
-                        createdAt: true,
-                        album: {
-                            id: true,
-                            title: true,
-                            cover_image: {
-                                image_path: true
-                            }
-                        },
-                        image: {
-                            image_path: true
-                        },
-                        audio: {
-                            audio_file_path: true
-                        },
-                        artist: {
-                            id: true,
-                            nick_name: true,
-                            user: {
-                                id: true,
-                                username: true,
-                            }
-                        }
-                    },
-                    relations: {
-                        album: {
-                            cover_image: true
-                        },
-                        image: true,
-                        audio: true,
-                        artist: {
-                            cover_image: true,
-                            user: true
-                        }
-                    }
-                }
-            );
-            if (!getMusic) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "music not found"
-                    }
-                )
-            }
+    try {
+      const musicRepository = AppDataSource.getRepository(Song);
+      const getMusic = await musicRepository.findOne({
+        where: {
+          id: musicId,
+          is_active: true,
+          release_date: LessThan(date),
+        },
+        select: {
+          id: true,
+          title: true,
+          release_date: true,
+          play_count: true,
+          music_lyrics: true,
+          createdAt: true,
+          album: {
+            id: true,
+            title: true,
+            cover_image: {
+              image_path: true,
+            },
+          },
+          image: {
+            image_path: true,
+          },
+          audio: {
+            audio_file_path: true,
+          },
+          artist: {
+            id: true,
+            nick_name: true,
+            user: {
+              id: true,
+              username: true,
+            },
+          },
+        },
+        relations: {
+          album: {
+            cover_image: true,
+          },
+          image: true,
+          audio: true,
+          artist: {
+            cover_image: true,
+            user: true,
+          },
+        },
+      });
+      if (!getMusic) {
+        return res.status(404).json({
+          status: false,
+          message: "music not found",
+        });
+      }
 
-            const userId = (req as any).user.user_id;
-            const FavoriteRepository = AppDataSource.getRepository(FavoriteSong);
-            const checkFavoritMusic = await FavoriteRepository.findOne(
-                {
-                    where: {
-                        user: { id: userId },
-                        is_active: true,
-                        song: { id: musicId }
-                    },
-                    select: {
-                        id: true
-                    }
-                }
-            );
-            let isLiked = false;
-            if (checkFavoritMusic) {
-                isLiked = true
-            }
+      const userId = (req as any).user.user_id;
+      const FavoriteRepository = AppDataSource.getRepository(FavoriteSong);
+      const checkFavoritMusic = await FavoriteRepository.findOne({
+        where: {
+          user: { id: userId },
+          is_active: true,
+          song: { id: musicId },
+        },
+        select: {
+          id: true,
+        },
+      });
+      let isLiked = false;
+      if (checkFavoritMusic) {
+        isLiked = true;
+      }
 
-            const likeCount = await FavoriteRepository.count(
-                {
-                    where: {
-                        is_active: true,
-                        song: { id: musicId }
-                    },
-                    select: {
-                        id: true
-                    }
-                }
-            );
+      const likeCount = await FavoriteRepository.count({
+        where: {
+          is_active: true,
+          song: { id: musicId },
+        },
+        select: {
+          id: true,
+        },
+      });
 
-            // check playlistSong
-            const playListRepository = AppDataSource.getRepository(PlaylistSong);
-            const checkPlayList = await playListRepository.findOne(
-                {
-                    where: {
-                        is_active: true,
-                        song: {id: musicId},
-                        playlist: {
-                            user: {id: userId},
-                            is_active: true
-                        }
-                        
-                    },
-                    select: {
-                        id: true,
-                        playlist: {
-                            id: true,
-                            is_active: true
-                        }
-                    },
-                    relations: {
-                        playlist: true
-                    }
-                }
-            );
-            let is_in_playList = false;
-            if (checkPlayList) {
-                is_in_playList = true;
-            }
-            const data = {
-                id: getMusic.id,
-                title: getMusic.title,
-                release_date: getMusic.release_date,
-                play_count: getMusic.play_count,
-                music_lyrics: getMusic.music_lyrics,
-                created_at: getMusic.createdAt,
-                image: {
-                    image_path: getMusic.image?.image_path || null,
-                },
-                album: {
-                    id: getMusic.album.id,
-                    title: getMusic.album.title,
-                    cover_image: getMusic.album.cover_image?.image_path || null
-                },
-                artist: {
-                    id: getMusic.artist.id,
-                    nicke_name: getMusic.artist?.nick_name || null,
-                    first_name: getMusic.artist?.first_name || null,
-                    last_name: getMusic.artist?.last_name || null,
-                    username: getMusic.artist.user.username,
-                    cover_image: {
-                        id: getMusic.artist.cover_image?.id || null,
-                        image_path: getMusic.artist.cover_image?.image_path || null
-                    },
-                    audio: {
-                        isLiked: isLiked,
-                        likeCount: likeCount,
-                        isInPlayList: is_in_playList,
-                        playListId: checkPlayList?.id || null,
-                        audio_file_path: getMusic.audio.audio_file_path,
-                        audio_format: getMusic.audio.audio_format
-                    }
-                }
-            }
-            // incress play count
-            getMusic.play_count += 1 ;
-            await getMusic.save();
+      // check playlistSong
+      const playListRepository = AppDataSource.getRepository(PlaylistSong);
+      const checkPlayList = await playListRepository.findOne({
+        where: {
+          is_active: true,
+          song: { id: musicId },
+          playlist: {
+            user: { id: userId },
+            is_active: true,
+          },
+        },
+        select: {
+          id: true,
+          playlist: {
+            id: true,
+            is_active: true,
+          },
+        },
+        relations: {
+          playlist: true,
+        },
+      });
+      let is_in_playList = false;
+      if (checkPlayList) {
+        is_in_playList = true;
+      }
+      const data = {
+        id: getMusic.id,
+        title: getMusic.title,
+        release_date: getMusic.release_date,
+        play_count: getMusic.play_count,
+        music_lyrics: getMusic.music_lyrics,
+        created_at: getMusic.createdAt,
+        image: {
+          image_path: getMusic.image?.image_path || null,
+        },
+        album: {
+          id: getMusic.album.id,
+          title: getMusic.album.title,
+          cover_image: getMusic.album.cover_image?.image_path || null,
+        },
+        artist: {
+          id: getMusic.artist.id,
+          nicke_name: getMusic.artist?.nick_name || null,
+          first_name: getMusic.artist?.first_name || null,
+          last_name: getMusic.artist?.last_name || null,
+          username: getMusic.artist.user.username,
+          cover_image: {
+            id: getMusic.artist.cover_image?.id || null,
+            image_path: getMusic.artist.cover_image?.image_path || null,
+          },
+          audio: {
+            isLiked: isLiked,
+            likeCount: likeCount,
+            isInPlayList: is_in_playList,
+            playListId: checkPlayList?.id || null,
+            audio_file_path: getMusic.audio.audio_file_path,
+            audio_format: getMusic.audio.audio_format,
+          },
+        },
+      };
+      // incress play count
+      getMusic.play_count += 1;
+      await getMusic.save();
 
-            return res.status(200).json(
-                {
-                    status: "success",
-                    data: data
-                }
-            );
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            )
-        }
+      return res.status(200).json({
+        status: "success",
+        data: data,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 // create song by artist
@@ -655,165 +630,133 @@ musicRouter.get(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 musicRouter.post(
-    "/:album_id/create_music/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            // check req body
-            if (!req.body) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "request body is required"
-                    }
-                )
-            }
-            // check user is artist
-            const userId = (req as any).user.user_id;
-            const userRepository = AppDataSource.getRepository(User);
-            const getUser = await userRepository.findOne(
-                {
-                    where: { id: userId, is_active: true, is_artist: true },
-                    select: ["id"]
-                }
-            );
-            if (!getUser) {
-                return res.status(403).json(
-                    {
-                        status: false,
-                        message: "permission denied access this"
-                    }
-                );
-            }
+  "/:album_id/create_music/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      // check req body
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
+      // check user is artist
+      const userId = (req as any).user.user_id;
+      const userRepository = AppDataSource.getRepository(User);
+      const getUser = await userRepository.findOne({
+        where: { id: userId, is_active: true, is_artist: true },
+        select: ["id"],
+      });
+      if (!getUser) {
+        return res.status(403).json({
+          status: false,
+          message: "permission denied access this",
+        });
+      }
 
-            // validate
-            const createMusicDto = plainToClass(CreateMusicDto, req.body);
-            const errors = await validate(createMusicDto);
-            if (errors.length > 0) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "invalid data",
-                        error: errors.map(
-                            error => (
-                                {
-                                    field: error.property,
-                                    value: error.constraints
-                                }
-                            )
-                        )
-                    }
-                );
-            }
+      // validate
+      const createMusicDto = plainToClass(CreateMusicDto, req.body);
+      const errors = await validate(createMusicDto);
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "invalid data",
+          error: errors.map((error) => ({
+            field: error.property,
+            value: error.constraints,
+          })),
+        });
+      }
 
-            // check audio
-            const audioRepository = AppDataSource.getRepository(Audio);
-            const getAudio = await audioRepository.findOne(
-                {
-                    where: {
-                        id: createMusicDto.audio_id,
-                        user: {
-                            id: userId
-                        },
-                        is_active: true
-                    },
-                    select: ['id']
-                }
-            );
-            if (!getAudio) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "audio not found"
-                    }
-                );
-            }
+      // check audio
+      const audioRepository = AppDataSource.getRepository(Audio);
+      const getAudio = await audioRepository.findOne({
+        where: {
+          id: createMusicDto.audio_id,
+          user: {
+            id: userId,
+          },
+          is_active: true,
+        },
+        select: ["id"],
+      });
+      if (!getAudio) {
+        return res.status(404).json({
+          status: false,
+          message: "audio not found",
+        });
+      }
 
-            // check album
-            const albumRepository = AppDataSource.getRepository(Album);
-            const getAlbum = await albumRepository.findOne(
-                {
-                    where: { id: parseInt(req.params.album_id), is_active: true },
-                    select: ['id']
-                }
-            )
-            if (!getAlbum) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "album not found"
-                    }
-                );
-            }
+      // check album
+      const albumRepository = AppDataSource.getRepository(Album);
+      const getAlbum = await albumRepository.findOne({
+        where: { id: parseInt(req.params.album_id), is_active: true },
+        select: ["id"],
+      });
+      if (!getAlbum) {
+        return res.status(404).json({
+          status: false,
+          message: "album not found",
+        });
+      }
 
-            // check artist profile
-            const artistRepository = AppDataSource.getRepository(Artist);
-            const getArtist = await artistRepository.findOne(
-                {
-                    where: {
-                        user: {
-                            id: userId
-                        },
-                        is_active: true
-                    },
-                    select: ['id']
-                }
-            )
-            if (!getArtist) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "you are not permission this form"
-                    }
-                );
-            }
+      // check artist profile
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const getArtist = await artistRepository.findOne({
+        where: {
+          user: {
+            id: userId,
+          },
+          is_active: true,
+        },
+        select: ["id"],
+      });
+      if (!getArtist) {
+        return res.status(404).json({
+          status: false,
+          message: "you are not permission this form",
+        });
+      }
 
-            // check image
-            const imageRepository = AppDataSource.getRepository(Image);
-            const getImageId = await imageRepository.findOne(
-                {
-                    where: { id: createMusicDto.image_id, is_active: true, user: getUser },
-                    select: ['id']
-                }
-            );
-            if (!getImageId) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "image not found"
-                    }
-                )
-            }
-            // create music
-            const music = new Song();
-            music.album = getAlbum;
-            music.artist = getArtist;
-            music.title = createMusicDto.title;
-            music.release_date = new Date(createMusicDto.release_date);
-            music.audio = getAudio;
-            music.play_count = 0;
-            music.music_lyrics = createMusicDto.music_lyrics;
-            music.image = getImageId;
-            await music.save()
+      // check image
+      const imageRepository = AppDataSource.getRepository(Image);
+      const getImageId = await imageRepository.findOne({
+        where: { id: createMusicDto.image_id, is_active: true, user: getUser },
+        select: ["id"],
+      });
+      if (!getImageId) {
+        return res.status(404).json({
+          status: false,
+          message: "image not found",
+        });
+      }
+      // create music
+      const music = new Song();
+      music.album = getAlbum;
+      music.artist = getArtist;
+      music.title = createMusicDto.title;
+      music.release_date = new Date(createMusicDto.release_date);
+      music.audio = getAudio;
+      music.play_count = 0;
+      music.music_lyrics = createMusicDto.music_lyrics;
+      music.image = getImageId;
+      await music.save();
 
-            return res.status(201).json(
-                {
-                    status: "success",
-                    data: {
-                        title: music.title,
-                        id: music.id,
-                    }
-                }
-            );
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            )
-        }
+      return res.status(201).json({
+        status: "success",
+        data: {
+          title: music.title,
+          id: music.id,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 // path update music
@@ -919,122 +862,123 @@ musicRouter.post(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 musicRouter.patch(
-    "/:music_id",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            const musicId = parseInt(req.params.music_id);
+  "/:music_id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const musicId = parseInt(req.params.music_id);
 
-            // Check if music exists and user has permission
-            const musicRepository = AppDataSource.getRepository(Song);
-            const music = await musicRepository.findOne({
-                where: {
-                    id: musicId,
-                    artist: {
-                        user: {
-                            id: userId
-                        }
-                    },
-                    is_active: true
-                },
-                relations: ["artist", "audio"]
-            });
+      // Check if music exists and user has permission
+      const musicRepository = AppDataSource.getRepository(Song);
+      const music = await musicRepository.findOne({
+        where: {
+          id: musicId,
+          artist: {
+            user: {
+              id: userId,
+            },
+          },
+          is_active: true,
+        },
+        relations: ["artist", "audio"],
+      });
 
-            if (!music) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Music not found or you don't have permission to update it"
-                });
-            }
+      if (!music) {
+        return res.status(404).json({
+          status: false,
+          message: "Music not found or you don't have permission to update it",
+        });
+      }
 
-            // Validate request body
-            const updateMusicDto = plainToClass(UpdateMusicDto, req.body);
-            const errors = await validate(updateMusicDto);
+      // Validate request body
+      const updateMusicDto = plainToClass(UpdateMusicDto, req.body);
+      const errors = await validate(updateMusicDto);
 
-            if (errors.length > 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "invalid data",
-                    error: errors.map(error => ({
-                        field: error.property,
-                        constraints: error.constraints
-                    }))
-                });
-            }
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "invalid data",
+          error: errors.map((error) => ({
+            field: error.property,
+            constraints: error.constraints,
+          })),
+        });
+      }
 
-            // Check if audio_id is provided and valid
-            if (updateMusicDto.audio_id) {
-                const audioRepository = AppDataSource.getRepository(Audio);
-                const audio = await audioRepository.findOne({
-                    where: {
-                        id: updateMusicDto.audio_id,
-                        user: { id: userId },
-                        is_active: true
-                    }
-                });
+      // Check if audio_id is provided and valid
+      if (updateMusicDto.audio_id) {
+        const audioRepository = AppDataSource.getRepository(Audio);
+        const audio = await audioRepository.findOne({
+          where: {
+            id: updateMusicDto.audio_id,
+            user: { id: userId },
+            is_active: true,
+          },
+        });
 
-                if (!audio) {
-                    return res.status(404).json({
-                        status: false,
-                        message: "Audio file not found or you don't have permission to use it"
-                    });
-                }
-                music.audio = audio;
-            }
-
-            // Update fields if provided
-            if (updateMusicDto.title !== undefined) {
-                music.title = updateMusicDto.title;
-            }
-
-            if (updateMusicDto.release_date !== undefined) {
-                music.release_date = new Date(updateMusicDto.release_date);
-            }
-
-            if (updateMusicDto.music_lyrics !== undefined) {
-                music.music_lyrics = updateMusicDto.music_lyrics;
-            }
-
-            if (updateMusicDto.image_id !== undefined) {
-                const imageRepository = AppDataSource.getRepository(Image);
-                const getImage = await imageRepository.findOne(
-                    {
-                        where: { id: updateMusicDto.image_id, is_active: true, user: { id: userId } },
-                        select: ['id']
-                    });
-                if (!getImage) {
-                    return res.status(404).json(
-                        {
-                            status: false,
-                            message: "image not found"
-                        }
-                    );
-                }
-                music.image = getImage;
-            }
-
-            // Save updated music
-            await musicRepository.save(music);
-
-            return res.status(200).json({
-                status: "success",
-                data: {
-                    id: music.id,
-                    title: music.title,
-                    release_date: music.release_date.toISOString().split('T')[0],
-                    music_lyrics: music.music_lyrics
-                }
-            });
-
-        } catch (error) {
-            console.error("Update music error:", error);
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
+        if (!audio) {
+          return res.status(404).json({
+            status: false,
+            message:
+              "Audio file not found or you don't have permission to use it",
+          });
         }
+        music.audio = audio;
+      }
+
+      // Update fields if provided
+      if (updateMusicDto.title !== undefined) {
+        music.title = updateMusicDto.title;
+      }
+
+      if (updateMusicDto.release_date !== undefined) {
+        music.release_date = new Date(updateMusicDto.release_date);
+      }
+
+      if (updateMusicDto.music_lyrics !== undefined) {
+        music.music_lyrics = updateMusicDto.music_lyrics;
+      }
+
+      if (updateMusicDto.image_id !== undefined) {
+        const imageRepository = AppDataSource.getRepository(Image);
+        const getImage = await imageRepository.findOne({
+          where: {
+            id: updateMusicDto.image_id,
+            is_active: true,
+            user: { id: userId },
+          },
+          select: ["id"],
+        });
+        if (!getImage) {
+          return res.status(404).json({
+            status: false,
+            message: "image not found",
+          });
+        }
+        music.image = getImage;
+      }
+
+      // Save updated music
+      await musicRepository.save(music);
+
+      return res.status(200).json({
+        status: "success",
+        data: {
+          id: music.id,
+          title: music.title,
+          release_date: music.release_date.toISOString().split("T")[0],
+          music_lyrics: music.music_lyrics,
+        },
+      });
+    } catch (error) {
+      console.error("Update music error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 // delete (soft delete) song by artist
@@ -1100,66 +1044,65 @@ musicRouter.patch(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 musicRouter.delete(
-    "/:music_id",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            const musicId = parseInt(req.params.music_id);
+  "/:music_id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const musicId = parseInt(req.params.music_id);
 
-            // Check if music exists and user has permission
-            const musicRepository = AppDataSource.getRepository(Song);
-            const music = await musicRepository.findOne({
-                where: {
-                    id: musicId,
-                    is_active: true,
-                    album: {
-                        is_active: true
-                    },
-                    artist: {
-                        user: {
-                            id: userId
-                        }
-                    }
-                },
-                relations: ["artist"]
-            });
+      // Check if music exists and user has permission
+      const musicRepository = AppDataSource.getRepository(Song);
+      const music = await musicRepository.findOne({
+        where: {
+          id: musicId,
+          is_active: true,
+          album: {
+            is_active: true,
+          },
+          artist: {
+            user: {
+              id: userId,
+            },
+          },
+        },
+        relations: ["artist"],
+      });
 
-            if (!music) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Music not found or you don't have permission to delete it"
-                });
-            }
+      if (!music) {
+        return res.status(404).json({
+          status: false,
+          message: "Music not found or you don't have permission to delete it",
+        });
+      }
 
-            //   if (!music.is_active) {
-            //     return res.status(400).json({
-            //       status: false,
-            //       message: "Music is already deleted"
-            //     });
-            //   }
+      //   if (!music.is_active) {
+      //     return res.status(400).json({
+      //       status: false,
+      //       message: "Music is already deleted"
+      //     });
+      //   }
 
-            music.is_active = false;
-            await musicRepository.save(music);
+      music.is_active = false;
+      await musicRepository.save(music);
 
-            return res.status(200).json({
-                status: "success",
-                message: "Music deleted successfully",
-                data: {
-                    id: music.id,
-                    title: music.title,
-                    is_active: music.is_active
-                }
-            });
-
-        } catch (error) {
-            // console.error("Delete music error:", error);
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        message: "Music deleted successfully",
+        data: {
+          id: music.id,
+          title: music.title,
+          is_active: music.is_active,
+        },
+      });
+    } catch (error) {
+      // console.error("Delete music error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 // show music by genre id
@@ -1206,124 +1149,127 @@ musicRouter.delete(
  *               $ref: '#/components/schemas/PaginatedSongsResponse'
  */
 musicRouter.get(
-    "/show_music_by_genres",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const genreIds = req.query.genreIds as string;
-            const limit = Number(req.query.limit) || 20;
-            const page = Number(req.query.page) || 1;
-            const skip = (page - 1) * limit;
-            const date = new Date();
+  "/show_music_by_genres",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const genreIds = req.query.genreIds as string;
+      const limit = Number(req.query.limit) || 20;
+      const page = Number(req.query.page) || 1;
+      const skip = (page - 1) * limit;
+      const date = new Date();
 
-            // convert into array
-            const genreIdArray = genreIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-            
-            if (genreIdArray.length === 0) {
-                return res.status(400).json({
-                    status: "error",
-                    message: "حداقل یک ژانر ID معتبر وارد کنید"
-                });
-            }
+      // convert into array
+      const genreIdArray = genreIds
+        .split(",")
+        .map((id) => parseInt(id.trim()))
+        .filter((id) => !isNaN(id));
 
-            const musicRepository = AppDataSource.getRepository(Song);
-            const genreRepository = AppDataSource.getRepository(Genre);
+      if (genreIdArray.length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "حداقل یک ژانر ID معتبر وارد کنید",
+        });
+      }
 
-            const genres = await genreRepository.find({
-                where: {
-                    id: In(genreIdArray)
-                },
-                select: ["id", "name"]
-            });
+      const musicRepository = AppDataSource.getRepository(Song);
+      const genreRepository = AppDataSource.getRepository(Genre);
 
-            const genreMap = new Map();
-            genres.forEach(genre => {
-                genreMap.set(genre.id, genre.name);
-            });
+      const genres = await genreRepository.find({
+        where: {
+          id: In(genreIdArray),
+        },
+        select: ["id", "name"],
+      });
 
-            // query builder
-            const queryBuilder = musicRepository
-                .createQueryBuilder("song")
-                .leftJoinAndSelect("song.audio", "audio")
-                .leftJoinAndSelect("song.album", "album")
-                .leftJoinAndSelect("song.image", "image")
-                .leftJoinAndSelect("song.artist", "artist")
-                .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
-                .leftJoinAndSelect("artist.user", "user")
-                .leftJoinAndSelect("user.profile", "profile")
-                .leftJoinAndSelect("album.cover_image", "album_cover_image")
-                .leftJoinAndSelect("album.genre", "genre")
-                .where("song.is_active = :isActive", { isActive: true })
-                .andWhere("song.release_date < :currentDate", { currentDate: date })
-                .andWhere("album.is_active = :albumIsActive", { albumIsActive: true })
-                .andWhere("album.release_date < :albumReleaseDate", { albumReleaseDate: date })
-                .andWhere("genre.id IN (:...genreIds)", { genreIds: genreIdArray })
-                .orderBy("song.release_date", "DESC")
-                .skip(skip)
-                .take(limit);
+      const genreMap = new Map();
+      genres.forEach((genre) => {
+        genreMap.set(genre.id, genre.name);
+      });
 
-            const [musics, total] = await queryBuilder.getManyAndCount();
+      // query builder
+      const queryBuilder = musicRepository
+        .createQueryBuilder("song")
+        .leftJoinAndSelect("song.audio", "audio")
+        .leftJoinAndSelect("song.album", "album")
+        .leftJoinAndSelect("song.image", "image")
+        .leftJoinAndSelect("song.artist", "artist")
+        .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
+        .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("user.profile", "profile")
+        .leftJoinAndSelect("album.cover_image", "album_cover_image")
+        .leftJoinAndSelect("album.genre", "genre")
+        .where("song.is_active = :isActive", { isActive: true })
+        .andWhere("song.release_date < :currentDate", { currentDate: date })
+        .andWhere("album.is_active = :albumIsActive", { albumIsActive: true })
+        .andWhere("album.release_date < :albumReleaseDate", {
+          albumReleaseDate: date,
+        })
+        .andWhere("genre.id IN (:...genreIds)", { genreIds: genreIdArray })
+        .orderBy("song.release_date", "DESC")
+        .skip(skip)
+        .take(limit);
 
-            const data = musics.map(item => ({
-                id: item.id,
-                title: item.title,
-                release_date: item.release_date,
-                play_count: item.play_count,
-                music_lyrics: item.music_lyrics,
-                created_at: item.createdAt,
-                image: {
-                    image_path: item.image?.image_path || null,
-                },
-                album: {
-                    id: item.album?.id || null,
-                    title: item.album?.title || null,
-                    cover_image: item.album?.cover_image?.image_path || null,
-                    genre: {
-                        id: item.album?.genre?.id || null,
-                        name: item.album?.genre?.name || null
-                    }
-                },
-                artist: {
-                    id: item.artist.id,
-                    nick_name: item.artist?.nick_name || null,
-                    first_name: item.artist.user?.profile?.first_name || null,
-                    last_name: item.artist.user?.profile?.last_name || null,
-                    username: item.artist.user?.username || null,
-                    cover_image: {
-                        id: item.artist.cover_image?.id || null,
-                        image_path: item.artist.cover_image?.image_path || null
-                    }
-                },
-                audio: {
-                    audio_file_path: item.audio?.audio_file_path || null,
-                    audio_format: item.audio?.audio_format || null
-                }
-            }));
+      const [musics, total] = await queryBuilder.getManyAndCount();
 
-            const genresWithNames = genreIdArray.map(id => ({
-                id: id,
-                name: genreMap.get(id) || "نامشخص"
-            }));
+      const data = musics.map((item) => ({
+        id: item.id,
+        title: item.title,
+        release_date: item.release_date,
+        play_count: item.play_count,
+        music_lyrics: item.music_lyrics,
+        created_at: item.createdAt,
+        image: {
+          image_path: item.image?.image_path || null,
+        },
+        album: {
+          id: item.album?.id || null,
+          title: item.album?.title || null,
+          cover_image: item.album?.cover_image?.image_path || null,
+          genre: {
+            id: item.album?.genre?.id || null,
+            name: item.album?.genre?.name || null,
+          },
+        },
+        artist: {
+          id: item.artist.id,
+          nick_name: item.artist?.nick_name || null,
+          first_name: item.artist.user?.profile?.first_name || null,
+          last_name: item.artist.user?.profile?.last_name || null,
+          username: item.artist.user?.username || null,
+          cover_image: {
+            id: item.artist.cover_image?.id || null,
+            image_path: item.artist.cover_image?.image_path || null,
+          },
+        },
+        audio: {
+          audio_file_path: item.audio?.audio_file_path || null,
+          audio_format: item.audio?.audio_format || null,
+        },
+      }));
 
-            return res.status(200).json({
-                status: "success",
-                total: total,
-                page: page,
-                skip: skip,
-                limit: limit,
-                genres: genresWithNames,
-                data: data
-            });
+      const genresWithNames = genreIdArray.map((id) => ({
+        id: id,
+        name: genreMap.get(id) || "نامشخص",
+      }));
 
-        } catch (error) {
-            return res.status(500).json({
-                status: "error",
-                message: "Internal server error"
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        total: total,
+        page: page,
+        skip: skip,
+        limit: limit,
+        genres: genresWithNames,
+        data: data,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: "error",
+        message: "Internal server error",
+      });
     }
+  }
 );
-
 
 // show music by artist id
 /**
@@ -1475,12 +1421,12 @@ musicRouter.get(
  *     summary: دریافت لیست موزیک‌های یک آرتیست
  *     description: |
  *       دریافت لیست تمام موزیک‌های فعال یک آرتیست خاص به همراه اطلاعات پجینیشن و فیلترهای مرتب‌سازی
- *       
+ *
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - فقط موزیک‌های فعال (is_active=true) برگردانده می‌شوند
  *       - آرتیست نیز باید فعال باشد
- *       
+ *
  *       **پارامترهای مرتب‌سازی:**
  *       - `sort_by`: فیلد برای مرتب‌سازی (مقدار پیش‌فرض: `created_at`)
  *         - مقادیر مجاز: `created_at`, `play_count`, `release_date`, `title`
@@ -1515,211 +1461,218 @@ musicRouter.get(
  *               $ref: '#/components/schemas/MusicListResponse'
  */
 musicRouter.get(
-    "/:artistId/musics",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const artistId = Number(req.params.artistId);
-            const page = Math.max(1, Number(req.query.page) || 1);
-            const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
-            const skip = (page - 1) * limit;
-            
-            // پارامترهای مرتب‌سازی جدید
-            const sortBy = (req.query.sort_by as string) || 'created_at';
-            const sortOrder = (req.query.sort_order as string) || 'desc';
+  "/:artistId/musics",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const artistId = Number(req.params.artistId);
+      const page = Math.max(1, Number(req.query.page) || 1);
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+      const skip = (page - 1) * limit;
 
-            // Validation
-            if (isNaN(artistId)) {
-                return res.status(400).json({
-                    status: false,
-                    message: "artist_id must be a valid number"
-                });
-            }
+      // پارامترهای مرتب‌سازی جدید
+      const sortBy = (req.query.sort_by as string) || "created_at";
+      const sortOrder = (req.query.sort_order as string) || "desc";
 
-            // اعتبارسنجی پارامترهای مرتب‌سازی
-            const validSortFields = ['created_at', 'play_count', 'release_date', 'title', 'like_quantity'];
-            const validSortOrders = ['asc', 'desc'];
-            
-            if (!validSortFields.includes(sortBy)) {
-                return res.status(400).json({
-                    status: false,
-                    message: `Invalid sort_by parameter. Valid values: ${validSortFields.join(', ')}`
-                });
-            }
+      // Validation
+      if (isNaN(artistId)) {
+        return res.status(400).json({
+          status: false,
+          message: "artist_id must be a valid number",
+        });
+      }
 
-            if (!validSortOrders.includes(sortOrder)) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid sort_order parameter. Valid values: asc, desc"
-                });
-            }
+      // اعتبارسنجی پارامترهای مرتب‌سازی
+      const validSortFields = [
+        "created_at",
+        "play_count",
+        "release_date",
+        "title",
+        "like_quantity",
+      ];
+      const validSortOrders = ["asc", "desc"];
 
-            // Check if artist exists and is active
-            const artistRepository = AppDataSource.getRepository(Artist);
-            const artist = await artistRepository.findOne({
-                where: {
-                    id: artistId,
-                    is_active: true
-                },
-                select: ["id"]
-            });
+      if (!validSortFields.includes(sortBy)) {
+        return res.status(400).json({
+          status: false,
+          message: `Invalid sort_by parameter. Valid values: ${validSortFields.join(
+            ", "
+          )}`,
+        });
+      }
 
-            if (!artist) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Artist not found or inactive"
-                });
-            }
+      if (!validSortOrders.includes(sortOrder)) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid sort_order parameter. Valid values: asc, desc",
+        });
+      }
 
-            // تعیین فیلد مرتب‌سازی برای TypeORM
-            let orderField = '';
-            switch (sortBy) {
-                case 'created_at':
-                    orderField = 'createdAt';
-                    break;
-                case 'play_count':
-                    orderField = 'play_count';
-                    break;
-                case 'release_date':
-                    orderField = 'release_date';
-                    break;
-                case 'title':
-                    orderField = 'title';
-                    break;
-                case 'like_quantity':
-                    orderField = 'like_quantity';
-                    break;
-                default:
-                    orderField = 'createdAt';
-            }
+      // Check if artist exists and is active
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const artist = await artistRepository.findOne({
+        where: {
+          id: artistId,
+          is_active: true,
+        },
+        select: ["id"],
+      });
 
-            // Get musics with pagination and sorting
-            const date = new Date();
-            const musicRepository = AppDataSource.getRepository(Song);
-            const [musics, total] = await musicRepository.findAndCount({
-                where: {
-                    is_active: true,
-                    artist: { id: artistId },
-                    release_date: LessThan(date),
-                },
-                relations: {
-                    image: true,
-                    audio: true,
-                    album: {
-                        cover_image: true
-                    },
-                    artist: {
-                        cover_image: true,
-                        user: {
-                            profile: true
-                        }
-                    }
-                },
-                select: {
-                    id: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    title: true,
-                    release_date: true,
-                    play_count: true,
-                    music_lyrics: true,
-                    audio: {
-                        audio_file_path: true,
-                        audio_format: true
-                    },
-                    image: {
-                        image_path: true
-                    },
-                    album: {
-                        id: true,
-                        title: true,
-                        cover_image: {
-                            image_path: true
-                        }
-                    },
-                    artist: {
-                        id: true,
-                        nick_name: true,
-                        cover_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        user: {
-                            username: true,
-                            id: true,
-                            profile: {
-                                id: true,
-                                first_name: true,
-                                last_name: true
-                            }
-                        }
-                    }
-                },
-                order: { [orderField]: sortOrder.toUpperCase() as "ASC" | "DESC" },
-                skip,
-                take: limit
-            });
+      if (!artist) {
+        return res.status(404).json({
+          status: false,
+          message: "Artist not found or inactive",
+        });
+      }
 
-            // Transform data
-            const data = musics.map(item => ({
-                id: item.id,
-                title: item.title,
-                release_date: item.release_date,
-                play_count: item.play_count,
-                music_lyrics: item.music_lyrics,
-                created_at: item.createdAt,
-                image: {
-                    image_path: item.image?.image_path || null,
-                },
-                album: {
-                    id: item.album?.id || null,
-                    title: item.album?.title || null,
-                    cover_image: item.album?.cover_image?.image_path || null
-                },
-                artist: {
-                    id: item.artist.id,
-                    nick_name: item.artist?.nick_name || null,
-                    first_name: item.artist.user.profile?.first_name || null,
-                    last_name: item.artist.user.profile?.last_name || null,
-                    username: item.artist.user.username,
-                    cover_image: {
-                        id: item.artist.cover_image?.id || null,
-                        image_path: item.artist.cover_image?.image_path || null
-                    }
-                },
-                audio: {
-                    audio_file_path: item.audio?.audio_file_path,
-                    audio_format: item.audio?.audio_format
-                }
-            }));
+      // تعیین فیلد مرتب‌سازی برای TypeORM
+      let orderField = "";
+      switch (sortBy) {
+        case "created_at":
+          orderField = "createdAt";
+          break;
+        case "play_count":
+          orderField = "play_count";
+          break;
+        case "release_date":
+          orderField = "release_date";
+          break;
+        case "title":
+          orderField = "title";
+          break;
+        case "like_quantity":
+          orderField = "like_quantity";
+          break;
+        default:
+          orderField = "createdAt";
+      }
 
-            // Pagination info
-            const totalPages = Math.ceil(total / limit);
-            const pagination = {
-                total,
-                page,
-                limit,
-                totalPages,
-                hasNext: page < totalPages,
-                hasPrev: page > 1,
-                sort_by: sortBy,
-                sort_order: sortOrder
-            };
+      // Get musics with pagination and sorting
+      const date = new Date();
+      const musicRepository = AppDataSource.getRepository(Song);
+      const [musics, total] = await musicRepository.findAndCount({
+        where: {
+          is_active: true,
+          artist: { id: artistId },
+          release_date: LessThan(date),
+        },
+        relations: {
+          image: true,
+          audio: true,
+          album: {
+            cover_image: true,
+          },
+          artist: {
+            cover_image: true,
+            user: {
+              profile: true,
+            },
+          },
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          updatedAt: true,
+          title: true,
+          release_date: true,
+          play_count: true,
+          music_lyrics: true,
+          audio: {
+            audio_file_path: true,
+            audio_format: true,
+          },
+          image: {
+            image_path: true,
+          },
+          album: {
+            id: true,
+            title: true,
+            cover_image: {
+              image_path: true,
+            },
+          },
+          artist: {
+            id: true,
+            nick_name: true,
+            cover_image: {
+              id: true,
+              image_path: true,
+            },
+            user: {
+              username: true,
+              id: true,
+              profile: {
+                id: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
+        order: { [orderField]: sortOrder.toUpperCase() as "ASC" | "DESC" },
+        skip,
+        take: limit,
+      });
 
-            return res.status(200).json({
-                status: "success",
-                data: data,
-                pagination
-            });
+      // Transform data
+      const data = musics.map((item) => ({
+        id: item.id,
+        title: item.title,
+        release_date: item.release_date,
+        play_count: item.play_count,
+        music_lyrics: item.music_lyrics,
+        created_at: item.createdAt,
+        image: {
+          image_path: item.image?.image_path || null,
+        },
+        album: {
+          id: item.album?.id || null,
+          title: item.album?.title || null,
+          cover_image: item.album?.cover_image?.image_path || null,
+        },
+        artist: {
+          id: item.artist.id,
+          nick_name: item.artist?.nick_name || null,
+          first_name: item.artist.user.profile?.first_name || null,
+          last_name: item.artist.user.profile?.last_name || null,
+          username: item.artist.user.username,
+          cover_image: {
+            id: item.artist.cover_image?.id || null,
+            image_path: item.artist.cover_image?.image_path || null,
+          },
+        },
+        audio: {
+          audio_file_path: item.audio?.audio_file_path,
+          audio_format: item.audio?.audio_format,
+        },
+      }));
 
-        } catch (error) {
-            console.error("Error in artist musics route:", error);
-            return res.status(500).json({
-                status: false,
-                message: "Internal server error"
-            });
-        }
+      // Pagination info
+      const totalPages = Math.ceil(total / limit);
+      const pagination = {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      };
+
+      return res.status(200).json({
+        status: "success",
+        data: data,
+        pagination,
+      });
+    } catch (error) {
+      console.error("Error in artist musics route:", error);
+      return res.status(500).json({
+        status: false,
+        message: "Internal server error",
+      });
     }
+  }
 );
 
 // get album by artist_id
@@ -1732,7 +1685,7 @@ musicRouter.get(
  *     summary: دریافت لیست آلبوم‌های یک آرتیست
  *     description: |
  *       دریافت لیست تمام آلبوم‌های فعال یک آرتیست خاص با قابلیت صفحه‌بندی
- *       
+ *
  *       **نکات مهم:**
  *       - نیاز به احراز هویت با JWT دارد
  *       - فقط آلبوم‌های فعال (is_active=true) نمایش داده می‌شوند
@@ -1798,97 +1751,84 @@ musicRouter.get(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 musicRouter.get(
-    "/album/:artistId/albums",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const artistId = Number(req.params.artistId)
-            const limit = Number(req.query.limit) || 20;
-            const page = Number(req.query.page) || 1;
-            const skip = (page - 1) * limit;
-            const date = new Date();
-            if (isNaN(artistId)) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "artistId must be required"
-                    }
-                );
-            }
+  "/album/:artistId/albums",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const artistId = Number(req.params.artistId);
+      const limit = Number(req.query.limit) || 20;
+      const page = Number(req.query.page) || 1;
+      const skip = (page - 1) * limit;
+      const date = new Date();
+      if (isNaN(artistId)) {
+        return res.status(400).json({
+          status: false,
+          message: "artistId must be required",
+        });
+      }
 
-            const albumRepository = AppDataSource.getRepository(Album);
-            const [albums, total] = await albumRepository.findAndCount(
-                {
-                    where: {
-                        id: artistId,
-                        is_active: true,
-                        release_date: LessThan(date)
-                    },
-                    relations: {
-                        user: {
-                            profile: true,
-                            user_artist_set: true
-                        },
-                        cover_image: true,
-                    },
-                    select: {
-                        id: true,
-                        title: true,
-                        createdAt: true,
-                        updatedAt: true,
-                        cover_image: {
-                            image_path: true
-                        },
-                        user: {
-                            user_artist_set: {
-                                id: true
-                            },
-                            id: true,
-                            profile: {
-                                id: true,
-                                first_name: true,
-                                last_name: true
-                            }
-                        }
-                    },
-                    take: limit,
-                    skip: skip
-                }
-            );
+      const albumRepository = AppDataSource.getRepository(Album);
+      const [albums, total] = await albumRepository.findAndCount({
+        where: {
+          id: artistId,
+          is_active: true,
+          release_date: LessThan(date),
+        },
+        relations: {
+          user: {
+            profile: true,
+            user_artist_set: true,
+          },
+          cover_image: true,
+        },
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          updatedAt: true,
+          cover_image: {
+            image_path: true,
+          },
+          user: {
+            user_artist_set: {
+              id: true,
+            },
+            id: true,
+            profile: {
+              id: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+        },
+        take: limit,
+        skip: skip,
+      });
 
-            const simpleData = albums.map(
-                item => (
-                    {
-                        id: item.id,
-                        artist_id: item.user.user_artist_set.id,
-                        created_at: item.createdAt,
-                        updated_at: item.updatedAt,
-                        title: item.title,
-                        image_path: item.cover_image?.image_path || null,
-                        artist_first_name: item.user.profile?.first_name || null,
-                        artist_last_name: item.user.profile?.last_name || null
-                    }
-                )
-            )
-            return res.status(200).json(
-                {
-                    status: "success",
-                    limit: limit,
-                    page: page,
-                    total: total,
-                    data: simpleData
-                }
-            )
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            )
-        }
-
+      const simpleData = albums.map((item) => ({
+        id: item.id,
+        artist_id: item.user.user_artist_set.id,
+        created_at: item.createdAt,
+        updated_at: item.updatedAt,
+        title: item.title,
+        image_path: item.cover_image?.image_path || null,
+        artist_first_name: item.user.profile?.first_name || null,
+        artist_last_name: item.user.profile?.last_name || null,
+      }));
+      return res.status(200).json({
+        status: "success",
+        limit: limit,
+        page: page,
+        total: total,
+        data: simpleData,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 // search music by title
@@ -2005,7 +1945,7 @@ musicRouter.get(
  *                       audio_format:
  *                         type: string
  *                         example: "mp3"
- * 
+ *
  *     ErrorResponse:
  *       type: object
  *       properties:
@@ -2015,7 +1955,7 @@ musicRouter.get(
  *         message:
  *           type: string
  *           example: "Error message"
- * 
+ *
  *   parameters:
  *     TitleQueryParam:
  *       in: query
@@ -2026,7 +1966,7 @@ musicRouter.get(
  *         minLength: 1
  *       description: "Search query for song title"
  *       example: "love"
- * 
+ *
  *     PageQueryParam:
  *       in: query
  *       name: page
@@ -2035,7 +1975,7 @@ musicRouter.get(
  *         minimum: 1
  *         default: 1
  *       description: "Page number for pagination"
- * 
+ *
  *     LimitQueryParam:
  *       in: query
  *       name: limit
@@ -2120,7 +2060,7 @@ musicRouter.get(
  *                         audio:
  *                           audio_file_path: "/audio/song1.mp3"
  *                           audio_format: "mp3"
- * 
+ *
  *       400:
  *         description: Bad request - missing or invalid parameters
  *         content:
@@ -2133,7 +2073,7 @@ musicRouter.get(
  *                 value:
  *                   status: false
  *                   message: "title params is required"
- * 
+ *
  *       401:
  *         description: Unauthorized - JWT token missing or invalid
  *         content:
@@ -2146,7 +2086,7 @@ musicRouter.get(
  *                 value:
  *                   status: false
  *                   message: "Authentication token is required"
- * 
+ *
  *       500:
  *         description: Internal server error
  *         content:
@@ -2161,148 +2101,135 @@ musicRouter.get(
  *                   message: "server error"
  */
 musicRouter.get(
-    "/search",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            // params
-            const limit = Number(req.query.limit) || 20;
-            const page = Number((req.query.page)) || 1;
-            const skip = (page - 1) * limit;
-            const title = (req.query.title) || null;
+  "/search",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      // params
+      const limit = Number(req.query.limit) || 20;
+      const page = Number(req.query.page) || 1;
+      const skip = (page - 1) * limit;
+      const title = req.query.title || null;
 
-            // validation title
-            if (!title) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "title params is required"
-                    }
-                )
-            }
-            // song
-            const date = new Date();
-            const MusicListResponse = AppDataSource.getRepository(Song);
-            const [findMusics, count] = await MusicListResponse.findAndCount(
-                {
-                    where: {
-                        title: ILike(`%${title}%`),
-                        is_active: true,
-                        release_date: LessThan(date),
-                        album: {
-                            is_active: true,
-                            release_date: LessThan(date)
-                        }
-                    },
-                    select: {
-                        id: true,
-                        title: true,
-                        release_date: true,
-                        play_count: true,
-                        music_lyrics: true,
-                        createdAt: true,
-                        album: {
-                            id: true,
-                            title: true,
-                            cover_image: {
-                                image_path: true
-                            }
-                        },
-                        audio: {
-                            audio_file_path: true,
-                            audio_format: true
-                        },
-                        image: {
-                            id: true,
-                            image_path: true
-                        },
-                        artist: {
-                            id: true,
-                            nick_name: true,
-                            user: {
-                                id: true,
-                                username: true,
-                                profile: {
-                                    id: true,
-                                    first_name: true,
-                                    last_name: true
-                                }
-                            }
-                        }
-
-                    },
-                    relations: {
-                        audio: true,
-                        image: true,
-                        album: {
-                            cover_image: true
-                        },
-                        artist: {
-                            cover_image: true,
-                            user: {
-                                profile: true
-                            }
-                        }
-                    },
-                    take: limit,
-                    skip: skip
-                }
-            )
-            const data = findMusics.map(
-                item => (
-                    {
-                        id: item.id,
-                        title: item.title,
-                        release_date: item.release_date,
-                        play_count: item.play_count,
-                        music_lyrics: item.music_lyrics,
-                        created_at: item.createdAt,
-                        image: {
-                            image_path: item.image?.image_path || null,
-                        },
-                        album: {
-                            id: item.album?.id || null,
-                            title: item.album?.title || null,
-                            cover_image: item.album.cover_image?.image_path || null
-                        },
-                        artist: {
-                            id: item.artist.id,
-                            nicke_name: item.artist?.nick_name || null,
-                            first_name: item.artist.user.profile?.first_name || null,
-                            last_name: item.artist.user.profile?.last_name || null,
-                            username: item.artist.user.username,
-                            cover_image: {
-                                id: item.artist.cover_image?.id || null,
-                                image_path: item.artist.cover_image?.image_path || null
-                            },
-                            audio: {
-                                audio_file_path: item.audio.audio_file_path,
-                                audio_format: item.audio.audio_format
-                            }
-                        }
-                    }
-                )
-            )
-            return res.status(200).json(
-                {
-                    message: "success",
-                    // title: title,
-                    count: count,
-                    limit: limit,
-                    page: page,
-                    date: data
-                }
-            )
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            )
-        }
-    })
-
+      // validation title
+      if (!title) {
+        return res.status(400).json({
+          status: false,
+          message: "title params is required",
+        });
+      }
+      // song
+      const date = new Date();
+      const MusicListResponse = AppDataSource.getRepository(Song);
+      const [findMusics, count] = await MusicListResponse.findAndCount({
+        where: {
+          title: ILike(`%${title}%`),
+          is_active: true,
+          release_date: LessThan(date),
+          album: {
+            is_active: true,
+            release_date: LessThan(date),
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          release_date: true,
+          play_count: true,
+          music_lyrics: true,
+          createdAt: true,
+          album: {
+            id: true,
+            title: true,
+            cover_image: {
+              image_path: true,
+            },
+          },
+          audio: {
+            audio_file_path: true,
+            audio_format: true,
+          },
+          image: {
+            id: true,
+            image_path: true,
+          },
+          artist: {
+            id: true,
+            nick_name: true,
+            user: {
+              id: true,
+              username: true,
+              profile: {
+                id: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
+        relations: {
+          audio: true,
+          image: true,
+          album: {
+            cover_image: true,
+          },
+          artist: {
+            cover_image: true,
+            user: {
+              profile: true,
+            },
+          },
+        },
+        take: limit,
+        skip: skip,
+      });
+      const data = findMusics.map((item) => ({
+        id: item.id,
+        title: item.title,
+        release_date: item.release_date,
+        play_count: item.play_count,
+        music_lyrics: item.music_lyrics,
+        created_at: item.createdAt,
+        image: {
+          image_path: item.image?.image_path || null,
+        },
+        album: {
+          id: item.album?.id || null,
+          title: item.album?.title || null,
+          cover_image: item.album.cover_image?.image_path || null,
+        },
+        artist: {
+          id: item.artist.id,
+          nicke_name: item.artist?.nick_name || null,
+          first_name: item.artist.user.profile?.first_name || null,
+          last_name: item.artist.user.profile?.last_name || null,
+          username: item.artist.user.username,
+          cover_image: {
+            id: item.artist.cover_image?.id || null,
+            image_path: item.artist.cover_image?.image_path || null,
+          },
+          audio: {
+            audio_file_path: item.audio.audio_file_path,
+            audio_format: item.audio.audio_format,
+          },
+        },
+      }));
+      return res.status(200).json({
+        message: "success",
+        // title: title,
+        count: count,
+        limit: limit,
+        page: page,
+        date: data,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
+    }
+  }
+);
 
 // increemt play count
 /**
@@ -2346,7 +2273,7 @@ musicRouter.get(
  *                 value:
  *                   status: "success"
  *                   message: "successfully increment music"
- * 
+ *
  *       400:
  *         description: Invalid music ID
  *         content:
@@ -2359,7 +2286,7 @@ musicRouter.get(
  *                 value:
  *                   status: false
  *                   message: "music id not be null"
- * 
+ *
  *       404:
  *         description: Music not found
  *         content:
@@ -2372,7 +2299,7 @@ musicRouter.get(
  *                 value:
  *                   status: false
  *                   message: "music not found"
- * 
+ *
  *       500:
  *         description: Internal server error
  *         content:
@@ -2382,69 +2309,58 @@ musicRouter.get(
  */
 
 musicRouter.post(
-    "/increement_play_count/:musicId",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const musicId = Number(req.params.musicId);
-            if (isNaN(musicId)) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "music id not be null"
-                    }
-                )
-            }
-            
-            const date = new Date();
-            const musicRepository = AppDataSource.getRepository(Song);
-            const music = await musicRepository.findOne(
-                {
-                    where: {
-                        id: musicId,
-                        is_active: true,
-                        release_date: LessThan(date),
-                        album: {
-                            is_active: true,
-                            release_date: LessThan(date)
-                        }
-                    },
-                    select: {
-                        id: true,
-                        play_count: true
-                    }
-                }
-            )
-            
-            if (!music) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "music not found"
-                    }
-                )
-            }
+  "/increement_play_count/:musicId",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const musicId = Number(req.params.musicId);
+      if (isNaN(musicId)) {
+        return res.status(400).json({
+          status: false,
+          message: "music id not be null",
+        });
+      }
 
-            music.play_count += 1;
-            await music.save()
+      const date = new Date();
+      const musicRepository = AppDataSource.getRepository(Song);
+      const music = await musicRepository.findOne({
+        where: {
+          id: musicId,
+          is_active: true,
+          release_date: LessThan(date),
+          album: {
+            is_active: true,
+            release_date: LessThan(date),
+          },
+        },
+        select: {
+          id: true,
+          play_count: true,
+        },
+      });
 
-            return res.status(200).json(
-                {
-                    status: "success",
-                    message: "successfully increment music"
-                }
-            )
-        } catch (error) {
-            return res.status(500).json(
-                {
-                    status: false,
-                    message: "server error"
-                }
-            )
-        }
+      if (!music) {
+        return res.status(404).json({
+          status: false,
+          message: "music not found",
+        });
+      }
+
+      music.play_count += 1;
+      await music.save();
+
+      return res.status(200).json({
+        status: "success",
+        message: "successfully increment music",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
-
 
 // create single music
 /**
@@ -2621,7 +2537,7 @@ musicRouter.post(
   isArtistUser,
   async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
-    
+
     try {
       await queryRunner.connect();
       await queryRunner.startTransaction();
@@ -2636,7 +2552,7 @@ musicRouter.post(
         return res.status(400).json({
           status: false,
           message: "Validation failed",
-          errors: errors
+          errors: errors,
         });
       }
 
@@ -2654,35 +2570,36 @@ musicRouter.post(
       const audioRepository = queryRunner.manager.getRepository(Audio);
       const imageRepository = queryRunner.manager.getRepository(Image);
       const artistRepository = queryRunner.manager.getRepository(Artist);
-      const productionRoleRepository = queryRunner.manager.getRepository(SongProductionRole);
+      const productionRoleRepository =
+        queryRunner.manager.getRepository(SongProductionRole);
 
-      const audio = await audioRepository.findOne({ 
-        where: { 
-          id: audio_id, 
+      const audio = await audioRepository.findOne({
+        where: {
+          id: audio_id,
           is_active: true,
-          user: { id: userId }
-        } 
+          user: { id: userId },
+        },
       });
-      
-      const image = await imageRepository.findOne({ 
-        where: { 
-          id: image_id, 
+
+      const image = await imageRepository.findOne({
+        where: {
+          id: image_id,
           is_active: true,
-          user: { id: userId }
-        } 
+          user: { id: userId },
+        },
       });
 
       if (!audio) {
         return res.status(404).json({
           status: false,
-          message: "Audio file not found or not accessible"
+          message: "Audio file not found or not accessible",
         });
       }
 
       if (!image) {
         return res.status(404).json({
           status: false,
-          message: "Image not found or not accessible"
+          message: "Image not found or not accessible",
         });
       }
 
@@ -2697,7 +2614,7 @@ musicRouter.post(
         artist: currentArtist,
         audio,
         image,
-        production_roles: []
+        production_roles: [],
       });
 
       const savedSong = await songRepository.save(newSong);
@@ -2705,25 +2622,25 @@ musicRouter.post(
       //  add production roles
       if (production_roles.length > 0) {
         const productionEntities = [];
-        const artistIds = production_roles.map(prod => prod.artist_id);
+        const artistIds = production_roles.map((prod) => prod.artist_id);
 
         const artists = await artistRepository.find({
           where: {
             id: In(artistIds),
-            is_active: true
-          }
+            is_active: true,
+          },
         });
 
-        const artistMap = new Map(artists.map(artist => [artist.id, artist]));
+        const artistMap = new Map(artists.map((artist) => [artist.id, artist]));
 
         for (const prod of production_roles) {
           const artist = artistMap.get(prod.artist_id);
-          
+
           if (!artist) {
             await queryRunner.rollbackTransaction();
             return res.status(404).json({
               status: false,
-              message: `Artist with id ${prod.artist_id} not found`
+              message: `Artist with id ${prod.artist_id} not found`,
             });
           }
 
@@ -2731,9 +2648,9 @@ musicRouter.post(
             song: savedSong,
             artist,
             role: prod.role,
-            is_active: true
+            is_active: true,
           });
-          
+
           productionEntities.push(productionEntity);
         }
 
@@ -2743,20 +2660,20 @@ musicRouter.post(
 
       if (featured_artist_ids.length > 0) {
         const uniqueFeaturedIds = [...new Set(featured_artist_ids)];
-        
+
         if (uniqueFeaturedIds.includes(currentArtist.id)) {
           await queryRunner.rollbackTransaction();
           return res.status(400).json({
             status: false,
-            message: "شما نمی‌توانید خود را به عنوان آرتیست فیت اضافه کنید"
+            message: "شما نمی‌توانید خود را به عنوان آرتیست فیت اضافه کنید",
           });
         }
 
         const featuredArtists = await artistRepository.find({
           where: {
             id: In(uniqueFeaturedIds),
-            is_active: true
-          }
+            is_active: true,
+          },
         });
 
         if (featuredArtists.length > 0) {
@@ -2775,23 +2692,21 @@ musicRouter.post(
           title: savedSong.title,
           is_single: savedSong.is_single,
           production_roles_count: savedSong.production_roles?.length || 0,
-          featured_artists_count: savedSong.featured_artists?.length || 0
-        }
+          featured_artists_count: savedSong.featured_artists?.length || 0,
+        },
       });
-
     } catch (error) {
-      await queryRunner.rollbackTransaction();      
+      await queryRunner.rollbackTransaction();
       return res.status(500).json({
         status: false,
         message: "server error",
-        error: error.message
+        error: error.message,
       });
     } finally {
       await queryRunner.release();
     }
   }
 );
-
 
 // get upload music
 /**
@@ -2852,20 +2767,20 @@ musicRouter.post(
  *                       song_id:
  *                         type: integer
  *                         description: آیدی آهنگ
- *                         example: 123
+ *                         example: 10
  *                       song_title:
  *                         type: string
  *                         description: عنوان آهنگ
- *                         example: "آهنگ جدید"
+ *                         example: "آهنگ جدید من"
  *                       created_at:
  *                         type: string
  *                         format: date-time
  *                         description: تاریخ ایجاد آهنگ
- *                         example: "2024-01-15T10:30:00.000Z"
+ *                         example: "2025-12-02T15:58:08.294Z"
  *                       play_count:
  *                         type: integer
  *                         description: تعداد پخش آهنگ
- *                         example: 1500
+ *                         example: 0
  *                       is_single:
  *                         type: boolean
  *                         description: آیا آهنگ تکی است
@@ -2874,16 +2789,16 @@ musicRouter.post(
  *                         type: integer
  *                         nullable: true
  *                         description: آیدی آلبوم (در صورت وجود)
- *                         example: 456
+ *                         example: null
  *                       audio_id:
  *                         type: integer
  *                         description: آیدی فایل صوتی
- *                         example: 789
+ *                         example: 2
  *                       image_id:
  *                         type: integer
  *                         nullable: true
  *                         description: آیدی تصویر کاور (در صورت وجود)
- *                         example: 101
+ *                         example: 2
  *                       featured_artists:
  *                         type: array
  *                         description: لیست آرتیست‌های فیت شده
@@ -2893,17 +2808,21 @@ musicRouter.post(
  *                             artist_id:
  *                               type: integer
  *                               description: آیدی آرتیست
- *                               example: 202
+ *                               example: 5
  *                             artist_username:
  *                               type: string
  *                               description: نام کاربری آرتیست
- *                               example: "artist_featured"
+ *                               example: "lpp3"
  *                       production_roles:
  *                         type: array
  *                         description: لیست نقش‌های تولید آهنگ
  *                         items:
  *                           type: object
  *                           properties:
+ *                             id:
+ *                               type: integer
+ *                               description: آیدی نقش تولید
+ *                               example: 4
  *                             role:
  *                               type: string
  *                               description: نوع نقش تولید
@@ -2921,11 +2840,11 @@ musicRouter.post(
  *                             artist_id:
  *                               type: integer
  *                               description: آیدی آرتیست مسئول این نقش
- *                               example: 303
+ *                               example: 4
  *                             artist_username:
  *                               type: string
  *                               description: نام کاربری آرتیست مسئول این نقش
- *                               example: "producer_artist"
+ *                               example: "lpp2"
  *       '401':
  *         description: عدم احراز هویت یا توکن نامعتبر
  *         content:
@@ -2976,64 +2895,95 @@ musicRouter.post(
  *                   example: "Detailed error message"
  */
 musicRouter.get(
-  '/owner/myuploads',
+  "/owner/myuploads",
   authenticateJWT,
   isArtistUser,
   async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user.id;
-
-      // check artist 
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const skip = (page - 1) * limit;
+      
+      // check artist
       const artistRepository = AppDataSource.getRepository(Artist);
       const checkArtist = await artistRepository.findOne({
         where: {
           is_active: true,
-          user: { id: userId }
+          user: { id: userId },
         },
-        select: { id: true }
+        select: { id: true },
       });
 
       if (!checkArtist) {
         return res.status(404).json({
           success: false,
-          message: 'آرتیستی برای این کاربر یافت نشد'
+          message: "آرتیستی برای این کاربر یافت نشد",
         });
       }
 
-      const queryBuilder = AppDataSource.getRepository(Song)
-        .createQueryBuilder('song')
-        .leftJoinAndSelect('song.production_roles', 'production_role')
-        .leftJoinAndSelect('production_role.artist', 'production_role_artist')
-        .leftJoinAndSelect('production_role_artist.user', 'production_role_user')
-        .innerJoinAndSelect('song.artist', 'artist')
-        .leftJoinAndSelect('song.album', 'album')
-        .innerJoinAndSelect('song.audio', 'audio')
-        .leftJoinAndSelect('song.image', 'image')
-        .leftJoinAndSelect('song.featured_artists', 'featured_artist')
-        .leftJoinAndSelect('featured_artist.user', 'featured_user')
-        .where('song.artist.id = :artistId', { artistId: checkArtist.id })
-        .andWhere('artist.is_active = :isActive', { isActive: true })
-        .orderBy('song.createdAt', 'DESC');
+      const songRepository = AppDataSource.getRepository(Song);
+      const [songs, total] = await songRepository.findAndCount({
+        where: {
+          artist: { id: checkArtist.id, is_active: true },
+          is_active: true
+        },
+        relations: {
+          artist: true,
+          album: true,
+          audio: true,
+          image: true,
+          featured_artists: {
+            user: true
+          },
+          production_roles: {
+            artist: {
+              user: true
+            }
+          }
+        },
+        select: {
+            id: true,
+            title: true,
+            createdAt: true,
+            play_count: true,
+            is_single: true,
+            album: {
+                id: true
+            },
+            audio: {
+                id: true
+            },
+            image: {
+                id: true
+            },
+            featured_artists: {
+                id: true,
+                user: {
+                    id: true,
+                    username: true
+                }
+            },
+            production_roles: {
+                id: true,
+                role: true,
+                artist: {
+                    id: true,
+                    user: {
+                        id: true,
+                        username: true
+                    }
+                }
+            }
+        },
+        order: {
+          createdAt: 'DESC'
+        },
+        skip: skip,
+        take: limit
+      });
 
-      const [songs, total] = await queryBuilder
-        .select([
-          'song.id',
-          'song.title',
-          'song.createdAt',
-          'song.play_count',
-          'song.is_single',
-          'album.id',
-          'audio.id',
-          'image.id',
-          'featured_artist.id',
-          'featured_user.username',
-          'production_role.role',
-          'production_role.artist_id',
-          'production_role_user.username'
-        ])
-        .getManyAndCount();
-
-      const simpleData = songs.map(song => {
+      const simpleData = songs.map((song) => {
         const data = {
           song_id: song.id,
           song_title: song.title,
@@ -3041,28 +2991,34 @@ musicRouter.get(
           play_count: song.play_count,
           is_single: song.is_single,
           album_id: song.album?.id || null,
-          audio_id: song.audio.id,
-          image_id: song.image.id || null,
+          audio_id: song.audio?.id || null,
+          image_id: song.image?.id || null,
           featured_artists: [],
-          production_roles: []
+          production_roles: [],
         };
 
+        // Process featured artists
         if (song.featured_artists && Array.isArray(song.featured_artists)) {
           data.featured_artists = song.featured_artists
-            .filter(artist => artist && 'id' in artist && artist.user && 'username' in artist.user)
-            .map(artist => ({
+            .filter(
+              (artist) =>
+                artist && artist.id && artist.user && artist.user.username
+            )
+            .map((artist) => ({
               artist_id: artist.id,
-              artist_username: artist.user.username
+              artist_username: artist.user.username,
             }));
         }
 
+        // Process production roles
         if (song.production_roles && Array.isArray(song.production_roles)) {
           data.production_roles = song.production_roles
-            .filter(role => role && 'role' in role && role.artist && role.artist.user)
-            .map(role => ({
+            .filter((role) => role && role.is_active !== false)
+            .map((role) => ({
+              id: role.id,
               role: role.role,
-              artist_id: role.artist.id,
-              artist_username: role.artist.user.username
+              artist_id: role.artist?.id || null,
+              artist_username: role.artist?.user?.username || null,
             }));
         }
 
@@ -3072,15 +3028,16 @@ musicRouter.get(
       res.status(200).json({
         message: "success",
         count: total,
-        data: simpleData
+        current_page: page,
+        total_pages: Math.ceil(total / limit),
+        per_page: limit,
+        data: simpleData,
       });
-
     } catch (error) {
-      console.error('Error in /owner/myuploads:', error);
       res.status(500).json({
         success: false,
-        message: 'server error',
-        error: error.message
+        message: "server error",
+        error: error.message,
       });
     }
   }
