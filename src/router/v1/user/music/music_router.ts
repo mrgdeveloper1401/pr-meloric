@@ -541,7 +541,10 @@ musicRouter.get(
  * /v1/user/music/{album_id}/create_music:
  *   post:
  *     summary: ایجاد موسیقی جدید در آلبوم
- *     description: این endpoint برای ایجاد یک موسیقی جدید در آلبوم توسط هنرمند استفاده می‌شود
+ *     description: |
+ *       این endpoint برای ایجاد یک موسیقی جدید در آلبوم توسط هنرمند استفاده می‌شود
+ *       - می‌تواند هنرمندان فیت و نقش‌های تولید را نیز اضافه کند
+ *       - is_single به صورت خودکار false تنظیم می‌شود (چون در آلبوم است)
  *     tags: [Music]
  *     security:
  *       - bearerAuth: []
@@ -552,6 +555,7 @@ musicRouter.get(
  *         schema:
  *           type: integer
  *         description: شناسه آلبوم
+ *         example: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -571,6 +575,7 @@ musicRouter.get(
  *                 type: string
  *                 description: عنوان موسیقی
  *                 example: "My New Song"
+ *                 maxLength: 255
  *               release_date:
  *                 type: string
  *                 format: date
@@ -581,9 +586,47 @@ musicRouter.get(
  *                 description: متن موزیک
  *                 nullable: true
  *               image_id:
- *                  type: number
- *                  descrption: شناسه عکس
- *                  example: 1
+ *                 type: integer
+ *                 description: شناسه عکس
+ *                 example: 1
+ *               production_roles:
+ *                 type: array
+ *                 description: آرایه‌ای از نقش‌های تولید (اختیاری)
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - artist_id
+ *                     - role
+ *                   properties:
+ *                     artist_id:
+ *                       type: integer
+ *                       description: آیدی آرتیست مسئول این نقش
+ *                       example: 789
+ *                     role:
+ *                       type: string
+ *                       description: نوع نقش تولید
+ *                       example: "producer"
+ *                       enum:
+ *                         - mixer
+ *                         - mastering
+ *                         - producer
+ *                         - director
+ *                         - composer
+ *                         - arranger
+ *                         - sound_designer
+ *                         - lyricist
+ *                         - other
+ *                     custom_role_title:
+ *                       type: string
+ *                       description: عنوان سفارشی نقش (در صورت انتخاب "other")
+ *                       example: "تنظیم کننده ارکستر"
+ *                       maxLength: 100
+ *               featured_artist_ids:
+ *                 type: array
+ *                 description: آرایه‌ای از آیدی‌های آرتیست‌های فیت (اختیاری)
+ *                 items:
+ *                   type: integer
+ *                   example: [10, 11, 12]
  *     responses:
  *       201:
  *         description: موسیقی با موفقیت ایجاد شد
@@ -598,12 +641,30 @@ musicRouter.get(
  *                 data:
  *                   type: object
  *                   properties:
- *                     title:
- *                       type: string
- *                       example: "My New Song"
  *                     id:
  *                       type: integer
+ *                       description: شناسه موسیقی ایجاد شده
  *                       example: 45
+ *                     title:
+ *                       type: string
+ *                       description: عنوان موسیقی
+ *                       example: "My New Song"
+ *                     album_id:
+ *                       type: integer
+ *                       description: شناسه آلبوم
+ *                       example: 1
+ *                     artist_id:
+ *                       type: integer
+ *                       description: شناسه آرتیست سازنده
+ *                       example: 5
+ *                     production_roles_count:
+ *                       type: integer
+ *                       description: تعداد نقش‌های تولید اضافه شده
+ *                       example: 2
+ *                     featured_artists_count:
+ *                       type: integer
+ *                       description: تعداد آرتیست‌های فیت اضافه شده
+ *                       example: 3
  *       400:
  *         description: داده‌های نامعتبر
  *         content:
@@ -617,11 +678,18 @@ musicRouter.get(
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
- *         description: آلبوم، فایل صوتی یا پروفایل هنرمند یافت نشد
+ *         description: آلبوم، فایل صوتی، تصویر، آرتیست یا نقش‌های تولید یافت نشد
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Artist with id 789 not found"
  *       500:
  *         description: خطای سرور
  *         content:
@@ -633,21 +701,28 @@ musicRouter.post(
   "/:album_id/create_music/",
   authenticateJWT,
   async (req: Request, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    
     try {
-      // check req body
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      // check request body
       if (!req.body) {
         return res.status(400).json({
           status: false,
           message: "request body is required",
         });
       }
+
       // check user is artist
       const userId = (req as any).user.user_id;
-      const userRepository = AppDataSource.getRepository(User);
+      const userRepository = queryRunner.manager.getRepository(User);
       const getUser = await userRepository.findOne({
         where: { id: userId, is_active: true, is_artist: true },
         select: ["id"],
       });
+      
       if (!getUser) {
         return res.status(403).json({
           status: false,
@@ -655,7 +730,7 @@ musicRouter.post(
         });
       }
 
-      // validate
+      // Validate DTO
       const createMusicDto = plainToClass(CreateMusicDto, req.body);
       const errors = await validate(createMusicDto);
       if (errors.length > 0) {
@@ -669,18 +744,27 @@ musicRouter.post(
         });
       }
 
+      const {
+        audio_id,
+        title,
+        release_date,
+        music_lyrics,
+        image_id,
+        production_roles = [],
+        featured_artist_ids = [],
+      } = createMusicDto;
+
       // check audio
-      const audioRepository = AppDataSource.getRepository(Audio);
+      const audioRepository = queryRunner.manager.getRepository(Audio);
       const getAudio = await audioRepository.findOne({
         where: {
-          id: createMusicDto.audio_id,
-          user: {
-            id: userId,
-          },
+          id: audio_id,
+          user: { id: userId },
           is_active: true,
         },
         select: ["id"],
       });
+      
       if (!getAudio) {
         return res.status(404).json({
           status: false,
@@ -689,11 +773,12 @@ musicRouter.post(
       }
 
       // check album
-      const albumRepository = AppDataSource.getRepository(Album);
+      const albumRepository = queryRunner.manager.getRepository(Album);
       const getAlbum = await albumRepository.findOne({
         where: { id: parseInt(req.params.album_id), is_active: true },
         select: ["id"],
       });
+      
       if (!getAlbum) {
         return res.status(404).json({
           status: false,
@@ -702,16 +787,15 @@ musicRouter.post(
       }
 
       // check artist profile
-      const artistRepository = AppDataSource.getRepository(Artist);
+      const artistRepository = queryRunner.manager.getRepository(Artist);
       const getArtist = await artistRepository.findOne({
         where: {
-          user: {
-            id: userId,
-          },
+          user: { id: userId },
           is_active: true,
         },
         select: ["id"],
       });
+      
       if (!getArtist) {
         return res.status(404).json({
           status: false,
@@ -720,44 +804,143 @@ musicRouter.post(
       }
 
       // check image
-      const imageRepository = AppDataSource.getRepository(Image);
-      const getImageId = await imageRepository.findOne({
-        where: { id: createMusicDto.image_id, is_active: true, user: getUser },
+      const imageRepository = queryRunner.manager.getRepository(Image);
+      const getImage = await imageRepository.findOne({
+        where: { 
+          id: image_id, 
+          is_active: true, 
+          user: { id: userId } 
+        },
         select: ["id"],
       });
-      if (!getImageId) {
+      
+      if (!getImage) {
         return res.status(404).json({
           status: false,
           message: "image not found",
         });
       }
-      // create music
-      const music = new Song();
-      music.album = getAlbum;
-      music.artist = getArtist;
-      music.title = createMusicDto.title;
-      music.release_date = new Date(createMusicDto.release_date);
-      music.audio = getAudio;
-      music.play_count = 0;
-      music.music_lyrics = createMusicDto.music_lyrics;
-      music.image = getImageId;
-      await music.save();
+
+      // Create song
+      const songRepository = queryRunner.manager.getRepository(Song);
+      const newSong = songRepository.create({
+        album: getAlbum,
+        artist: getArtist,
+        title: title,
+        release_date: new Date(release_date),
+        audio: getAudio,
+        play_count: 0,
+        music_lyrics: music_lyrics,
+        image: getImage,
+        is_active: true,
+        is_single: false // چون در آلبوم است
+      });
+
+      const savedSong = await songRepository.save(newSong);
+
+      // Add production roles
+      if (production_roles.length > 0) {
+        const productionRoleRepository = queryRunner.manager.getRepository(SongProductionRole);
+        const productionEntities = [];
+        const artistIds = production_roles.map(prod => prod.artist_id);
+        
+        // Get all artists in one query
+        const artists = await artistRepository.find({
+          where: {
+            id: In(artistIds),
+            is_active: true
+          }
+        });
+
+        const artistMap = new Map(artists.map(artist => [artist.id, artist]));
+
+        for (const prod of production_roles) {
+          const artist = artistMap.get(prod.artist_id);
+          
+          if (!artist) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({
+              status: false,
+              message: `Artist with id ${prod.artist_id} not found`
+            });
+          }
+
+          // Check if artist is not the song owner (optional)
+          if (artist.id === getArtist.id) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({
+              status: false,
+              message: "You cannot add yourself as a production role"
+            });
+          }
+
+          const productionEntity = productionRoleRepository.create({
+            song: savedSong,
+            artist: artist,
+            role: prod.role,
+            is_active: true
+          });
+          
+          productionEntities.push(productionEntity);
+        }
+
+        await productionRoleRepository.save(productionEntities);
+      }
+
+      // Add featured artists
+      if (featured_artist_ids.length > 0) {
+        const uniqueFeaturedIds = [...new Set(featured_artist_ids)];
+        
+        // Check if artist is not trying to feature themselves (optional)
+        if (uniqueFeaturedIds.includes(getArtist.id)) {
+          await queryRunner.rollbackTransaction();
+          return res.status(400).json({
+            status: false,
+            message: "You cannot add yourself as a featured artist"
+          });
+        }
+
+        const featuredArtists = await artistRepository.find({
+          where: {
+            id: In(uniqueFeaturedIds),
+            is_active: true
+          }
+        });
+
+        if (featuredArtists.length > 0) {
+          savedSong.featured_artists = featuredArtists;
+          await songRepository.save(savedSong);
+        }
+      }
+
+      await queryRunner.commitTransaction();
 
       return res.status(201).json({
         status: "success",
         data: {
-          title: music.title,
-          id: music.id,
+          id: savedSong.id,
+          title: savedSong.title,
+          album_id: savedSong.album?.id,
+          artist_id: savedSong.artist?.id,
+          production_roles_count: production_roles.length,
+          featured_artists_count: featured_artist_ids.length
         },
       });
+
     } catch (error) {
+      await queryRunner.rollbackTransaction();
+      
       return res.status(500).json({
         status: false,
         message: "server error",
+        error: error.message
       });
+    } finally {
+      await queryRunner.release();
     }
   }
 );
+
 
 // path update music
 // update song by artist
