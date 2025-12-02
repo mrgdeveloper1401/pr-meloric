@@ -1,9 +1,10 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn} from "typeorm";
+import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn} from "typeorm";
 import { User } from "./User";
 import { Image } from "./Image";
 import { TimestampEntity } from "./Abstract";
 import { ArtistGallery } from "./ArtistGallery";
 import { ArtistSocial } from "./ArtistSocial";
+import { SongProductionRole } from "./MusicProductionRole";
 
 @Entity()
 export class Artist extends TimestampEntity{
@@ -44,10 +45,12 @@ export class Artist extends TimestampEntity{
   @Column({nullable: true, length: 100})
   nick_name: string
 
-
   @Column({ length: 100, nullable: true})
   first_name: string;
 
   @Column({ length: 100, nullable: true })
   last_name: string;
+
+  @OneToMany(() => SongProductionRole, production => production.song)
+  production_roles: SongProductionRole[];
 }

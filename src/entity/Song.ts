@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne, Column, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, ManyToOne, Column, JoinColumn, JoinTable, ManyToMany } from "typeorm";
 import { Album } from "./Album";
 import { Artist } from "./Artist";
 import { TimestampEntity } from "./Abstract";
@@ -44,4 +44,17 @@ export class Song extends TimestampEntity{
   @Column({default: false, name: "is_single"})
   is_single: boolean;
 
+  @ManyToMany(() => Artist, { nullable: true })
+  @JoinTable({
+    name: "song_featured_artists",
+    joinColumn: {
+      name: "song_id",
+      referencedColumnName: "id"
+    },
+    inverseJoinColumn: {
+      name: "artist_id",
+      referencedColumnName: "id"
+    }
+  })
+  featured_artists: Artist[];
 }
