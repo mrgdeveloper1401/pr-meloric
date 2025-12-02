@@ -51,6 +51,4 @@ export class Artist extends TimestampEntity{
   @Column({ length: 100, nullable: true })
   last_name: string;
 
-  @OneToMany(() => SongProductionRole, production => production.song)
-  production_roles: SongProductionRole[];
 }

@@ -32,7 +32,7 @@ export class SongProductionRole extends TimestampEntity {
   @JoinColumn({ name: "song_id" })
   song: Song;
 
-  @ManyToOne(() => Artist, artist => artist.production_roles, { onDelete: "RESTRICT" })
+  @ManyToOne(() => Artist, { onDelete: "RESTRICT" })
   @JoinColumn({ name: "artist_id" })
   artist: Artist;
 
@@ -42,9 +42,6 @@ export class SongProductionRole extends TimestampEntity {
   })
   @Index()
   role: string; // "mixer", "mastering", "producer", "director" و ...
-
-  @Column({ length: 100, nullable: true })
-  custom_role_title: string;
 
   @Column({ default: true })
   is_active: boolean;

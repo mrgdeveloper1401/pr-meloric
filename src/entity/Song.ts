@@ -1,9 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne, Column, JoinColumn, JoinTable, ManyToMany } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, ManyToOne, Column, JoinColumn, JoinTable, ManyToMany, OneToMany } from "typeorm";
 import { Album } from "./Album";
 import { Artist } from "./Artist";
 import { TimestampEntity } from "./Abstract";
 import { Audio } from "./Audio";
 import { Image } from "./Image";
+import { SongProductionRole } from "./MusicProductionRole";
 
 @Entity()
 export class Song extends TimestampEntity{
@@ -57,4 +58,7 @@ export class Song extends TimestampEntity{
     }
   })
   featured_artists: Artist[];
+
+  @OneToMany(() => SongProductionRole, productionRole => productionRole.song)
+  production_roles: SongProductionRole[];
 }
