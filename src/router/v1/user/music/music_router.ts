@@ -2447,306 +2447,353 @@ musicRouter.post(
 
 
 // create single music
-// /**
-//  * @swagger
-//  * /v1/user/music/music/create_single_music:
-//  *   post:
-//  *     tags:
-//  *       - Music
-//  *     summary: ایجاد آهنگ تکی جدید
-//  *     description: |
-//  *       ایجاد یک آهنگ تکی (بدون آلبوم) با امکان افزودن اطلاعات تولید و هنرمندان فیت
-//  *       - نیاز به احراز هویت دارد
-//  *       - فقط کاربران آرتیست می‌توانند استفاده کنند
-//  *       - تمام فیلدهای اصلی الزامی هستند
-//  *       - فیلدهای production_roles و featured_artist_ids اختیاری هستند
-//  *     security:
-//  *       - bearerAuth: []
-//  *     requestBody:
-//  *       required: true
-//  *       content:
-//  *         application/json:
-//  *           schema:
-//  *             type: object
-//  *             required:
-//  *               - title
-//  *               - release_date
-//  *               - music_lyrics
-//  *               - audio_id
-//  *               - image_id
-//  *             properties:
-//  *               title:
-//  *                 type: string
-//  *                 description: عنوان آهنگ
-//  *                 example: "آهنگ جدید من"
-//  *                 minLength: 1
-//  *                 maxLength: 255
-//  *               release_date:
-//  *                 type: string
-//  *                 format: date
-//  *                 description: تاریخ انتشار (فرمت YYYY-MM-DD)
-//  *                 example: "2024-01-15"
-//  *               music_lyrics:
-//  *                 type: string
-//  *                 description: متن آهنگ
-//  *                 example: "این متن آهنگ است..."
-//  *               audio_id:
-//  *                 type: integer
-//  *                 description: آیدی فایل صوتی
-//  *                 example: 123
-//  *                 minimum: 1
-//  *               image_id:
-//  *                 type: integer
-//  *                 description: آیدی تصویر کاور
-//  *                 example: 456
-//  *                 minimum: 1
-//  *               production_roles:
-//  *                 type: array
-//  *                 description: آرایه‌ای از نقش‌های تولید (اختیاری)
-//  *                 items:
-//  *                   type: object
-//  *                   required:
-//  *                     - artist_id
-//  *                     - role
-//  *                   properties:
-//  *                     artist_id:
-//  *                       type: integer
-//  *                       description: آیدی آرتیست مسئول این نقش
-//  *                       example: 789
-//  *                     role:
-//  *                       type: string
-//  *                       description: نوع نقش تولید (mixer, mastering, producer, director, composer, arranger, sound_designer, lyricist, other)
-//  *                       example: "producer"
-//  *                       enum:
-//  *                         - mixer
-//  *                         - mastering
-//  *                         - producer
-//  *                         - director
-//  *                         - composer
-//  *                         - arranger
-//  *                         - sound_designer
-//  *                         - lyricist
-//  *                         - other
-//  *               featured_artist_ids:
-//  *                 type: array
-//  *                 description: آرایه‌ای از آیدی‌های آرتیست‌های فیت (اختیاری)
-//  *                 items:
-//  *                   type: integer
-//  *                   example: [10, 11, 12]
-//  *     responses:
-//  *       '201':
-//  *         description: آهنگ با موفقیت ایجاد شد
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 status:
-//  *                   type: boolean
-//  *                   example: true
-//  *                 message:
-//  *                   type: string
-//  *                   example: "آهنگ با موفقیت ایجاد شد"
-//  *                 data:
-//  *                   type: object
-//  *                   properties:
-//  *                     id:
-//  *                       type: integer
-//  *                       description: آیدی آهنگ ایجاد شده
-//  *                       example: 999
-//  *       '400':
-//  *         description: خطا در اعتبارسنجی داده‌های ورودی
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 status:
-//  *                   type: boolean
-//  *                   example: false
-//  *                 message:
-//  *                   type: string
-//  *                   example: "Validation failed"
-//  *                 errors:
-//  *                   type: array
-//  *                   items:
-//  *                     type: object
-//  *       '401':
-//  *         description: عدم احراز هویت یا توکن نامعتبر
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               $ref: '#/components/schemas/ErrorResponse'
-//  *       '403':
-//  *         description: کاربر آرتیست نیست یا دسترسی ندارد
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               $ref: '#/components/schemas/ErrorResponse'
-//  *       '404':
-//  *         description: فایل صوتی، تصویر یا آرتیست مورد نظر یافت نشد
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               type: object
-//  *               properties:
-//  *                 status:
-//  *                   type: boolean
-//  *                   example: false
-//  *                 message:
-//  *                   type: string
-//  *                   example: "Audio file not found"
-//  *       '500':
-//  *         description: خطای داخلی سرور
-//  *         content:
-//  *           application/json:
-//  *             schema:
-//  *               $ref: '#/components/schemas/ErrorResponse'
-//  * 
-//  * components:
-//  *   schemas:
-//  *     ErrorResponse:
-//  *       type: object
-//  *       properties:
-//  *         status:
-//  *           type: boolean
-//  *           example: false
-//  *         message:
-//  *           type: string
-//  *           example: "An error occurred"
-//  *         error:
-//  *           type: string
-//  *           example: "Detailed error message"
-//  */
-// musicRouter.post(
-//   "/music/create_single_music/",
-//   authenticateJWT,
-//   isArtistUser,
-//   async (req: Request, res: Response) => {
-//     try {
-//       const currentArtist = (req as any).artist;
+/**
+ * @swagger
+ * /v1/user/music/music/create_single_music:
+ *   post:
+ *     tags:
+ *       - Music
+ *     summary: ایجاد آهنگ تکی جدید
+ *     description: |
+ *       ایجاد یک آهنگ تکی (بدون آلبوم) با امکان افزودن اطلاعات تولید و هنرمندان فیت
+ *       - نیاز به احراز هویت دارد
+ *       - فقط کاربران آرتیست می‌توانند استفاده کنند
+ *       - تمام فیلدهای اصلی الزامی هستند
+ *       - فیلدهای production_roles و featured_artist_ids اختیاری هستند
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - release_date
+ *               - music_lyrics
+ *               - audio_id
+ *               - image_id
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: عنوان آهنگ
+ *                 example: "آهنگ جدید من"
+ *                 minLength: 1
+ *                 maxLength: 255
+ *               release_date:
+ *                 type: string
+ *                 format: date
+ *                 description: تاریخ انتشار (فرمت YYYY-MM-DD)
+ *                 example: "2024-01-15"
+ *               music_lyrics:
+ *                 type: string
+ *                 description: متن آهنگ
+ *                 example: "این متن آهنگ است..."
+ *               audio_id:
+ *                 type: integer
+ *                 description: آیدی فایل صوتی
+ *                 example: 123
+ *                 minimum: 1
+ *               image_id:
+ *                 type: integer
+ *                 description: آیدی تصویر کاور
+ *                 example: 456
+ *                 minimum: 1
+ *               production_roles:
+ *                 type: array
+ *                 description: آرایه‌ای از نقش‌های تولید (اختیاری)
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - artist_id
+ *                     - role
+ *                   properties:
+ *                     artist_id:
+ *                       type: integer
+ *                       description: آیدی آرتیست مسئول این نقش
+ *                       example: 789
+ *                     role:
+ *                       type: string
+ *                       description: نوع نقش تولید (mixer, mastering, producer, director, composer, arranger, sound_designer, lyricist, other)
+ *                       example: "producer"
+ *                       enum:
+ *                         - mixer
+ *                         - mastering
+ *                         - producer
+ *                         - director
+ *                         - composer
+ *                         - arranger
+ *                         - sound_designer
+ *                         - lyricist
+ *                         - other
+ *               featured_artist_ids:
+ *                 type: array
+ *                 description: آرایه‌ای از آیدی‌های آرتیست‌های فیت (اختیاری)
+ *                 items:
+ *                   type: integer
+ *                   example: [10, 11, 12]
+ *     responses:
+ *       '201':
+ *         description: آهنگ با موفقیت ایجاد شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "آهنگ با موفقیت ایجاد شد"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: آیدی آهنگ ایجاد شده
+ *                       example: 999
+ *                     title:
+ *                       type: string
+ *                       description: عنوان آهنگ
+ *                       example: "آهنگ جدید من"
+ *                     is_single:
+ *                       type: boolean
+ *                       description: آیا آهنگ تکی است
+ *                       example: true
+ *                     production_roles_count:
+ *                       type: integer
+ *                       description: تعداد نقش‌های تولید اضافه شده
+ *                       example: 2
+ *                     featured_artists_count:
+ *                       type: integer
+ *                       description: تعداد آرتیست‌های فیت اضافه شده
+ *                       example: 3
+ *       '400':
+ *         description: خطا در اعتبارسنجی داده‌های ورودی یا خطای منطقی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "شما نمی‌توانید خود را به عنوان آرتیست فیت اضافه کنید"
+ *       '401':
+ *         description: عدم احراز هویت یا توکن نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '403':
+ *         description: کاربر آرتیست نیست یا دسترسی ندارد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '404':
+ *         description: فایل صوتی، تصویر یا آرتیست مورد نظر یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Audio file not found or not accessible"
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+musicRouter.post(
+  "/music/create_single_music/",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      const currentArtist = (req as any).artist;
+      const userId = (req as any).user.user_id;
+
+      const singleMusicDto = plainToClass(SingleMusicDto, req.body);
+
+      const errors = await validate(singleMusicDto);
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "Validation failed",
+          errors: errors
+        });
+      }
+
+      const {
+        title,
+        release_date,
+        music_lyrics,
+        audio_id,
+        image_id,
+        production_roles = [],
+        featured_artist_ids = [],
+      } = singleMusicDto;
+
+      const songRepository = queryRunner.manager.getRepository(Song);
+      const audioRepository = queryRunner.manager.getRepository(Audio);
+      const imageRepository = queryRunner.manager.getRepository(Image);
+      const artistRepository = queryRunner.manager.getRepository(Artist);
+      const productionRoleRepository = queryRunner.manager.getRepository(SongProductionRole);
+
+      const audio = await audioRepository.findOne({ 
+        where: { 
+          id: audio_id, 
+          is_active: true,
+          user: { id: userId }
+        } 
+      });
       
-//       const singleMusicDto = plainToClass(SingleMusicDto, req.body);
+      const image = await imageRepository.findOne({ 
+        where: { 
+          id: image_id, 
+          is_active: true,
+          user: { id: userId }
+        } 
+      });
 
-//       const errors = await validate(singleMusicDto);
-//       if (errors.length > 0) {
-//         return res.status(400).json({
-//           status: false,
-//           message: "Validation failed",
-//           errors: errors}
-//         );
-//       }
+      if (!audio) {
+        return res.status(404).json({
+          status: false,
+          message: "Audio file not found or not accessible"
+        });
+      }
 
-//       const {
-//         title,
-//         release_date,
-//         music_lyrics,
-//         audio_id,
-//         image_id,
-//         production_roles = [],
-//         featured_artist_ids = [],
-//       } = singleMusicDto;
+      if (!image) {
+        return res.status(404).json({
+          status: false,
+          message: "Image not found or not accessible"
+        });
+      }
 
-//       const songRepository = AppDataSource.getRepository(Song);
-//       const audioRepository = AppDataSource.getRepository(Audio);
-//       const imageRepository = AppDataSource.getRepository(Image);
-//       const artistRepository = AppDataSource.getRepository(Artist);
-//       const productionRoleRepository = AppDataSource.getRepository(SongProductionRole);
+      // create song
+      const newSong = songRepository.create({
+        title,
+        release_date: new Date(release_date),
+        music_lyrics,
+        is_single: true,
+        is_active: true,
+        play_count: 0,
+        artist: currentArtist,
+        audio,
+        image,
+        production_roles: []
+      });
 
-//       // Check image and audio
-//       const audio = await audioRepository.findOneBy({ id: audio_id, is_active: true });
-//       const image = await imageRepository.findOneBy({ id: image_id, is_active: true });
+      const savedSong = await songRepository.save(newSong);
 
-//       if (!audio || !image) {
-//         return res.status(404).json({
-//           status: false,
-//           message: !audio ? "Audio file not found" : "Image not found"
-//         });
-//       }
+      //  add production roles
+      if (production_roles.length > 0) {
+        const productionEntities = [];
+        const artistIds = production_roles.map(prod => prod.artist_id);
 
-//       // Create music
-//       const newSong = songRepository.create({
-//         title,
-//         release_date: new Date(release_date),
-//         music_lyrics,
-//         is_single: true,
-//         is_active: true,
-//         play_count: 0,
-//         artist: currentArtist,
-//         audio,
-//         image
-//       });
+        const artists = await artistRepository.find({
+          where: {
+            id: In(artistIds),
+            is_active: true
+          }
+        });
 
-//       const savedSong = await songRepository.save(newSong);
+        const artistMap = new Map(artists.map(artist => [artist.id, artist]));
 
-//       // Add production roles
-//       if (production_roles.length > 0) {
-//         const productionEntities = [];
+        for (const prod of production_roles) {
+          const artist = artistMap.get(prod.artist_id);
+          
+          if (!artist) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({
+              status: false,
+              message: `Artist with id ${prod.artist_id} not found`
+            });
+          }
+
+          const productionEntity = productionRoleRepository.create({
+            song: savedSong,
+            artist,
+            role: prod.role,
+            is_active: true
+          });
+          
+          productionEntities.push(productionEntity);
+        }
+
+        await productionRoleRepository.save(productionEntities);
+        savedSong.production_roles = productionEntities;
+      }
+
+      if (featured_artist_ids.length > 0) {
+        const uniqueFeaturedIds = [...new Set(featured_artist_ids)];
         
-//         for (const prod of production_roles) {
-//           // Check artist
-//           const artist = await artistRepository.findOneBy({ 
-//             id: prod.artist_id, 
-//             is_active: true 
-//           });
-          
-//           if (!artist) {
-//             return res.status(404).json({
-//               status: false,
-//               message: `Artist with id ${prod.artist_id} not found`
-//             });
-//           }
+        if (uniqueFeaturedIds.includes(currentArtist.id)) {
+          await queryRunner.rollbackTransaction();
+          return res.status(400).json({
+            status: false,
+            message: "شما نمی‌توانید خود را به عنوان آرتیست فیت اضافه کنید"
+          });
+        }
 
-//           // Create role entity
-//           const productionEntity = productionRoleRepository.create({
-//             song: savedSong,
-//             artist,
-//             role: prod.role,
-//             custom_role_title: prod.custom_role_title || null,
-//             is_active: true
-//           });
-          
-//           productionEntities.push(productionEntity);
-//         }
+        const featuredArtists = await artistRepository.find({
+          where: {
+            id: In(uniqueFeaturedIds),
+            is_active: true
+          }
+        });
 
-//         await productionRoleRepository.save(productionEntities);
-//       }
+        if (featuredArtists.length > 0) {
+          savedSong.featured_artists = featuredArtists;
+          await songRepository.save(savedSong);
+        }
+      }
 
-//       // Add featured artists
-//       if (featured_artist_ids.length > 0) {
-//         const featuredArtists = await artistRepository.find({
-//           where: {
-//             id: In(featured_artist_ids),
-//             is_active: true
-//           },
-//           select: {id: true}
-//         });
+      await queryRunner.commitTransaction();
 
-//         if (featuredArtists.length > 0) {
-//           savedSong.featured_artists = featuredArtists;
-//           await songRepository.save(savedSong);
-//         }
-//       }
+      return res.status(201).json({
+        status: true,
+        message: "آهنگ با موفقیت ایجاد شد",
+        data: {
+          id: savedSong.id,
+          title: savedSong.title,
+          is_single: savedSong.is_single,
+          production_roles_count: savedSong.production_roles?.length || 0,
+          featured_artists_count: savedSong.featured_artists?.length || 0
+        }
+      });
 
-//       return res.status(201).json({
-//         status: true,
-//         message: "آهنگ با موفقیت ایجاد شد",
-//         data: {
-//           id: savedSong.id
-//         }
-//       });
-
-//     } catch (error) {
-//       return res.status(500).json({
-//         status: false,
-//         message: "server error",
-//         error: error.message
-//       });
-//     }
-//   }
-// );
+    } catch (error) {
+      await queryRunner.rollbackTransaction();      
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message
+      });
+    } finally {
+      await queryRunner.release();
+    }
+  }
+);
 
 
+// get upload music
 /**
  * @swagger
  * /v1/user/music/owner/myuploads:
