@@ -14,17 +14,15 @@ import { Image } from "../../../../entity/Image";
 import { FavoriteSong } from "../../../../entity/FavoriteSong";
 import { ILike, In, LessThan, Like } from "typeorm";
 import { Genre } from "../../../../entity/Genre";
-import { Playlist } from "../../../../entity/Playlist";
 import { PlaylistSong } from "../../../../entity/PlaylistSong";
 import { isArtistUser } from "../../../../middlewares/IsArtist";
 import {
-  ProductionRoleDto,
   SingleMusicDto,
 } from "../../../../dtos/music/SingleMusic";
 import { SongProductionRole } from "../../../../entity/MusicProductionRole";
-import { count } from "console";
 
 export const musicRouter = Router();
+
 
 // get all song by album
 /**
@@ -268,6 +266,7 @@ musicRouter.get(
     }
   }
 );
+
 
 // detail music
 /**
@@ -534,6 +533,7 @@ musicRouter.get(
     }
   }
 );
+
 
 // create song by artist
 /**
@@ -1164,6 +1164,7 @@ musicRouter.patch(
   }
 );
 
+
 // delete (soft delete) song by artist
 /**
  * @swagger
@@ -1453,6 +1454,7 @@ musicRouter.get(
     }
   }
 );
+
 
 // show music by artist id
 /**
@@ -1858,6 +1860,7 @@ musicRouter.get(
   }
 );
 
+
 // get album by artist_id
 /**
  * @swagger
@@ -2013,6 +2016,7 @@ musicRouter.get(
     }
   }
 );
+
 
 // search music by title
 /**
@@ -2306,7 +2310,7 @@ musicRouter.get(
       const MusicListResponse = AppDataSource.getRepository(Song);
       const [findMusics, count] = await MusicListResponse.findAndCount({
         where: {
-          title: ILike(`%${title}%`),
+          title: Like(`%${title}%`),
           is_active: true,
           release_date: LessThan(date),
           album: {
@@ -2342,11 +2346,6 @@ musicRouter.get(
             user: {
               id: true,
               username: true,
-              profile: {
-                id: true,
-                first_name: true,
-                last_name: true,
-              },
             },
           },
         },
@@ -2384,8 +2383,8 @@ musicRouter.get(
         artist: {
           id: item.artist.id,
           nicke_name: item.artist?.nick_name || null,
-          first_name: item.artist.user.profile?.first_name || null,
-          last_name: item.artist.user.profile?.last_name || null,
+          first_name: item.artist?.first_name || null,
+          last_name: item.artist?.last_name || null,
           username: item.artist.user.username,
           cover_image: {
             id: item.artist.cover_image?.id || null,
@@ -2413,6 +2412,359 @@ musicRouter.get(
     }
   }
 );
+
+
+// search artist
+/**
+ * @swagger
+ * /v1/user/music/search/artists:
+ *   get:
+ *     summary: جستجوی آرتیست‌ها بر اساس نام کاربری
+ *     description: جستجوی آرتیست‌ها بر اساس نام کاربری، نام، نام خانوادگی و نام مستعار
+ *     tags: [Music]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: q
+ *         in: query
+ *         required: true
+ *         description: عبارت جستجو
+ *         schema:
+ *           type: string
+ *           minLength: 2
+ *           example: "john"
+ *       - name: page
+ *         in: query
+ *         description: شماره صفحه
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *           example: 1
+ *       - name: limit
+ *         in: query
+ *         description: تعداد آیتم در هر صفحه
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *           example: 20
+ *     responses:
+ *       200:
+ *         description: نتایج جستجوی آرتیست‌ها
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "success"
+ *                 search_query:
+ *                   type: string
+ *                   example: "john"
+ *                 count:
+ *                   type: integer
+ *                   example: 15
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 20
+ *                     total_pages:
+ *                       type: integer
+ *                       example: 1
+ *                 results:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SearchArtistResult'
+ *       400:
+ *         description: عبارت جستجو نامعتبر
+ *       500:
+ *         description: خطای سرور
+ */
+musicRouter.get(
+  "/search/artists",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const limit = Number(req.query.limit) || 20;
+      const page = Number(req.query.page) || 1;
+      const skip = (page - 1) * limit;
+      const searchQuery = req.query.q?.toString().trim() || "";
+
+      if (!searchQuery || searchQuery.length < 2) {
+        return res.status(400).json({
+          status: false,
+          message: "search query must be at least 2 characters",
+        });
+      }
+
+      const searchTerm = `%${searchQuery}%`;
+
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const [artists, total] = await artistRepository.findAndCount({
+        where: [
+          { user: { username: Like(searchTerm) }, is_active: true },
+          { first_name: Like(searchTerm), is_active: true },
+          { last_name: Like(searchTerm), is_active: true },
+          { nick_name: Like(searchTerm), is_active: true },
+        ],
+        relations: {
+          user: true,
+          cover_image: true,
+          profile_image: true,
+        },
+        select: {
+          id: true,
+          nick_name: true,
+          first_name: true,
+          last_name: true,
+          // bio: true,
+          createdAt: true,
+          monthly_listeners: true,
+          cover_image: {
+            id: true,
+            image_path: true,
+          },
+          profile_image: {
+            id: true,
+            image_path: true,
+          },
+          user: {
+            id: true,
+            username: true,
+            is_artist: true,
+          },
+        },
+        order: {
+          createdAt: "DESC",
+        },
+        skip: skip,
+        take: limit,
+      });
+
+      const results = artists.map((artist) => ({
+        id: artist.id,
+        user_id: artist.user?.id || null,
+        username: artist.user?.username || null,
+        nick_name: artist?.nick_name || null,
+        first_name: artist?.first_name || null,
+        last_name: artist?.last_name || null,
+        created_at: artist.createdAt,
+        monthly_listeners: artist.monthly_listeners || 0,
+        cover_image: artist.cover_image ? {
+          id: artist.cover_image.id,
+          image_path: artist.cover_image.image_path,
+        } : null,
+        profile_image: {
+          id: artist.profile_image?.id || null,
+          image_path: artist.profile_image?.image_path || null,
+        },
+        type: "artist",
+      }));
+
+      return res.status(200).json({
+        message: "success",
+        search_query: searchQuery,
+        count: total,
+        page: page,
+        limit: limit,
+        total_pages: Math.ceil(total / limit),
+        results: results,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
+    }
+  }
+);
+
+
+// search album
+/**
+ * @swagger
+ * /v1/user/music/search/albums:
+ *   get:
+ *     summary: جستجوی آلبوم‌ها بر اساس عنوان
+ *     description: جستجوی آلبوم‌ها بر اساس عنوان با پشتیبانی از pagination
+ *     tags: [Music]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: q
+ *         in: query
+ *         required: true
+ *         description: عبارت جستجو
+ *         schema:
+ *           type: string
+ *           minLength: 2
+ *           example: "best"
+ *       - name: page
+ *         in: query
+ *         description: شماره صفحه
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *           example: 1
+ *       - name: limit
+ *         in: query
+ *         description: تعداد آیتم در هر صفحه
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *           example: 20
+ *     responses:
+ *       200:
+ *         description: نتایج جستجوی آلبوم‌ها
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "success"
+ *                 search_query:
+ *                   type: string
+ *                   example: "best"
+ *                 count:
+ *                   type: integer
+ *                   example: 8
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 20
+ *                     total_pages:
+ *                       type: integer
+ *                       example: 1
+ *                 results:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SearchAlbumResult'
+ *       400:
+ *         description: عبارت جستجو نامعتبر
+ *       500:
+ *         description: خطای سرور
+ */
+musicRouter.get(
+  "/search/albums",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const limit = Number(req.query.limit) || 20;
+      const page = Number(req.query.page) || 1;
+      const skip = (page - 1) * limit;
+      const searchQuery = req.query.q?.toString().trim() || "";
+
+      if (!searchQuery || searchQuery.length < 2) {
+        return res.status(400).json({
+          status: false,
+          message: "search query must be at least 2 characters",
+        });
+      }
+
+      const searchTerm = `%${searchQuery}%`;
+      const date = new Date();
+
+      const albumRepository = AppDataSource.getRepository(Album);
+      const [albums, total] = await albumRepository.findAndCount({
+        where: {
+          title: Like(searchTerm),
+          is_active: true,
+          release_date: LessThan(date),
+        },
+        relations: {
+          cover_image: true,
+          user: true,
+          genre: true,
+        },
+        select: {
+          id: true,
+          title: true,
+          release_date: true,
+          createdAt: true,
+          cover_image: {
+            id: true,
+            image_path: true,
+          },
+          user: {
+            id: true,
+            username: true,
+          },
+          genre: {
+            id: true,
+            name: true,
+          },
+        },
+        order: {
+          release_date: "DESC",
+          createdAt: "DESC",
+        },
+        skip: skip,
+        take: limit,
+      });
+
+      const results = albums.map((album) => ({
+        id: album.id,
+        title: album.title,
+        release_date: album.release_date,
+        cover_image: album.cover_image ? {
+          id: album.cover_image.id,
+          image_path: album.cover_image.image_path,
+        } : null,
+        genre: album.genre ? {
+          id: album.genre.id,
+          name: album.genre.name,
+        } : null,
+        artist: album.user ? {
+          id: album.user.id,
+          username: album.user.username,
+        } : null,
+        created_at: album.createdAt,
+        type: "album",
+      }));
+
+      return res.status(200).json({
+        message: "success",
+        search_query: searchQuery,
+        count: total,
+        page: page,
+        limit: limit,
+        total_pages: Math.ceil(total / limit),
+        results: results,
+      });
+    } catch (error) {
+      console.error("Search albums error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
+    }
+  }
+);
+
 
 // increemt play count
 /**
@@ -2544,6 +2896,7 @@ musicRouter.post(
     }
   }
 );
+
 
 // create single music
 /**
@@ -2890,6 +3243,7 @@ musicRouter.post(
     }
   }
 );
+
 
 // get upload music
 /**
