@@ -714,8 +714,7 @@ artistReouter.get(
         .leftJoinAndSelect("artist.gallery_images", "gallery_images")
         .leftJoinAndSelect("gallery_images.image", "gallery_image")
         .leftJoinAndSelect("artist.social_links", "social_links")
-        .where("artist.id = :artistId", { artistId })
-        .andWhere("artist.is_active = :is_active", { is_active: true })
+        .where("artist.is_active = :is_active AND artist.id = :artistId", { is_active: true, artistId: artistId })
         .select([
           "artist.id",
           "artist.bio",
@@ -776,11 +775,15 @@ artistReouter.get(
         monthly_listeners: getArtist.monthly_listeners || 0,
         bio: getArtist.bio,
         nick_name: getArtist.nick_name,
-        gallery_images: getArtist.gallery_images.map((gallery) => ({
+        gallery_images: getArtist.gallery_images
+        .filter(gallery => gallery.is_active)
+        .map((gallery) => ({
           id: gallery.id,
           image_path: gallery.image?.image_path || null,
         })),
-        artist_social: getArtist.social_links.map((social) => ({
+        artist_social: getArtist.social_links
+        .filter(social => social.is_active)
+        .map((social) => ({
           id: social.id,
           platform: social.platform,
           url: social.url,
@@ -793,7 +796,6 @@ artistReouter.get(
         is_follow: isFollow,
       });
     } catch (error) {
-      console.error("Error in public artist profile:", error);
       return res.status(500).json({
         status: false,
         message: "server error",
