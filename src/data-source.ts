@@ -49,9 +49,9 @@ export const AppDataSource = new DataSource({
     synchronize: true,
     logging: "all",
     entities: [
-        User, 
+        User,
         Profile, 
-        Image, 
+        Image,
         UserNotification, 
         PublicNotification, 
         Follow,

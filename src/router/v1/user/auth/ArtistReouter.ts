@@ -756,6 +756,19 @@ artistReouter.get(
           is_active: true,
           to_user: { id: getArtist.user.id },
         },
+        relations: {
+          from_user: true,
+          to_user: true
+        },
+        select: {
+          id: true,
+          to_user: {
+            id: true
+          },
+          from_user: {
+            id: true
+          }
+        }
       });
 
       let isFollow = false;

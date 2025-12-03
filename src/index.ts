@@ -23,6 +23,7 @@ import { artistReouter } from "./router/v1/user/auth/ArtistReouter";
 import { bestMusicRouter } from "./router/v1/user/music/BestMusicRouter";
 import { downloadRouter } from "./router/v1/user/music/DownloadMusicRouter";
 import { wallerRouter } from "./router/v1/user/wallet/WalletRouter";
+import { emailRouter } from "./router/v1/user/auth/EmailRouter";
 
 dotenv.config()
 
@@ -116,7 +117,11 @@ AppDataSource.initialize().then(() => {
     app.use(
         "/v1/user/wallet/",
         wallerRouter
-    )
+    ),
+    app.use(
+        "/v1/email/",
+        emailRouter
+    ),
     // listen
     app.listen(port)
 
