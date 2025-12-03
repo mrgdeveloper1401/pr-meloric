@@ -1,15 +1,18 @@
 import { plainToClass } from "class-transformer";
 import { Router, Request, Response } from "express";
-import { EmailDto } from "../../../../dtos/auth/EmailDtos";
+import { EmailDto, VerifyOtpEmailDto } from "../../../../dtos/auth/EmailDtos";
 import { validate } from "class-validator";
 import { AppDataSource } from "../../../../data-source";
 import { User } from "../../../../entity/User";
 import { emailOtpRateLimit } from "../../../../middlewares/EmailRateLimit";
+import { createEmailService, EmailService } from "../../../../utils/EmailService";
+import { funcCreateToken } from "../../../../utils/createJwtToken";
 
 
 export const emailRouter = Router();
 
 
+// request otp
 /**
  * @swagger
  * /v1/email/request_otp_email:
@@ -82,7 +85,7 @@ emailRouter.post(
             }
 
             // store otp in redis
-            // await createEmailService.storeEmailOtp(emailDto.email, req.ip);
+            await createEmailService.storeEmailOtp(emailDto.email, req.ip);
             // // send otp into email
             // await createEmailService.sendEmail(
             //     {
@@ -110,11 +113,194 @@ emailRouter.post(
     }
 );
 
+// verify otp
+/**
+ * @swagger
+ * /v1/email/verify_otp_email:
+ *   post:
+ *     tags:
+ *       - Email
+ *     summary: تأیید کد OTP ایمیل
+ *     description: |
+ *       تأیید کد ۶ رقمی ارسال شده به ایمیل و ایجاد توکن دسترسی در صورت موفقیت
+ *       
+ *       نکات مهم:
+ *       - کد OTP فقط یکبار قابل استفاده است
+ *       - کد OTP به مدت ۵ دقیقه معتبر است
+ *       - پس از تأیید موفق، توکن دسترسی و توکن تازه‌سازی صادر می‌شود
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - code
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: ایمیل کاربر
+ *                 example: "user@example.com"
+ *               code:
+ *                 type: string
+ *                 description: کد ۶ رقمی ارسال شده به ایمیل
+ *                 example: "123456"
+ *                 minLength: 6
+ *                 maxLength: 6
+ *     responses:
+ *       200:
+ *         description: تأیید موفق و توکن‌ها ایجاد شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 access_token:
+ *                   type: string
+ *                   description: توکن دسترسی برای احراز هویت
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 refresh_token:
+ *                   type: string
+ *                   description: توکن تازه‌سازی برای دریافت توکن دسترسی جدید
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 is_staff:
+ *                   type: boolean
+ *                   description: آیا کاربر مدیر سیستم است؟
+ *                   example: false
+ *                 is_artist:
+ *                   type: boolean
+ *                   description: آیا کاربر هنرمند است؟
+ *                   example: true
+ *       400:
+ *         description: داده‌های ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "invalid data"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       404:
+ *         description: کاربر یافت نشد یا کد OTP نامعتبر است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "email or otp code is invalid"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *                 error:
+ *                   type: string
+ *                   example: "خطای داخلی سرور"
+ */
+emailRouter.post(
+    "/verify_otp_email",
+    async (req: Request, res: Response) => {
+        try {
+            const verifyEmailDto = plainToClass(VerifyOtpEmailDto, req.body);
+            const errors = await validate(verifyEmailDto);
+            
+            if (errors.length > 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: "داده‌های ورودی نامعتبر است",
+                    errors: errors.map(err => ({
+                        property: err.property,
+                        constraints: err.constraints,
+                        value: err.value
+                    }))
+                });
+            }
 
-// emailRouter.post(
-//     "/verify_otp_email"
-// )
+            // 2. بررسی صحت کد OTP
+            const verifyOtpRedis = await createEmailService.verifyEmailOtp(
+                verifyEmailDto.email, 
+                verifyEmailDto.code, 
+                req.ip
+            );
+            
+            if (!verifyOtpRedis) {
+                return res.status(404).json({
+                    status: false,
+                    message: "کد تأیید نامعتبر است یا منقضی شده. لطفاً درخواست کد جدید کنید"
+                });
+            }
 
+            // 3. بررسی وجود کاربر فعال
+            const userRepository = AppDataSource.getRepository(User);
+            const user = await userRepository.findOne({
+                where: {
+                    email: verifyEmailDto.email,
+                    is_active: true
+                },
+                select: {
+                    id: true,
+                    is_staff: true,
+                    is_artist: true,
+                    email: true
+                }
+            });
+
+            if (!user) {
+                return res.status(404).json({
+                    status: false,
+                    message: "کاربر یافت نشد یا حساب غیرفعال است"
+                });
+            }
+
+            const tokens = funcCreateToken(user.id, true);
+            
+            return res.status(200).json({
+                status: "success",
+                message: "احراز هویت با موفقیت انجام شد",
+                access_token: tokens.accessToken,
+                refresh_token: tokens.refreshToken,
+                is_staff: user.is_staff,
+                is_artist: user.is_artist,
+                user_id: user.id,
+                token_type: "Bearer",
+                expires_in: "30d"
+            });
+
+        } catch (error) {            
+            return res.status(500).json({
+                status: false,
+                message: "خطای سرور داخلی",
+                error: error.message
+            });
+        }
+    }
+);
 
 // emailRouter.post(
 //     "/request_forget_password_email`"
