@@ -219,7 +219,9 @@ musicRouter.get(
       //         }
       //     )
       // )
+      const userId = (req as any).user.user_id;
       const data = songs.map((item) => ({
+        is_owner: item.artist?.user.id === userId,
         id: item.id,
         title: item.title,
         release_date: item.release_date,
@@ -482,8 +484,13 @@ musicRouter.get(
       if (checkPlayList) {
         is_in_playList = true;
       }
+
+      // is owner
+      const isOwner = getMusic.artist?.user?.id == userId;
+      
       const data = {
         id: getMusic.id,
+        is_owner: isOwner,
         title: getMusic.title,
         release_date: getMusic.release_date,
         play_count: getMusic.play_count,
@@ -492,11 +499,11 @@ musicRouter.get(
         image: {
           image_path: getMusic.image?.image_path || null,
         },
-        album: {
+        album: getMusic.album ? {
           id: getMusic.album.id,
           title: getMusic.album.title,
           cover_image: getMusic.album.cover_image?.image_path || null,
-        },
+        } : null,
         artist: {
           id: getMusic.artist.id,
           nicke_name: getMusic.artist?.nick_name || null,
@@ -529,6 +536,7 @@ musicRouter.get(
       return res.status(500).json({
         status: false,
         message: "server error",
+        error: error.message
       });
     }
   }
@@ -1380,7 +1388,7 @@ musicRouter.get(
         .leftJoinAndSelect("song.artist", "artist")
         .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
         .leftJoinAndSelect("artist.user", "user")
-        .leftJoinAndSelect("user.profile", "profile")
+        // .leftJoinAndSelect("user.profile", "profile")
         .leftJoinAndSelect("album.cover_image", "album_cover_image")
         .leftJoinAndSelect("album.genre", "genre")
         .where("song.is_active = :isActive", { isActive: true })
@@ -1396,8 +1404,11 @@ musicRouter.get(
 
       const [musics, total] = await queryBuilder.getManyAndCount();
 
+      const userId = (req as any).user.user_id;
+
       const data = musics.map((item) => ({
         id: item.id,
+        is_owner: item.artist?.user?.id === userId,
         title: item.title,
         release_date: item.release_date,
         play_count: item.play_count,
@@ -1418,8 +1429,8 @@ musicRouter.get(
         artist: {
           id: item.artist.id,
           nick_name: item.artist?.nick_name || null,
-          first_name: item.artist.user?.profile?.first_name || null,
-          last_name: item.artist.user?.profile?.last_name || null,
+          first_name: item.artist?.first_name || null,
+          last_name: item.artist?.last_name || null,
           username: item.artist.user?.username || null,
           cover_image: {
             id: item.artist.cover_image?.id || null,
@@ -1655,7 +1666,6 @@ musicRouter.get(
       const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
       const skip = (page - 1) * limit;
 
-      // پارامترهای مرتب‌سازی جدید
       const sortBy = (req.query.sort_by as string) || "created_at";
       const sortOrder = (req.query.sort_order as string) || "desc";
 
@@ -1667,7 +1677,6 @@ musicRouter.get(
         });
       }
 
-      // اعتبارسنجی پارامترهای مرتب‌سازی
       const validSortFields = [
         "created_at",
         "play_count",
@@ -1710,7 +1719,6 @@ musicRouter.get(
         });
       }
 
-      // تعیین فیلد مرتب‌سازی برای TypeORM
       let orderField = "";
       switch (sortBy) {
         case "created_at":
@@ -1799,9 +1807,12 @@ musicRouter.get(
         take: limit,
       });
 
+      const userId = (req as any).user.user_id;
+
       // Transform data
       const data = musics.map((item) => ({
         id: item.id,
+        is_owner: item.artist?.user?.id === userId,
         title: item.title,
         release_date: item.release_date,
         play_count: item.play_count,

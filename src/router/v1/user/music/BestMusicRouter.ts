@@ -16,6 +16,7 @@ export const bestMusicRouter = Router();
  *     description: |
  *       Retrieve a list of random active songs with complete details including artist, album, and audio information.
  *       The number of songs can be customized via query parameter (default 20, max 100).
+ *       Each response includes an "is_owner" field indicating if the authenticated user owns the song.
  *     tags:
  *       - Music
  *     security:
@@ -37,12 +38,9 @@ export const bestMusicRouter = Router();
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 count:
- *                   type: integer
- *                   example: 20
+ *                 status:
+ *                   type: string
+ *                   example: "success"
  *                 data:
  *                   type: array
  *                   items:
@@ -51,6 +49,10 @@ export const bestMusicRouter = Router();
  *                       id:
  *                         type: integer
  *                         example: 1
+ *                       is_owner:
+ *                         type: boolean
+ *                         description: Indicates if the authenticated user is the owner/artist of the song
+ *                         example: false
  *                       title:
  *                         type: string
  *                         example: "Bohemian Rhapsody"
@@ -65,8 +67,20 @@ export const bestMusicRouter = Router();
  *                         type: string
  *                         nullable: true
  *                         example: "Is this the real life? Is this just fantasy?..."
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2024-01-01T00:00:00.000Z"
+ *                       image:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           image_path:
+ *                             type: string
+ *                             example: "/images/songs/bohemian.jpg"
  *                       album:
  *                         type: object
+ *                         nullable: true
  *                         properties:
  *                           id:
  *                             type: integer
@@ -74,25 +88,31 @@ export const bestMusicRouter = Router();
  *                           title:
  *                             type: string
  *                             example: "A Night at the Opera"
- *                           bio:
+ *                           cover_image:
  *                             type: string
- *                             example: "Fourth studio album by Queen"
- *                           release_date:
- *                             type: string
- *                             format: date-time
- *                             example: "1975-11-21T00:00:00.000Z"
+ *                             nullable: true
+ *                             example: "/images/albums/opera.jpg"
  *                       artist:
  *                         type: object
  *                         properties:
  *                           id:
  *                             type: integer
  *                             example: 1
- *                           monthly_listeners:
- *                             type: integer
- *                             example: 5000000
- *                           bio:
+ *                           nick_name:
  *                             type: string
- *                             example: "British rock band formed in London in 1970"
+ *                             nullable: true
+ *                             example: "Queen"
+ *                           first_name:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "Freddie"
+ *                           last_name:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "Mercury"
+ *                           username:
+ *                             type: string
+ *                             example: "queen_official"
  *                           cover_image:
  *                             type: object
  *                             nullable: true
@@ -103,21 +123,12 @@ export const bestMusicRouter = Router();
  *                               image_path:
  *                                 type: string
  *                                 example: "/images/artists/queen.jpg"
- *                               file_name:
- *                                 type: string
- *                                 example: "queen.jpg"
  *                       audio:
  *                         type: object
  *                         properties:
- *                           id:
- *                             type: integer
- *                             example: 1
  *                           audio_file_path:
  *                             type: string
  *                             example: "/audio/bohemian_rhapsody.mp3"
- *                           duration:
- *                             type: integer
- *                             example: 354
  *                           audio_format:
  *                             type: string
  *                             example: "mp3"
@@ -154,68 +165,105 @@ bestMusicRouter.get(
     authenticateJWT,
     async (req: Request, res: Response) => {
         try {
+            const userId = (req as any).user.userId;
             const musicRepository = AppDataSource.getRepository(Song);
             
-            // گرفتن تعداد از query parameter (پیش‌فرض 20)
-            const count = parseInt(req.query.count as string) || 20;
-            const releaseDate = new Date()
+            const count = Math.min(parseInt(req.query.count as string) || 20, 100);
+            const releaseDate = new Date();
+            
             const randomMusics = await musicRepository
                 .createQueryBuilder("song")
+                .select([
+                    "song.id",
+                    "song.title",
+                    "song.release_date",
+                    "song.play_count",
+                    "song.music_lyrics",
+                    "song.createdAt",
+                    "song.updatedAt"
+                ])
                 .leftJoinAndSelect("song.artist", "artist")
-                .leftJoinAndSelect("artist.user", "user")
-                .leftJoinAndSelect("user.profile", "profile")
+                .leftJoin("artist.user", "user")
+                .addSelect([
+                    "artist.id",
+                    "artist.nick_name",
+                    "artist.first_name",
+                    "artist.last_name",
+                    "user.id",
+                    "user.username"
+                ])
                 .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
+                .addSelect([
+                    "artist_cover_image.id",
+                    "artist_cover_image.image_path"
+                ])
                 .leftJoinAndSelect("song.album", "album")
+                .addSelect([
+                    "album.id",
+                    "album.title"
+                ])
+                .leftJoin("album.cover_image", "album_cover_image")
+                .addSelect("album_cover_image.image_path")
                 .leftJoinAndSelect("song.audio", "audio")
-                .leftJoinAndSelect("song.image", "image")
-                .leftJoinAndSelect("album.cover_image", "album_cover_image")
+                .addSelect([
+                    "audio.audio_file_path",
+                    "audio.audio_format"
+                ])
+                .leftJoinAndSelect("song.image", "song_image")
+                .addSelect("song_image.image_path")
                 .where("song.is_active = :isActive", { isActive: true })
                 .andWhere("audio.is_active = :audioIsActive", { audioIsActive: true })
                 .andWhere("song.release_date < :releaseDate", { releaseDate })
                 .orderBy("RANDOM()")
                 .limit(count)
                 .getMany();
-
-            const response = randomMusics.map(randomMusic => ({
-                id: randomMusic.id,
-                title: randomMusic.title,
-                release_date: randomMusic.release_date,
-                play_count: randomMusic.play_count,
-                music_lyrics: randomMusic.music_lyrics,
-                created_at: randomMusic.createdAt,
-                image: {
-                    image_path: randomMusic.image?.image_path
-                },
-                album: {
-                    id: randomMusic.album.id,
-                    title: randomMusic.album.title,
-                    cover_image: randomMusic.album.cover_image?.image_path || null
-                },
-                artist: {
-                    id: randomMusic.artist?.id,
-                    // monthly_listeners: randomMusic.artist?.monthly_listeners,
-                    // bio: randomMusic.artist?.bio,
-                    nicke_name: randomMusic.artist.nick_name,
-                    first_name: randomMusic.artist.user.profile?.first_name,
-                    last_name: randomMusic.artist.user.profile?.last_name,
-                    username: randomMusic.artist.user.username,
-                    cover_image: randomMusic.artist?.cover_image ? {
-                        id: randomMusic.artist.cover_image.id,
-                        image_path: randomMusic.artist.cover_image.image_path,
-                        // file_name: randomMusic.artist.cover_image.file_name
+            
+            if (randomMusics.length === 0) {
+                return res.status(404).json({
+                    status: false,
+                    message: "No active songs found"
+                });
+            }
+            
+            const response = randomMusics.map(song => {
+                const isOwner = song.artist?.user?.id === userId;
+                
+                return {
+                    id: song.id,
+                    is_owner: isOwner,
+                    title: song.title,
+                    release_date: song.release_date,
+                    play_count: song.play_count,
+                    music_lyrics: song.music_lyrics,
+                    created_at: song.createdAt,
+                    image: song.image ? {
+                        image_path: song.image.image_path
+                    } : null,
+                    album: song.album ? {
+                        id: song.album.id,
+                        title: song.album.title,
+                        cover_image: (song.album as any).cover_image?.image_path || null
+                    } : null,
+                    artist: song.artist ? {
+                        id: song.artist.id,
+                        nick_name: song.artist.nick_name,
+                        first_name: song.artist.first_name,
+                        last_name: song.artist.last_name,
+                        username: song.artist.user?.username || null,
+                        cover_image: song.artist.cover_image ? {
+                            id: song.artist.cover_image.id,
+                            image_path: song.artist.cover_image.image_path
+                        } : null
+                    } : null,
+                    audio: song.audio ? {
+                        audio_file_path: song.audio.audio_file_path,
+                        audio_format: song.audio.audio_format
                     } : null
-                },
-                audio: {
-                    // id: randomMusic.audio?.id,
-                    audio_file_path: randomMusic.audio?.audio_file_path,
-                    // duration: randomMusic.audio?.duration,
-                    audio_format: randomMusic.audio?.audio_format
-                },
-            }));
+                };
+            });
 
             return res.json({
-                stayus: "success",
-                // count: randomMusics.length,
+                status: "success",
                 data: response
             });
 
