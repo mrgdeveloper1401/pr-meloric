@@ -14,7 +14,8 @@ RUN cp /dev/null /etc/apk/repositories && \
     apk update && \
     apk upgrade && \
     apk add bash && \
-    npm install
+    npm install && \
+    npm audit fix
 
 
 ENTRYPOINT ["/bin/bash"]
