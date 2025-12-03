@@ -1,70 +1,73 @@
-import nodemailer from "nodemailer"
-import crypto from "crypto"
+import nodemailer from "nodemailer";
+import crypto from "crypto";
 import { otpManagerClass } from "./connectRedis";
 
-
 interface EmailOption {
-    to: string;
-    subject: string;
-    text: string;
-    html?: string;
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
 }
 
-
-const HOST = process.env.EMAIL_HOST
-const PORT = process.env.EMAIL_PORT
-const SECURE = process.env.USE_SECURE
-const EMAIL_USER = process.env.EMAIL_USER
-const EMAIL_PASS = process.env.EMAIL_PASS
-const FROM_EMAIL = process.env.FROM_EMAIL
-
+const HOST = process.env.EMAIL_HOST as string;
+const PORT = Number(process.env.EMAIL_PORT) as number;
+const SECURE = Boolean(process.env.USE_SECURE) as boolean;
+const EMAIL_USER = process.env.EMAIL_USER as string;
+const EMAIL_PASS = process.env.EMAIL_PASS as string;
+const FROM_EMAIL = process.env.FROM_EMAIL as string;
 
 export class EmailService {
-    private transporter: nodemailer.Transporter;
-    
-    constructor(){
-        this.transporter = nodemailer.createTransport(
-            {
-                host: HOST,
-                port: PORT,
-                secure: SECURE,
-                auth: {
-                    user: EMAIL_USER,
-                    pass: EMAIL_PASS
-                }
-            }
-        );
-    }
+  private transporter: nodemailer.Transporter;
 
-    async sendEmail(options: EmailOption) {
-        try {
-            await this.transporter.sendMail(
-                {
-                    from: FROM_EMAIL,
-                    to: options.to,
-                    subject: options.text,
-                    text: options.text,
-                    html: options.html
-                }
-            );
-            return true
-        } catch (error) {
-            throw new Error(error);
-        }
-    }
+  constructor() {
+    const transporterOptions = {
+      host: HOST,
+      port: PORT,
+      secure: SECURE,
+      auth: {
+        user: EMAIL_USER,
+        pass: EMAIL_PASS,
+      },
+    };
+    this.transporter = nodemailer.createTransport(transporterOptions);
+  }
 
-    generateOtpCode() {
-        return crypto.randomInt(999999);
+  private async verifyTransporter() {
+    try {
+      await this.transporter.verify();
+    } catch (error) {
+      throw new Error(error);
     }
+  }
 
-    async storeEmailOtp(email: string, ipAddress: string){
-        const code = this.generateOtpCode();
-        await otpManagerClass.storeOtp(email, code, ipAddress);
+  async sendEmail(options: EmailOption) {
+    try {
+      await this.transporter.sendMail({
+        from: FROM_EMAIL,
+        to: options.to,
+        subject: options.text,
+        text: options.text,
+        html: options.html,
+      });
+      return true;
+    } catch (error) {
+      throw new Error(error);
     }
+  }
 
-    async verifyEmailOtp(email: string, code: number, ipAddress: string){
-        return await otpManagerClass.verifyOtp(email, code, ipAddress);
-    }
+  generateOtpCode() {
+    return crypto.randomInt(999999);
+  }
+
+  async storeEmailOtp(email: string, ipAddress: string) {
+    const code = this.generateOtpCode();
+    await otpManagerClass.storeOtp(email, code, ipAddress);
+    return code;
+  }
+
+  async verifyEmailOtp(email: string, code: number, ipAddress: string) {
+    return await otpManagerClass.verifyOtp(email, code, ipAddress);
+  }
 }
 
-export const createEmailService = new EmailService()
+export const createEmailService = new EmailService();

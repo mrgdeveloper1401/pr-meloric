@@ -5,8 +5,8 @@ import { validate } from "class-validator";
 import { AppDataSource } from "../../../../data-source";
 import { User } from "../../../../entity/User";
 import { emailOtpRateLimit } from "../../../../middlewares/EmailRateLimit";
-import { createEmailService, EmailService } from "../../../../utils/EmailService";
 import { funcCreateToken } from "../../../../utils/createJwtToken";
+import { createEmailService } from "../../../../utils/EmailService";
 
 
 export const emailRouter = Router();
