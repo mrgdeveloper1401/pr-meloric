@@ -3449,6 +3449,7 @@ musicRouter.get(
   async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user.id;
+      const artistId = (req as any).artist.id;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
       const skip = (page - 1) * limit;
@@ -3458,7 +3459,7 @@ musicRouter.get(
       const checkArtist = await artistRepository.findOne({
         where: {
           is_active: true,
-          user: { id: userId },
+          id: artistId
         },
         select: { id: true },
       });
@@ -3473,7 +3474,7 @@ musicRouter.get(
       const songRepository = AppDataSource.getRepository(Song);
       const [songs, total] = await songRepository.findAndCount({
         where: {
-          artist: { id: checkArtist.id, is_active: true },
+          artist: { id: artistId, is_active: true },
           is_active: true
         },
         relations: {
