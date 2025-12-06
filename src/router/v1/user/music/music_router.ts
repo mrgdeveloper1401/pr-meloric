@@ -3448,131 +3448,82 @@ musicRouter.get(
   isArtistUser,
   async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user.id;
       const artistId = (req as any).artist.id;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
       const skip = (page - 1) * limit;
-      
-      // check artist
-      const artistRepository = AppDataSource.getRepository(Artist);
-      const checkArtist = await artistRepository.findOne({
-        where: {
-          is_active: true,
-          id: artistId
-        },
-        select: { id: true },
-      });
 
-      if (!checkArtist) {
-        return res.status(404).json({
-          success: false,
-          message: "آرتیستی برای این کاربر یافت نشد",
-        });
-      }
+      // Check artist exists
+      // const artistExists = await AppDataSource.getRepository(Artist)
+      //   .createQueryBuilder("artist")
+      //   .select("artist.id")
+      //   .where("artist.id = :artistId AND artist.is_active = true", { artistId })
+      //   .getExists();
 
-      const songRepository = AppDataSource.getRepository(Song);
-      const [songs, total] = await songRepository.findAndCount({
-        where: {
-          artist: { id: artistId, is_active: true },
-          is_active: true
-        },
-        relations: {
-          artist: true,
-          album: true,
-          audio: true,
-          image: true,
-          featured_artists: {
-            user: true
-          },
-          production_roles: {
-            artist: {
-              user: true
-            }
-          }
-        },
-        select: {
-            id: true,
-            title: true,
-            createdAt: true,
-            play_count: true,
-            is_single: true,
-            album: {
-                id: true
-            },
-            audio: {
-                id: true
-            },
-            image: {
-                id: true
-            },
-            featured_artists: {
-                id: true,
-                user: {
-                    id: true,
-                    username: true
-                }
-            },
-            production_roles: {
-                id: true,
-                role: true,
-                artist: {
-                    id: true,
-                    user: {
-                        id: true,
-                        username: true
-                    }
-                }
-            }
-        },
-        order: {
-          createdAt: 'DESC'
-        },
-        skip: skip,
-        take: limit
-      });
+      // if (!artistExists) {
+      //   return res.status(404).json({
+      //     success: false,
+      //     message: "آرتیستی برای این کاربر یافت نشد",
+      //   });
+      // }
 
-      const simpleData = songs.map((song) => {
-        const data = {
-          song_id: song.id,
-          song_title: song.title,
-          created_at: song.createdAt,
-          play_count: song.play_count,
-          is_single: song.is_single,
-          album_id: song.album?.id || null,
-          audio_id: song.audio?.id || null,
-          image_id: song.image?.id || null,
-          featured_artists: [],
-          production_roles: [],
-        };
+      // Main query with optimized joins
+      const queryBuilder = AppDataSource.getRepository(Song)
+        .createQueryBuilder("song")
+        .innerJoinAndSelect("song.artist", "artist")
+        .innerJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("song.audio", "audio")
+        .leftJoinAndSelect("song.image", "image")
+        .leftJoinAndSelect("song.album", "album")
+        .where("song.artist.id = :artistId", { artistId })
+        .andWhere("song.is_active = true")
+        .andWhere("artist.is_active = true")
+        .orderBy("song.createdAt", "DESC")
+        .skip(skip)
+        .take(limit);
 
-        // Process featured artists
-        if (song.featured_artists && Array.isArray(song.featured_artists)) {
-          data.featured_artists = song.featured_artists
-            .filter(
-              (artist) =>
-                artist && artist.id && artist.user && artist.user.username
-            )
-            .map((artist) => ({
-              artist_id: artist.id,
-              artist_username: artist.user.username,
-            }));
-        }
+      // Select only necessary fields
+      queryBuilder.select([
+        "song.id",
+        "song.title",
+        "song.createdAt",
+        "song.play_count",
+        "song.release_date",
+        "artist.id",
+        "artist.nick_name",
+        "artist.first_name",
+        "artist.last_name",
+        "user.id",
+        "user.username",
+        "audio.id",
+        "audio.audio_file_path",
+        "image.id",
+        "image.image_path",
+        "album.id"
+      ]);
 
-        // Process production roles
-        if (song.production_roles && Array.isArray(song.production_roles)) {
-          data.production_roles = song.production_roles
-            .filter((role) => role && role.is_active !== false)
-            .map((role) => ({
-              id: role.id,
-              role: role.role,
-              artist_id: role.artist?.id || null,
-              artist_username: role.artist?.user?.username || null,
-            }));
-        }
+      // Get data and count in parallel for better performance
+      const [songs, total] = await Promise.all([
+        queryBuilder.getMany(),
+        queryBuilder.getCount()
+      ]);
 
-        return data;
-      });
+      // Transform data
+      const simpleData = songs.map((song) => ({
+        song_id: song.id,
+        artist_id: song.artist.id,
+        audio_path: song.audio?.audio_file_path || null,
+        image_path: song.image?.image_path || null,
+        artist_nick_name: song.artist.nick_name,
+        artist_first_name: song.artist.first_name,
+        artist_last_name: song.artist.last_name,
+        username: song.artist.user.username,
+        created_at: song.createdAt,
+        play_count: song.play_count,
+        release_dat: song.release_date,
+        title: song.title,
+        album_id: song.album?.id || null
+      }));
 
       res.status(200).json({
         message: "success",
