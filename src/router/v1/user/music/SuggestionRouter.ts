@@ -152,15 +152,14 @@ suggestRouter.get(
     async (req: Request, res: Response) => {
         try {
             const musicRepository = AppDataSource.getRepository(Song);
-            
-            // گرفتن تعداد از query parameter (پیش‌فرض 20)
+
             const count = parseInt(req.query.count as string) || 20;
-            
+
             const randomMusics = await musicRepository
                 .createQueryBuilder("song")
                 .leftJoinAndSelect("song.artist", "artist")
                 .leftJoinAndSelect("artist.user", "user")
-                .leftJoinAndSelect("user.profile", "profile")
+                // .leftJoinAndSelect("user.profile", "profile")
                 .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
                 .leftJoinAndSelect("song.album", "album")
                 .leftJoinAndSelect("song.audio", "audio")
@@ -187,28 +186,28 @@ suggestRouter.get(
                 music_lyrics: randomMusic.music_lyrics,
                 created_at: randomMusic.createdAt,
                 image: {
-                    image_path: randomMusic.image?.image_path
+                    image_path: randomMusic.image?.image_path || null
                 },
                 album: {
-                    id: randomMusic.album?.id,
-                    title: randomMusic.album?.title,
+                    id: randomMusic.album?.id || null,
+                    title: randomMusic.album?.title || null,
                     // bio: randomMusic.album?.bio,
                     // release_date: randomMusic.album?.release_date,
-                    cover_image: randomMusic.album.cover_image?.image_path
+                    // cover_image: randomMusic.album.cover_image?.image_path || null
                 },
                 artist: {
                     id: randomMusic.artist?.id,
                     // monthly_listeners: randomMusic.artist?.monthly_listeners,
                     // bio: randomMusic.artist?.bio,
-                    nicke_name: randomMusic.artist.nick_name,
-                    first_name: randomMusic.artist.user.profile?.first_name,
-                    last_name: randomMusic.artist.user.profile?.last_name,
+                    nicke_name: randomMusic.artist?.nick_name || null,
+                    first_name: randomMusic.artist?.first_name || null,
+                    last_name: randomMusic.artist?.last_name || null,
                     username: randomMusic.artist.user.username,
-                    cover_image: randomMusic.artist?.cover_image ? {
-                        id: randomMusic.artist.cover_image.id,
-                        image_path: randomMusic.artist.cover_image.image_path,
+                    cover_image: {
+                        id: randomMusic.artist.cover_image?.id || null,
+                        image_path: randomMusic.artist.cover_image?.image_path || null,
                         // file_name: randomMusic.artist.cover_image.file_name
-                    } : null
+                    }
                 },
                 audio: {
                     // id: randomMusic.audio?.id,
@@ -227,7 +226,8 @@ suggestRouter.get(
         } catch (error) {
             return res.status(500).json({ 
                 success: false, 
-                message: "Internal server error" 
+                message: "Internal server error",
+                error: error.message
             });
         }
     }

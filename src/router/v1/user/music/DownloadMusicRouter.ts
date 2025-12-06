@@ -262,22 +262,22 @@ downloadRouter.get(
                         image: true,
                         artist: true,
                         album: {
-                            user: {
-                                profile: true
-                            }
+                            user: true
                         }
                     },
                 },
                 select: {
                     id: true,
                     createdAt: true,
-                    updatedAt: true,
                     song: {
                         id: true,
                         title: true,
                         play_count: true,
                         artist: {
                             id: true,
+                            first_name: true,
+                            last_name: true,
+                            nick_name: true
                         },
                         audio: {
                             audio_file_path: true
@@ -290,11 +290,6 @@ downloadRouter.get(
                             // title: true,
                             user: {
                                 id: true,
-                                profile: {
-                                    id: true,
-                                    first_name: true,
-                                    last_name: true
-                                }
                             }
                         }
                     },
@@ -311,13 +306,13 @@ downloadRouter.get(
                         id: item.id,
                         artist_id: item.song.artist.id,
                         created_at: item.createdAt,
-                        updated_at: item.updatedAt,
                         music_id: item.song.id,
                         music_title: item.song.title,
                         audio: item.song.audio.audio_file_path,
                         music_cover_image: item.song.image?.image_path || null,
-                        artist_first_name: item.song.album.user.profile?.first_name || null,
-                        artist_last_name: item.song.album.user.profile?.last_name || null,
+                        artist_first_name: item.song.artist?.first_name || null,
+                        artist_last_name: item.song.artist?.last_name || null,
+                        artist_nick_name: item.song.artist?.nick_name || null,
                         play_count: item.song.play_count
 
                     }
