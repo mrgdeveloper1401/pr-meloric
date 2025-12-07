@@ -410,7 +410,11 @@ musicRouter.get(
               id: true,
               nick_name: true,
               first_name: true,
-              last_name: true
+              last_name: true,
+              user: {
+                id: true,
+                username: true
+              }
             },
             role: true,
             is_active: true
@@ -450,7 +454,9 @@ musicRouter.get(
             user: true
           },
           production_roles: {
-            artist: true
+            artist: {
+              user: true
+            }
           },
           album: {
             cover_image: true,
@@ -550,6 +556,7 @@ musicRouter.get(
         .map(role => ({
           id: role.id,
           artist_id: role.artist?.id || null,
+          username: role.artist.user.username,
           artist_name: role.artist?.nick_name || 
                      `${role.artist?.first_name || ''} ${role.artist?.last_name || ''}`.trim() || null,
           role: role.role
