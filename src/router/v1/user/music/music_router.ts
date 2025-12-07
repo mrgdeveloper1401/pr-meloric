@@ -390,6 +390,31 @@ musicRouter.get(
           play_count: true,
           music_lyrics: true,
           createdAt: true,
+          featured_artists: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            is_active: true,
+            profile_image: {
+              id: true,
+              image_path: true
+            },
+            user: {
+              id: true,
+              username: true
+            }
+          },
+          production_roles: {
+            id: true,
+            artist: {
+              id: true,
+              nick_name: true,
+              first_name: true,
+              last_name: true
+            },
+            role: true,
+            is_active: true
+          },
           album: {
             id: true,
             title: true,
@@ -402,10 +427,17 @@ musicRouter.get(
           },
           audio: {
             audio_file_path: true,
+            audio_format: true, // این رو هم اضافه کردم
           },
           artist: {
             id: true,
             nick_name: true,
+            first_name: true,
+            last_name: true,
+            cover_image: {
+              id: true,
+              image_path: true
+            },
             user: {
               id: true,
               username: true,
@@ -413,6 +445,13 @@ musicRouter.get(
           },
         },
         relations: {
+          featured_artists: {
+            profile_image: true,
+            user: true
+          },
+          production_roles: {
+            artist: true
+          },
           album: {
             cover_image: true,
           },
@@ -424,6 +463,7 @@ musicRouter.get(
           },
         },
       });
+      
       if (!getMusic) {
         return res.status(404).json({
           status: false,
@@ -488,6 +528,33 @@ musicRouter.get(
       // is owner
       const isOwner = getMusic.artist?.user?.id == userId;
       
+      // Format featured artists
+      const formattedFeaturedArtists = getMusic.featured_artists
+        ?.filter(feat => feat.is_active)
+        .map(feat => ({
+          id: feat.id,
+          // nick_name: feat.nick_name,
+          // first_name: feat.first_name,
+          // last_name: feat.last_name,
+          full_name: `${feat.first_name || ''} ${feat.last_name || ''}`.trim(),
+          username: feat.user?.username || null,
+          profile_image: feat.profile_image ? {
+            id: feat.profile_image.id,
+            image_path: feat.profile_image.image_path
+          } : null
+        })) || [];
+
+      // Format production roles
+      const formattedProductionRoles = getMusic.production_roles
+        ?.filter(role => role.is_active)
+        .map(role => ({
+          id: role.id,
+          artist_id: role.artist?.id || null,
+          artist_name: role.artist?.nick_name || 
+                     `${role.artist?.first_name || ''} ${role.artist?.last_name || ''}`.trim() || null,
+          role: role.role
+        })) || [];
+
       const data = {
         id: getMusic.id,
         is_owner: isOwner,
@@ -496,33 +563,42 @@ musicRouter.get(
         play_count: getMusic.play_count,
         music_lyrics: getMusic.music_lyrics,
         created_at: getMusic.createdAt,
-        image: {
-          image_path: getMusic.image?.image_path || null,
-        },
+        image: getMusic.image ? {
+          id: getMusic.image.id,
+          image_path: getMusic.image.image_path
+        } : null,
         album: getMusic.album ? {
           id: getMusic.album.id,
           title: getMusic.album.title,
-          cover_image: getMusic.album.cover_image?.image_path || null,
+          cover_image: getMusic.album.cover_image ? {
+            id: getMusic.album.cover_image.id,
+            image_path: getMusic.album.cover_image.image_path
+          } : null,
         } : null,
         artist: {
           id: getMusic.artist.id,
-          nicke_name: getMusic.artist?.nick_name || null,
-          first_name: getMusic.artist?.first_name || null,
-          last_name: getMusic.artist?.last_name || null,
+          nick_name: getMusic.artist.nick_name,
+          first_name: getMusic.artist.first_name,
+          last_name: getMusic.artist.last_name,
+          full_name: getMusic.artist.nick_name || 
+                    `${getMusic.artist.first_name || ''} ${getMusic.artist.last_name || ''}`.trim(),
           username: getMusic.artist.user.username,
-          cover_image: {
-            id: getMusic.artist.cover_image?.id || null,
-            image_path: getMusic.artist.cover_image?.image_path || null,
-          },
-          audio: {
-            isLiked: isLiked,
-            likeCount: likeCount,
-            isInPlayList: is_in_playList,
-            playListId: checkPlayList?.id || null,
-            audio_file_path: getMusic.audio.audio_file_path,
-            audio_format: getMusic.audio.audio_format,
-          },
+          cover_image: getMusic.artist.cover_image ? {
+            id: getMusic.artist.cover_image.id,
+            image_path: getMusic.artist.cover_image.image_path
+          } : null,
         },
+        audio: {
+          isLiked: isLiked,
+          likeCount: likeCount,
+          isInPlayList: is_in_playList,
+          playListId: checkPlayList?.id || null,
+          // playListTitle: checkPlayList?.playlist?.title || null,
+          audio_file_path: getMusic.audio.audio_file_path,
+          audio_format: getMusic.audio.audio_format,
+        },
+        featured_artists: formattedFeaturedArtists,
+        production_roles: formattedProductionRoles,
       };
 
       return res.status(200).json({
