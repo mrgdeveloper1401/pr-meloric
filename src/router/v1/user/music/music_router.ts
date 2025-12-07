@@ -524,9 +524,6 @@ musicRouter.get(
           },
         },
       };
-      // incress play count
-      getMusic.play_count += 1;
-      await getMusic.save();
 
       return res.status(200).json({
         status: "success",
