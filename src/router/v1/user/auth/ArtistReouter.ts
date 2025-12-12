@@ -13,7 +13,6 @@ import { isArtistUser } from "../../../../middlewares/IsArtist";
 import { ArtistSocial } from "../../../../entity/ArtistSocial";
 import { ArtistGallery } from "../../../../entity/ArtistGallery";
 import { ArtistSocialDto } from "../../../../dtos/artist/ArtistSocial";
-import { count } from "console";
 
 export const artistReouter = Router();
 
@@ -845,10 +844,10 @@ artistReouter.get(
  *             required:
  *               - image_id
  *             properties:
- *               image_id:
- *                 type: integer
+ *               image_ids:
+ *                 type: array
  *                 description: آیدی تصویر
- *                 example: 1
+ *                 example: [1,2,3]
  *               order:
  *                 type: integer
  *                 description: ترتیب نمایش تصویر در گالری
@@ -929,70 +928,124 @@ artistReouter.post(
           message: "invalid data",
           error: errors.map((err) => ({
             field: err.property,
-            value: err.constraints,
+            constraints: err.constraints,
           })),
         });
       }
 
-      // check image
       const userId = (req as any).user.user_id;
+      const artist = (req as any).artist;
+      
       const imageRepository = AppDataSource.getRepository(Image);
-      const checkImage = await imageRepository.findOne({
+      
+      const images = await imageRepository.find({
         where: {
-          id: artistGalleryImageDto.image_id,
+          id: In(artistGalleryImageDto.image_ids),
           is_active: true,
           user: { id: userId },
         },
         select: { id: true },
       });
-      if (!checkImage) {
+
+      if (images.length === 0) {
         return res.status(404).json({
           status: false,
-          message: "image not found",
+          message: "هیچ تصویری یافت نشد",
         });
-      } else {
-        const artistGalleryRepo = AppDataSource.getRepository(ArtistGallery);
-        const checkDuplicate = await artistGalleryRepo.findOne({
-          where: {
-            is_active: true,
-            artist: (req as any).artist,
-            image: checkImage,
-          },
-          select: { id: true },
+      }
+
+      const validImageIds = images.map(img => img.id);
+      
+      const artistGalleryRepo = AppDataSource.getRepository(ArtistGallery);
+      
+      const duplicates = await artistGalleryRepo.find({
+        where: {
+          is_active: true,
+          artist: { id: artist.id },
+          image: { id: In(validImageIds) },
+        },
+        relations: ['image'],
+        select: {
+          id: true,
+          image: { id: true }
+        }
+      });
+
+      const duplicateImageIds = duplicates.map(dup => dup.image.id);
+      const newImageIds = validImageIds.filter(
+        id => !duplicateImageIds.includes(id)
+      );
+
+      if (newImageIds.length === 0) {
+        return res.status(400).json({
+          status: false,
+          message: "تمام تصاویر قبلاً در گالری اضافه شده‌اند",
+          duplicate_images: duplicateImageIds
         });
-        if (checkDuplicate) {
-          return res.status(403).json({
-            status: false,
-            message: "image already exists",
-          });
+      }
+
+      const galleryImagesToSave = [];
+      let orderCounter = artistGalleryImageDto.order || 0;
+
+      for (const imageId of newImageIds) {
+        const image = images.find(img => img.id === imageId);
+        
+        if (image) {
+          const galleryImage = new ArtistGallery();
+          galleryImage.order = orderCounter++;
+          galleryImage.image = image;
+          galleryImage.artist = artist;
+          galleryImage.is_active = true;
+          
+          galleryImagesToSave.push(galleryImage);
         }
       }
 
-      const gallaryImage = new ArtistGallery();
-      gallaryImage.order = artistGalleryImageDto.order;
-      gallaryImage.image = checkImage;
-      gallaryImage.artist = (req as any).artist;
-      await gallaryImage.save();
+      const savedGalleryImages = await artistGalleryRepo.save(galleryImagesToSave);
+
+      await artistGalleryRepo
+        .createQueryBuilder()
+        .insert()
+        .into(ArtistGallery)
+        .values(galleryImagesToSave.map(img => ({
+          artist_id: img.artist.id,
+          image_id: img.image.id,
+          order: img.order,
+          is_active: img.is_active,
+          created_at: new Date(),
+          updated_at: new Date()
+        })))
+        .execute();
+
+      const responseData = savedGalleryImages.map(item => ({
+        id: item.id,
+        artist_id: item.artist.id,
+        image_id: item.image.id,
+        order: item.order
+      }));
 
       return res.status(201).json({
-        status: false,
-        message: "created",
-        data: {
-          id: gallaryImage.id,
-          artist_id: gallaryImage.artist.id,
-          image_id: gallaryImage.image.id,
-        },
+        status: true,
+        message: `${savedGalleryImages.length} تصویر با موفقیت اضافه شد`,
+        data: responseData,
+        ...(duplicateImageIds.length > 0 && {
+          warnings: {
+            message: `${duplicateImageIds.length} تصویر قبلاً اضافه شده بودند`,
+            duplicate_ids: duplicateImageIds
+          }
+        })
       });
+
     } catch (error) {
+      console.error("Error adding gallery images:", error);
       return res.status(500).json({
         status: false,
         message: "server error",
-        error: error.message,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
   }
 );
-
 // get list artist gallery_image
 /**
  * @swagger

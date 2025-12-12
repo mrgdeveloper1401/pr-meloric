@@ -1,12 +1,11 @@
-import { IsNotEmpty, IsNumber } from "class-validator";
+import { IsArray, IsNotEmpty, IsNumber } from "class-validator";
 
 export class ArtistGalleryImageDto {
     @IsNumber()
     @IsNotEmpty()
     order: number;
 
-    @IsNumber()
+    @IsArray()
     @IsNotEmpty()
-    image_id: number;
+    image_ids: number[];
 }
-
