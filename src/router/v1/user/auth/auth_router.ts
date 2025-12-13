@@ -1423,164 +1423,164 @@ userAuthRouter.post(
     }
 );
 
-// send request otp into email
-/**
- * @swagger
- * /v1/auth/user/request_login_by_otp_email:
- *   post:
- *     summary: درخواست کد OTP برای ورود با ایمیل
- *     description: |
- *       این endpoint برای ارسال کد تأیید (OTP) به ایمیل کاربر برای ورود به سیستم استفاده می‌شود.
- *       کاربر باید وجود داشته باشد و حسابش فعال باشد.
- *     tags:
- *       - Authentication
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/RequestEmailDto'
- *           example:
- *             email: "user@example.com"
- *     responses:
- *       200:
- *         description: کد OTP با موفقیت ارسال شد
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: "success"
- *                 message:
- *                   type: string
- *                   example: "OTP code sent successfully"
- *       400:
- *         description: خطای اعتبارسنجی داده‌ها
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                 error:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       field:
- *                         type: string
- *                       value:
- *                         type: object
- *             examples:
- *               invalidBody:
- *                 value:
- *                   message: "request body must be set"
- *               validationError:
- *                 value:
- *                   status: false
- *                   message: "Invalid Data"
- *                   error:
- *                     - field: "email"
- *                       value: { isEmail: "email must be an email" }
- *       403:
- *         description: حساب کاربری مسدود شده است
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 status:
- *                   type: boolean
- *             example:
- *               message: "your account is ben!"
- *               status: false
- *       404:
- *         description: کاربر یافت نشد
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 status:
- *                   type: boolean
- *             example:
- *               message: "user not found"
- *               status: false
- *       500:
- *         description: خطای سرور داخلی
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 status:
- *                   type: boolean
- *             example:
- *               message: "server error"
- *               status: false
- */
-userAuthRouter.post(
-    "/request_login_by_otp_email/",
-    notAuthenticateJwt,
-    async (req: Request, res: Response) => {
-        // validate request body
-        if (!req.body) {
-            return res.status(400).json({ message: "request body must be set" });
-        }
+// // send request otp into email
+// /**
+//  * @swagger
+//  * /v1/auth/user/request_login_by_otp_email:
+//  *   post:
+//  *     summary: درخواست کد OTP برای ورود با ایمیل
+//  *     description: |
+//  *       این endpoint برای ارسال کد تأیید (OTP) به ایمیل کاربر برای ورود به سیستم استفاده می‌شود.
+//  *       کاربر باید وجود داشته باشد و حسابش فعال باشد.
+//  *     tags:
+//  *       - Authentication
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             $ref: '#/components/schemas/RequestEmailDto'
+//  *           example:
+//  *             email: "user@example.com"
+//  *     responses:
+//  *       200:
+//  *         description: کد OTP با موفقیت ارسال شد
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 status:
+//  *                   type: string
+//  *                   example: "success"
+//  *                 message:
+//  *                   type: string
+//  *                   example: "OTP code sent successfully"
+//  *       400:
+//  *         description: خطای اعتبارسنجی داده‌ها
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 status:
+//  *                   type: boolean
+//  *                   example: false
+//  *                 message:
+//  *                   type: string
+//  *                 error:
+//  *                   type: array
+//  *                   items:
+//  *                     type: object
+//  *                     properties:
+//  *                       field:
+//  *                         type: string
+//  *                       value:
+//  *                         type: object
+//  *             examples:
+//  *               invalidBody:
+//  *                 value:
+//  *                   message: "request body must be set"
+//  *               validationError:
+//  *                 value:
+//  *                   status: false
+//  *                   message: "Invalid Data"
+//  *                   error:
+//  *                     - field: "email"
+//  *                       value: { isEmail: "email must be an email" }
+//  *       403:
+//  *         description: حساب کاربری مسدود شده است
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 message:
+//  *                   type: string
+//  *                 status:
+//  *                   type: boolean
+//  *             example:
+//  *               message: "your account is ben!"
+//  *               status: false
+//  *       404:
+//  *         description: کاربر یافت نشد
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 message:
+//  *                   type: string
+//  *                 status:
+//  *                   type: boolean
+//  *             example:
+//  *               message: "user not found"
+//  *               status: false
+//  *       500:
+//  *         description: خطای سرور داخلی
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 message:
+//  *                   type: string
+//  *                 status:
+//  *                   type: boolean
+//  *             example:
+//  *               message: "server error"
+//  *               status: false
+//  */
+// userAuthRouter.post(
+//     "/request_login_by_otp_email/",
+//     // notAuthenticateJwt,
+//     async (req: Request, res: Response) => {
+//         // validate request body
+//         if (!req.body) {
+//             return res.status(400).json({ message: "request body must be set" });
+//         }
 
-        // validate data
-        const requestEmail = plainToClass(requestEmailDto, req.body);
-        const errors = await validate(requestEmail);
-        if (errors.length > 0) {
-            return res.status(400).json(
-                {
-                    status: false,
-                    message: "Invalid Data",
-                    error: errors.map(
-                        err => (
-                            {
-                                field: err.property,
-                                value: err.constraints
-                            }
-                        )
-                    )
-                }
-            );
-        }
+//         // validate data
+//         const requestEmail = plainToClass(requestEmailDto, req.body);
+//         const errors = await validate(requestEmail);
+//         if (errors.length > 0) {
+//             return res.status(400).json(
+//                 {
+//                     status: false,
+//                     message: "Invalid Data",
+//                     error: errors.map(
+//                         err => (
+//                             {
+//                                 field: err.property,
+//                                 value: err.constraints
+//                             }
+//                         )
+//                     )
+//                 }
+//             );
+//         }
 
-        const userRepository = AppDataSource.getRepository(User);
-        const getUser = await userRepository.findOne({ where: { email: requestEmail.email } });
+//         const userRepository = AppDataSource.getRepository(User);
+//         const getUser = await userRepository.findOne({ where: { email: requestEmail.email } });
 
-        if (!getUser) {
-            return res.status(404).json(
-                {
-                    message: "user not found",
-                    status: false
-                }
-            );
-        }
-        if (!getUser.is_active) {
-            return res.status(403).json(
-                {
-                    message: "your account is ben!",
-                    status: false
-                }
-            );
-        }
-    }
-);
+//         if (!getUser) {
+//             return res.status(404).json(
+//                 {
+//                     message: "user not found",
+//                     status: false
+//                 }
+//             );
+//         }
+//         if (!getUser.is_active) {
+//             return res.status(403).json(
+//                 {
+//                     message: "your account is ben!",
+//                     status: false
+//                 }
+//             );
+//         }
+//     }
+// );
 
 
 // get profile

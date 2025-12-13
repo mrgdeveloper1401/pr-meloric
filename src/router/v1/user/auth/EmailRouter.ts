@@ -85,16 +85,26 @@ emailRouter.post(
             }
 
             // store otp in redis
-            await createEmailService.storeEmailOtp(emailDto.email, req.ip);
+            const otpCode = await createEmailService.storeEmailOtp(emailDto.email, req.ip);
+
             // // send otp into email
-            // await createEmailService.sendEmail(
-            //     {
-            //         to: emailDto.email,
-            //         subject: "ارسال کد تایید ایمیل",
-            //         html: "salam donya",
-            //         text: "ارسال کد تایید ایمیل"
-            //     }
-            // );
+            await createEmailService.sendEmail({
+                to: emailDto.email, // یا "test@example.com" برای تست
+                subject: "کد تأیید ایمیل",
+                text: `کد تأیید شما`, // اینجا می‌توانید کد واقعی بگذارید
+                html: `
+                  <div dir="rtl" style="font-family: Tahoma; padding: 20px;">
+                    <h2>کد تأیید ایمیل</h2>
+                    <p>کد تأیید شما:</p>
+                    <div style="background: #f0f0f0; padding: 15px; font-size: 24px; 
+                                text-align: center; margin: 20px 0;">
+                      <strong>${otpCode}</strong>
+                    </div>
+                    <p>این کد تا 2 دقیقه معتبر است.</p>
+                    <hr>
+                  </div>
+                `
+              });
             return res.status(200).json(
                 {
                     status: "success",
@@ -113,7 +123,8 @@ emailRouter.post(
     }
 );
 
-// verify otp
+
+// email login verify otp
 /**
  * @swagger
  * /v1/email/verify_otp_email:

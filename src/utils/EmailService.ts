@@ -9,21 +9,28 @@ interface EmailOption {
   html?: string;
 }
 
-const HOST = process.env.EMAIL_HOST as string;
-const PORT = Number(process.env.EMAIL_PORT) as number;
-const SECURE = Boolean(process.env.USE_SECURE) as boolean;
+const EMAIL_HOST = process.env.EMAIL_HOST as string;
+const EMAIL_PORT = Number(process.env.EMAIL_PORT) as number;
+const USE_SECURE = Boolean(process.env.USE_SECURE) as boolean;
 const EMAIL_USER = process.env.EMAIL_USER as string;
 const EMAIL_PASS = process.env.EMAIL_PASS as string;
 const FROM_EMAIL = process.env.FROM_EMAIL as string;
+
+// const EMAIL_HOST="localhost"
+// const EMAIL_PORT=1025
+// const USE_SECURE=false
+// const EMAIL_USER="test"
+// const EMAIL_PASS="test"
+// const FROM_EMAIL="test@example.com"
 
 export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
     const transporterOptions = {
-      host: HOST,
-      port: PORT,
-      secure: SECURE,
+      host: EMAIL_HOST,
+      port: EMAIL_PORT,
+      secure: USE_SECURE,
       auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS,
@@ -43,7 +50,7 @@ export class EmailService {
   async sendEmail(options: EmailOption) {
     try {
       await this.transporter.sendMail({
-        from: FROM_EMAIL,
+        from: FROM_EMAIL, // FROM_EMAIL
         to: options.to,
         subject: options.text,
         text: options.text,
