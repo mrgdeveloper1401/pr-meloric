@@ -1046,6 +1046,8 @@ artistReouter.post(
     }
   }
 );
+
+
 // get list artist gallery_image
 /**
  * @swagger
@@ -2072,6 +2074,288 @@ artistReouter.get(
         status: false,
         message: "server error",
         error: error.message
+      });
+    }
+  }
+);
+
+// get owner artist profile
+/**
+ * @swagger
+ * /v1/user/artist/get_artist_profile/view:
+ *   get:
+ *     tags:
+ *       - Artist
+ *     summary: دریافت پروفایل آرتیست
+ *     description: |
+ *       دریافت اطلاعات کامل پروفایل عمومی یک آرتیست خاص
+ *
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت با JWT دارد
+ *       - آرتیست باید فعال (is_active=true) باشد
+ *       - اطلاعات کامل پروفایل، کاور، گالری تصاویر، لینک‌های اجتماعی و وضعیت فالو برگردانده می‌شود
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: موفقیت‌آمیز - اطلاعات پروفایل آرتیست بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user_id:
+ *                       type: integer
+ *                       description: آیدی کاربر آرتیست
+ *                       example: 1
+ *                     artist_id:
+ *                       type: integer
+ *                       description: آیدی آرتیست
+ *                       example: 1
+ *                     artist_username:
+ *                       type: string
+ *                       description: نام کاربری آرتیست
+ *                       example: "john_doe"
+ *                     artist_cover_image:
+ *                       type: string
+ *                       nullable: true
+ *                       description: مسیر تصویر کاور آرتیست
+ *                       example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/1/1759053403801-200735270.jpeg"
+ *                     artist_profile_image:
+ *                       type: string
+ *                       nullable: true
+ *                       description: مسیر تصویر پروفایل آرتیست
+ *                       example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/1/1759053403801-200735270.jpeg"
+ *                     artist_banner_image:
+ *                       type: string
+ *                       nullable: true
+ *                       description: مسیر تصویر بنر آرتیست
+ *                       example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/1/1759053403801-200735270.jpeg"
+ *                     artist_first_name:
+ *                       type: string
+ *                       nullable: true
+ *                       description: نام آرتیست
+ *                       example: "جان"
+ *                     artist_last_name:
+ *                       type: string
+ *                       nullable: true
+ *                       description: نام خانوادگی آرتیست
+ *                       example: "دو"
+ *                     monthly_listeners:
+ *                       type: integer
+ *                       description: تعداد شنوندگان ماهانه
+ *                       example: 0
+ *                     bio:
+ *                       type: string
+ *                       description: بیوگرافی آرتیست
+ *                       example: "بیوگرافی جدید یذیبذیذ"
+ *                     nick_name:
+ *                       type: string
+ *                       description: نام هنری
+ *                       example: "ali rezaei"
+ *                     gallery_images:
+ *                       type: array
+ *                       description: لیست تصاویر گالری
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 1
+ *                           image_path:
+ *                             type: string
+ *                             example: "https://meloric.s3.ir-thr-at1.arvanstorage.ir/uploads/19/1758717049408-462980426.jpeg"
+ *                     artist_social:
+ *                       type: array
+ *                       description: لیست شبکه های اجتماعی آرتیست
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 1
+ *                           platform:
+ *                             type: string
+ *                             example: "instagram"
+ *                           url:
+ *                             type: string
+ *                             example: "https://instagram.com/artistname"
+ *                 is_follow:
+ *                   type: boolean
+ *                   description: وضعیت فالو کردن توسط کاربر جاری
+ *                   example: false
+ *       '400':
+ *         description: پارامترهای ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               invalid_artist_id:
+ *                 summary: artist_id نامعتبر
+ *                 value:
+ *                   status: false
+ *                   message: "artist_id must be required"
+ *       '401':
+ *         description: عدم دسترسی - توکن JWT معتبر ارائه نشده
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               unauthorized:
+ *                 summary: کاربر لاگین نکرده است
+ *                 value:
+ *                   status: false
+ *                   message: "Authentication required"
+ *       '404':
+ *         description: آرتیست پیدا نشد یا غیرفعال است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               artist_not_found:
+ *                 summary: آرتیست یافت نشد
+ *                 value:
+ *                   status: false
+ *                   message: "artist not found"
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               server_error:
+ *                 summary: خطای سرور
+ *                 value:
+ *                   status: false
+ *                   message: "server error"
+ */
+artistReouter.get(
+  "/get_artist_profile/view/",
+  authenticateJWT,
+  isArtistUser,
+  async (req: Request, res: Response) => {
+    try {
+      const artistId = (req as any).artist.id;
+
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const getArtist = await artistRepository
+        .createQueryBuilder("artist")
+        .leftJoinAndSelect("artist.cover_image", "cover_image")
+        .leftJoinAndSelect("artist.profile_image", "profile_image")
+        .leftJoinAndSelect("artist.banner_image", "banner_image")
+        .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("artist.gallery_images", "gallery_images")
+        .leftJoinAndSelect("gallery_images.image", "gallery_image")
+        .leftJoinAndSelect("artist.social_links", "social_links")
+        .where("artist.is_active = :is_active AND artist.id = :artistId", { is_active: true, artistId: artistId })
+        .select([
+          "artist.id",
+          "artist.bio",
+          "artist.first_name",
+          "artist.last_name",
+          "artist.nick_name",
+          "artist.monthly_listeners",
+          "cover_image.id",
+          "cover_image.image_path",
+          "profile_image.id",
+          "profile_image.image_path",
+          "banner_image.id",
+          "banner_image.image_path",
+          "user.id",
+          "user.username",
+          "gallery_images.id",
+          "gallery_images.is_active",
+          "gallery_image.id",
+          "gallery_image.image_path",
+          "social_links.id",
+          "social_links.platform",
+          "social_links.url",
+          "social_links.is_active",
+        ])
+        .getOne();
+
+      if (!getArtist) {
+        return res.status(404).json({
+          status: false,
+          message: "artist not found",
+        });
+      }
+
+      const followRepository = AppDataSource.getRepository(Follow);
+      const request_user_id = (req as any).user.user_id;
+      const checkFollow = await followRepository.findOne({
+        where: {
+          from_user: { id: request_user_id },
+          is_active: true,
+          to_user: { id: getArtist.user.id },
+        },
+        relations: {
+          from_user: true,
+          to_user: true
+        },
+        select: {
+          id: true,
+          to_user: {
+            id: true
+          },
+          from_user: {
+            id: true
+          }
+        }
+      });
+
+      let isFollow = false;
+      if (checkFollow) {
+        isFollow = true;
+      }
+
+      const simpleData = {
+        user_id: getArtist.user.id,
+        artist_id: getArtist.id,
+        artist_username: getArtist.user.username,
+        artist_cover_image: getArtist.cover_image?.image_path || null,
+        artist_profile_image: getArtist.profile_image?.image_path || null,
+        artist_banner_image: getArtist.banner_image?.image_path || null,
+        artist_first_name: getArtist.first_name || null,
+        artist_last_name: getArtist.last_name || null,
+        monthly_listeners: getArtist.monthly_listeners || 0,
+        bio: getArtist.bio,
+        nick_name: getArtist.nick_name,
+        gallery_images: getArtist.gallery_images
+        .filter(gallery => gallery.is_active)
+        .map((gallery) => ({
+          id: gallery.id,
+          image_path: gallery.image?.image_path || null,
+        })),
+        artist_social: getArtist.social_links
+        .filter(social => social.is_active)
+        .map((social) => ({
+          id: social.id,
+          platform: social.platform,
+          url: social.url,
+        })),
+      };
+
+      return res.status(200).json({
+        status: "success",
+        data: simpleData,
+        is_follow: isFollow,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
       });
     }
   }
