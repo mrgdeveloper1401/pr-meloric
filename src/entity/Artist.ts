@@ -1,10 +1,9 @@
-import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn} from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn} from "typeorm";
 import { User } from "./User";
 import { Image } from "./Image";
 import { TimestampEntity } from "./Abstract";
 import { ArtistGallery } from "./ArtistGallery";
 import { ArtistSocial } from "./ArtistSocial";
-import { SongProductionRole } from "./MusicProductionRole";
 
 @Entity()
 export class Artist extends TimestampEntity{
@@ -18,7 +17,10 @@ export class Artist extends TimestampEntity{
   @Column({ default: true })
   is_active: boolean;
 
-  @Column({default: 0, nullable: true})
+  // @Column({ default: true })  // #TODO, add this field
+  // is_operatble: boolean;
+
+  @Column({default: 0, nullable: true}) // # remove this field
   monthly_listeners: number;
 
   @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})

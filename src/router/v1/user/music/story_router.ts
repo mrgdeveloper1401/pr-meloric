@@ -197,7 +197,7 @@ storyRouter.post(
             newStory.caption = createStoryDto.caption;
             newStory.user = {id: userId} as User;
             newStory.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
-            newStory.view_count = 0;
+            // newStory.view_count = 0;
             newStory.is_active = true;
 
             // save story
@@ -317,7 +317,7 @@ storyRouter.get(
                     createdAt: true,
                     updatedAt: true,
                     caption: true,
-                    view_count: true,
+                    // view_count: true,
                     media: {
                         id: true,
                         file_path: true,
@@ -345,8 +345,8 @@ storyRouter.get(
             }
 
             // incress view count
-            story.view_count += 1;
-            await storyRepository.save(story);
+            // story.view_count += 1;
+            // await storyRepository.save(story);
 
             return res.status(200).json({
                 status: "success",
@@ -499,7 +499,8 @@ storyRouter.delete(
     }
 );
 
-// Get all stories with pagination (آپدیت شده)
+
+// Get all stories with pagination
 /**
  * @swagger
  * /v1/user/story/all_user_story/:
@@ -578,6 +579,8 @@ storyRouter.delete(
  *             schema:
  *               $ref: '#/components/schemas/ServerError'
  */
+// در endpoint اصلی خود این تغییرات را اعمال کنید:
+
 storyRouter.get(
     "/all_user_story/",
     authenticateJWT,
@@ -589,60 +592,88 @@ storyRouter.get(
 
             const twentyFourHoursAgo = new Date();
             twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
-            const storyRepository = AppDataSource.getRepository(Story);
-            const [stories, totalCount] = await storyRepository.findAndCount({
-                where: { 
-                    is_active: true, 
-                    createdAt: MoreThan(twentyFourHoursAgo),
-                    media: {
-                        is_active: true
-                    }
-                },
-                select: {
-                    id: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    caption: true,
-                    media: {
-                        id: true,
-                        file_path: true,
-                        media_type: true
-                    },
-                    view_count: true,
-                    user: {
-                        id: true,
-                        username: true,
-                        is_artist: true,
-                        user_artist_set: {
-                            id: true,
-                            nick_name: true,
-                            cover_image: {
-                                id: true,
-                                image_path: true
-                            }
-                        },
-                        profile: {
-                            id: true,
-                            first_name: true,
-                            last_name: true,
-                            profile_image: {
-                                id: true,
-                                image_path: true
-                            }
-                        }
-                    }
-                },
-                relations: [
-                    "media",
-                    "user",
-                    "user.user_artist_set.cover_image",
-                    "user.profile", 
-                    "user.profile.profile_image"
-                ],
-                take: limit,
-                skip: skip
-            });
 
+            // ابتدا کاربران منحصر به فرد را پیدا کنید
+            const usersWithStories = await AppDataSource.getRepository(Story)
+                .createQueryBuilder("story")
+                .leftJoinAndSelect("story.user", "user")
+                .leftJoinAndSelect("user.user_artist_set", "artist")
+                .leftJoinAndSelect("artist.profile_image", "profile_image")
+                .where("story.is_active = :isActive AND story.expires_at > :expiredAt", {
+                    isActive: true, 
+                    expiredAt: twentyFourHoursAgo
+                })
+                .select([
+                    "user.id",
+                    "user.is_artist",
+                    "user.username",
+                    "artist.id",
+                    "artist.first_name",
+                    "artist.last_name",
+                    "profile_image.image_path",
+                    "profile_image.id",
+                    "COUNT(story.id) as story_count" // تعداد استوری‌های کاربر
+                ])
+                .groupBy("user.id, artist.id, profile_image.id")
+                .orderBy("MAX(story.createdAt)", "DESC") // بر اساس آخرین استوری مرتب‌سازی
+                .skip(skip)
+                .take(limit)
+                .getRawMany();
+
+            // حالا برای هر کاربر، تمام مدیاها را بگیرید
+            const simpleData = await Promise.all(
+                usersWithStories.map(async (userRow) => {
+                    // تمام مدیاهای کاربر در ۲۴ ساعت گذشته
+                    const userStories = await AppDataSource.getRepository(Story)
+                        .createQueryBuilder("story")
+                        .leftJoinAndSelect("story.media", "media")
+                        .where("story.user_id = :userId", { userId: userRow.user_id })
+                        .andWhere("story.is_active = :isActive AND story.expires_at > :expiredAt", {
+                            isActive: true,
+                            expiredAt: twentyFourHoursAgo
+                        })
+                        .orderBy("story.createdAt", "DESC")
+                        .getMany();
+
+                    // ادغام تمام مدیاهای کاربر
+                    const allMedia = userStories.flatMap(story => 
+                        story.media?.map(media => ({
+                            id: media.id,
+                            file_path: media.file_path,
+                            media_type: media.media_type,
+                            mime_type: media.mime_type,
+                            story_id: story.id,
+                            created_at: story.createdAt
+                        })) || []
+                    );
+
+                    return {
+                        id: userRow.user_id, // یا می‌توانید از story id اول استفاده کنید
+                        user_id: userRow.user_id,
+                        username: userRow.user_username,
+                        artist_id: userRow.artist_id || null,
+                        is_artist: userRow.user_is_artist,
+                        created_at: userStories[0]?.createdAt, // تاریخ اولین استوری
+                        profile_image: userRow.profile_image_image_path || null,
+                        profile_image_id: userRow.profile_image_id || null,
+                        story_media: allMedia,
+                        stories_count: userStories.length // تعداد کل استوری‌های کاربر
+                    };
+                })
+            );
+
+            // برای pagination نیاز داریم کل کاربران را بشماریم
+            const totalUsersCount = await AppDataSource.getRepository(Story)
+                .createQueryBuilder("story")
+                .leftJoin("story.user", "user")
+                .where("story.is_active = :isActive AND story.expires_at > :expiredAt", {
+                    isActive: true,
+                    expiredAt: twentyFourHoursAgo
+                })
+                .select("COUNT(DISTINCT user.id)", "count")
+                .getRawOne();
+
+            const totalCount = parseInt(totalUsersCount.count) || 0;
             const totalPages = Math.ceil(totalCount / limit);
 
             return res.status(200).json({
@@ -655,14 +686,14 @@ storyRouter.get(
                     has_next: page < totalPages,
                     has_previous: page > 1
                 },
-                data:stories,
+                data: simpleData,
             });
 
         } catch (error) {
             return res.status(500).json({
                 status: false,
                 message: "server error",
-                error: error
+                error: error.message
             });
         }
     }
@@ -1666,7 +1697,7 @@ storyRouter.get(
                         updatedAt: true,
                         caption: true,
                         expires_at: true,
-                        view_count: true,
+                        // view_count: true,
                         media: {
                             id: true,
                             file_path: true,
