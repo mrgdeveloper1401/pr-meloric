@@ -6,7 +6,7 @@ import { Album } from "../../../../entity/Album";
 import { plainToClass } from "class-transformer";
 import { CreateAlbumDto, UpdateAlbumDto } from "../../../../dtos/music/CreateAlbumDto";
 import { validate } from "class-validator";
-import { In } from "typeorm";
+// import { In } from "typeorm";
 import { User } from "../../../../entity/User";
 import { Image } from "../../../../entity/Image";
 import { Artist } from "../../../../entity/Artist";
@@ -121,7 +121,7 @@ albumRouter.get(
                 .innerJoin("album.genre", "genre", "genre.id = :genreId", { genreId })
                 .leftJoinAndSelect("album.cover_image", "cover_image")
                 .leftJoin("album.user", "user")  // Join با User
-                .leftJoin("user.profile", "profile")  // Join با Profile
+                // .leftJoin("user.profile", "profile")  // Join با Profile
                 .leftJoin(Artist, "artist", "artist.user_id = user.id")  // Join با Artist
                 .where("album.is_active = :isActive", { isActive: true })
                 .andWhere("album.release_date < :date", {date})
@@ -135,8 +135,8 @@ albumRouter.get(
                     "cover_image.image_path",
                     "artist.id as artist_id",  // آیدی آرتیست
                     "artist.nick_name",        // نام هنری
-                    "profile.first_name",      // نام
-                    "profile.last_name",       // نام خانوادگی
+                    "user.first_name",      // نام
+                    "user.last_name",       // نام خانوادگی
                     "user.username"           // نام کاربری
                 ])
                 .getRawMany();  // استفاده از getRawMany برای فیلدهای custom

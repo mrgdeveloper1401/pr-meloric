@@ -117,10 +117,10 @@ artistReouter.get(
 
       const getArtist = await artistRepository
         .createQueryBuilder("artist")
-        .leftJoinAndSelect("artist.profile_image", "profile_image")
-        .leftJoinAndSelect("artist.cover_image", "cover_image")
-        .leftJoinAndSelect("artist.banner_image", "banner_image")
+        // .leftJoinAndSelect("artist.profile_image", "profile_image")
         .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("user.cover_image", "cover_image")
+        .leftJoinAndSelect("user.banner_image", "banner_image")
         .leftJoinAndSelect("artist.gallery_images", "gallery_images")
         .leftJoinAndSelect("gallery_images.image", "gallery_image")
         .leftJoinAndSelect("artist.social_links", "social_links")
@@ -139,8 +139,8 @@ artistReouter.get(
           "artist.monthly_listeners",
           "artist.bio",
           "artist.nick_name",
-          "artist.first_name",
-          "artist.last_name",
+          "user.first_name",
+          "user.last_name",
           "profile_image.id",
           "profile_image.image_path",
           "cover_image.id",
@@ -169,28 +169,28 @@ artistReouter.get(
       const simpleData = {
         artist_id: getArtist.id,
         monthly_listeners: getArtist.monthly_listeners,
-        cover_image: getArtist.cover_image
+        cover_image: getArtist.user.cover_image
           ? {
-              id: getArtist.cover_image.id,
-              image_path: getArtist.cover_image.image_path,
+              id: getArtist.user.cover_image.id,
+              image_path: getArtist.user.cover_image.image_path,
             }
           : null,
         bio: getArtist.bio,
-        profile_image: getArtist.profile_image
+        profile_image: getArtist.user.profile_image
           ? {
-              id: getArtist.profile_image.id,
-              image_path: getArtist.profile_image.image_path,
+              id: getArtist.user.profile_image.id,
+              image_path: getArtist.user.profile_image.image_path,
             }
           : null,
-        banner_image: getArtist.banner_image
+        banner_image: getArtist.user.profile
           ? {
-              id: getArtist.banner_image.id,
-              image_path: getArtist.banner_image.image_path,
+              id: getArtist.user.profile.banner_image.id,
+              image_path: getArtist.user.profile.banner_image.image_path,
             }
           : null,
         nick_name: getArtist.nick_name,
-        first_name: getArtist.first_name,
-        last_name: getArtist.last_name,
+        first_name: getArtist.user.first_name || null,
+        last_name: getArtist.user.last_name || null,
         username: getArtist.user.username,
         gallary_image: getArtist.gallery_images
           ? getArtist.gallery_images.map((gallery) => ({
@@ -361,7 +361,7 @@ artistReouter.patch(
       const userId = (req as any).user.user_id;
 
       // check user artist
-      const artistRepository = AppDataSource.getRepository(Artist);
+      const artistRepository = AppDataSource.getRepository(Artist); // TODO better query
       const checkUserArtist = await artistRepository.findOne({
         where: {
           user: {
@@ -371,13 +371,16 @@ artistReouter.patch(
           },
         },
         relations: {
-          cover_image: true,
-          banner_image: true,
+          user: {cover_image: true,
+          profile: {
+            banner_image: true
+          },
           profile_image: true,
-        },
+        }},
         select: {
           id: true,
           nick_name: true,
+          user: {
           bio: true,
           first_name: true,
           last_name: true,
@@ -390,11 +393,18 @@ artistReouter.patch(
             id: true,
             image_path: true,
           },
-          banner_image: {
+          // banner_image: {
+          //   id: true,
+          //   image_path: true,
+          // },
+          profile: {
             id: true,
-            image_path: true,
-          },
-        },
+            banner_image: {
+              id: true,
+              image_path: true
+            } 
+          }
+        }},
       });
 
       if (!checkUserArtist) {
@@ -445,7 +455,7 @@ artistReouter.patch(
             message: "cover image id not found",
           });
         }
-        checkUserArtist.cover_image = checkImageUpload;
+        checkUserArtist.user.cover_image = checkImageUpload;
       }
 
       // Update profile image - اینجا مشکل بود
@@ -465,7 +475,7 @@ artistReouter.patch(
             message: "profile image id not found",
           });
         }
-        checkUserArtist.profile_image = checkProfileImageId;
+        checkUserArtist.user.profile_image = checkProfileImageId;
       }
 
       if (updateArtistProfile.banner_image_id !== undefined) {
@@ -484,7 +494,7 @@ artistReouter.patch(
             message: "banner image id not found",
           });
         }
-        checkUserArtist.banner_image = checkImage;
+        checkUserArtist.user.profile.banner_image = checkImage;
       }
 
       // Update other fields
@@ -497,11 +507,11 @@ artistReouter.patch(
       }
 
       if (updateArtistProfile.first_name !== undefined) {
-        checkUserArtist.first_name = updateArtistProfile.first_name;
+        checkUserArtist.user.first_name = updateArtistProfile.first_name;
       }
 
       if (updateArtistProfile.last_name !== undefined) {
-        checkUserArtist.last_name = updateArtistProfile.last_name;
+        checkUserArtist.user.last_name = updateArtistProfile.last_name;
       }
 
       // save
@@ -706,10 +716,10 @@ artistReouter.get(
       const artistRepository = AppDataSource.getRepository(Artist);
       const getArtist = await artistRepository
         .createQueryBuilder("artist")
-        .leftJoinAndSelect("artist.cover_image", "cover_image")
-        .leftJoinAndSelect("artist.profile_image", "profile_image")
-        .leftJoinAndSelect("artist.banner_image", "banner_image")
         .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("user.cover_image", "cover_image")
+        .leftJoinAndSelect("user.profile_image", "profile_image")
+        .leftJoinAndSelect("user.banner_image", "banner_image")
         .leftJoinAndSelect("artist.gallery_images", "gallery_images")
         .leftJoinAndSelect("gallery_images.image", "gallery_image")
         .leftJoinAndSelect("artist.social_links", "social_links")
@@ -717,8 +727,8 @@ artistReouter.get(
         .select([
           "artist.id",
           "artist.bio",
-          "artist.first_name",
-          "artist.last_name",
+          "user.first_name",
+          "user.last_name",
           "artist.nick_name",
           "artist.monthly_listeners",
           "cover_image.id",
@@ -779,11 +789,11 @@ artistReouter.get(
         user_id: getArtist.user.id,
         artist_id: getArtist.id,
         artist_username: getArtist.user.username,
-        artist_cover_image: getArtist.cover_image?.image_path || null,
-        artist_profile_image: getArtist.profile_image?.image_path || null,
-        artist_banner_image: getArtist.banner_image?.image_path || null,
-        artist_first_name: getArtist.first_name || null,
-        artist_last_name: getArtist.last_name || null,
+        artist_cover_image: getArtist.user.cover_image?.image_path || null,
+        artist_profile_image: getArtist.user.profile_image?.image_path || null,
+        artist_banner_image: getArtist.user.profile.banner_image?.image_path || null,
+        artist_first_name: getArtist.user.first_name || null,
+        artist_last_name: getArtist.user.last_name || null,
         monthly_listeners: getArtist.monthly_listeners || 0,
         bio: getArtist.bio,
         nick_name: getArtist.nick_name,
@@ -1325,7 +1335,7 @@ artistReouter.delete(
  * /v1/user/artist/public_artist_profile/social_links:
  *   post:
  *     tags:
- *       - Artist Social
+ *       - Artist
  *     summary: افزودن لینک اجتماعی جدید برای آرتیست
  *     description: |
  *       افزودن یک لینک اجتماعی به پروفایل آرتیست
@@ -1505,7 +1515,7 @@ artistReouter.post(
  * /v1/user/artist/public_artist_profile/social_links:
  *   get:
  *     tags:
- *       - Artist Social
+ *       - Artist
  *     summary: دریافت لیست لینک‌های اجتماعی آرتیست
  *     description: |
  *       دریافت تمام لینک‌های اجتماعی فعال آرتیست جاری
@@ -1605,7 +1615,7 @@ artistReouter.get(
  * /v1/user/artist/public_artist_profile/social_links/{socialLinkId}:
  *   patch:
  *     tags:
- *       - Artist Social
+ *       - Artist
  *     summary: به‌روزرسانی لینک اجتماعی
  *     description: |
  *       به‌روزرسانی اطلاعات یک لینک اجتماعی خاص
@@ -1782,7 +1792,7 @@ artistReouter.patch(
  * /v1/user/artist/public_artist_profile/social_links/{socialLinkId}:
  *   delete:
  *     tags:
- *       - Artist Social
+ *       - Artist
  *     summary: حذف لینک اجتماعی
  *     description: |
  *       حذف یک لینک اجتماعی از پروفایل آرتیست
@@ -1885,6 +1895,7 @@ artistReouter.delete(
 );
 
 
+// artist list
 /**
  * @swagger
  * /v1/user/artist/music/artist_list:
@@ -2017,17 +2028,18 @@ artistReouter.get(
       const search = req.query.search as string;
       const skip = (page - 1) * limit;
 
-      const artistRepository = AppDataSource.getRepository(Artist);
+      const artistRepository = AppDataSource.getRepository(Artist); // TODO, better query
 
       const query = artistRepository.createQueryBuilder("artist")
-        .leftJoinAndSelect("artist.cover_image", "cover_image")
-        .leftJoinAndSelect("artist.user", "user")
+      .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("user.cover_image", "cover_image")
+        // .leftJoinAndSelect("artist.user", "user")
         .where("artist.is_active = :isActive", { isActive: true })
         .select([
           "artist.id",
-          "artist.first_name",
-          "artist.last_name",
-          "artist.nick_name",
+          "user.first_name",
+          "user.last_name",
+          "user.nick_name",
           "artist.monthly_listeners",
           "cover_image.id",
           "cover_image.image_path",
@@ -2048,15 +2060,15 @@ artistReouter.get(
 
       const simpleData = artists.map(artist => ({
         id: artist.id,
-        full_name: artist.first_name && artist.last_name 
-          ? `${artist.first_name} ${artist.last_name}`
+        full_name: artist.user.first_name && artist.user.last_name 
+          ? `${artist.user.first_name} ${artist.user.last_name}`
           : artist.nick_name || "بدون نام",
         nick_name: artist.nick_name,
         monthly_listeners: artist.monthly_listeners,
         username: artist.user?.username,
-        cover_image: artist.cover_image ? {
-          id: artist.cover_image.id,
-          image_path: artist.cover_image.image_path
+        cover_image: artist.user.cover_image ? {
+          id: artist.user.cover_image.id,
+          image_path: artist.user.cover_image.image_path
         } : null
       }));
 
@@ -2250,27 +2262,28 @@ artistReouter.get(
       const artistRepository = AppDataSource.getRepository(Artist);
       const getArtist = await artistRepository
         .createQueryBuilder("artist")
-        .leftJoinAndSelect("artist.cover_image", "cover_image")
-        .leftJoinAndSelect("artist.profile_image", "profile_image")
-        .leftJoinAndSelect("artist.banner_image", "banner_image")
         .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("user.cover_image", "cover_image")
+        .leftJoinAndSelect("user.profile_image", "profile_image")
+        // .leftJoinAndSelect("profile.banner_image", "banner_image")
         .leftJoinAndSelect("artist.gallery_images", "gallery_images")
         .leftJoinAndSelect("gallery_images.image", "gallery_image")
         .leftJoinAndSelect("artist.social_links", "social_links")
         .where("artist.is_active = :is_active AND artist.id = :artistId", { is_active: true, artistId: artistId })
         .select([
           "artist.id",
-          "artist.bio",
-          "artist.first_name",
-          "artist.last_name",
+          "user.bio",
+          "user.first_name",
+          "user.last_name",
+          "user.birth_date",
           "artist.nick_name",
           "artist.monthly_listeners",
           "cover_image.id",
           "cover_image.image_path",
           "profile_image.id",
           "profile_image.image_path",
-          "banner_image.id",
-          "banner_image.image_path",
+          // "banner_image.id",
+          // "banner_image.image_path",
           "user.id",
           "user.username",
           "gallery_images.id",
@@ -2323,11 +2336,12 @@ artistReouter.get(
         user_id: getArtist.user.id,
         artist_id: getArtist.id,
         artist_username: getArtist.user.username,
-        artist_cover_image: getArtist.cover_image?.image_path || null,
-        artist_profile_image: getArtist.profile_image?.image_path || null,
-        artist_banner_image: getArtist.banner_image?.image_path || null,
-        artist_first_name: getArtist.first_name || null,
-        artist_last_name: getArtist.last_name || null,
+        artist_birth_date: getArtist.user?.birth_date || null,
+        artist_cover_image: getArtist.user.cover_image?.image_path || null,
+        artist_profile_image: getArtist.user.profile_image?.image_path || null,
+        // artist_banner_image: getArtist.user.profile.banner_image?.image_path || null,
+        artist_first_name: getArtist.user.first_name || null,
+        artist_last_name: getArtist.user.last_name || null,
         monthly_listeners: getArtist.monthly_listeners || 0,
         bio: getArtist.bio,
         nick_name: getArtist.nick_name,

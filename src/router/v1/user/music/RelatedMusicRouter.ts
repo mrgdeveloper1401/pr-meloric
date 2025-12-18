@@ -205,6 +205,7 @@ relatedMusicrouter.get(
             const similarSongs = await songRepository
                 .createQueryBuilder("song")
                 .leftJoinAndSelect("song.artist", "artist")
+                .leftJoinAndSelect("artist.user", "user")
                 .leftJoinAndSelect("song.album", "album")
                 .leftJoinAndSelect("album.genre", "genre")
                 .leftJoinAndSelect("song.image", "image")
@@ -224,8 +225,8 @@ relatedMusicrouter.get(
                     "song.release_date",
                     "artist.id", 
                     "artist.nick_name", 
-                    "artist.first_name", 
-                    "artist.last_name",
+                    "user.first_name", 
+                    "user.last_name",
                     "featured_artists.first_name", 
                     "featured_artists.last_name",
                     "image.image_path"

@@ -187,12 +187,12 @@ bestMusicRouter.get(
                 .addSelect([
                     "artist.id",
                     "artist.nick_name",
-                    "artist.first_name",
-                    "artist.last_name",
+                    "user.first_name",
+                    "user.last_name",
                     "user.id",
                     "user.username"
                 ])
-                .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
+                .leftJoinAndSelect("user.cover_image", "artist_cover_image")
                 .addSelect([
                     "artist_cover_image.id",
                     "artist_cover_image.image_path"
@@ -247,12 +247,12 @@ bestMusicRouter.get(
                     artist: song.artist ? {
                         id: song.artist.id,
                         nick_name: song.artist.nick_name,
-                        first_name: song.artist.first_name,
-                        last_name: song.artist.last_name,
+                        first_name: song.artist.user?.first_name || null,
+                        last_name: song.artist.user?.last_name || null,
                         username: song.artist.user?.username || null,
-                        cover_image: song.artist.cover_image ? {
-                            id: song.artist.cover_image.id,
-                            image_path: song.artist.cover_image.image_path
+                        cover_image: song.artist.user.cover_image ? {
+                            id: song.artist.user.cover_image.id,
+                            image_path: song.artist.user.cover_image.image_path
                         } : null
                     } : null,
                     audio: song.audio ? {

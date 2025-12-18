@@ -7,7 +7,7 @@ import { User } from "../../../../entity/User";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { Router, Request, Response } from "express";
 import { CreatePlayHistoryDto } from "../../../../dtos/music/CreatePlayHistoryDto";
-import { Playlist } from "../../../../entity/Playlist";
+// import { Playlist } from "../../../../entity/Playlist";
 
 
 export const playHistoryRouter = Router()
@@ -276,7 +276,7 @@ playHistoryRouter.get(
             const limit = parseInt(req.query.limit as string) || 20;
             const skip = (page - 1) * limit;
 
-            const playHistoryRepository = AppDataSource.getRepository(PlayHistory);
+            const playHistoryRepository = AppDataSource.getRepository(PlayHistory); // TODO, better query builder
             
             // get playlist
             const [playHistory, total] = await playHistoryRepository.findAndCount({
@@ -290,9 +290,10 @@ playHistoryRouter.get(
                         audio: true,
                         album: true,
                         artist: {
-                            cover_image: true,
+                            // cover_image: true,
                             user: {
-                                profile: true
+                                profile: true,
+                                cover_image: true
                             }
                         }
                     }
@@ -308,16 +309,22 @@ playHistoryRouter.get(
                         artist: {
                             id: true,
                             nick_name: true,
-                            cover_image: {
-                                image_path: true
-                            },
+                            // cover_image: {
+                            //     image_path: true
+                            // },
                             user: {
                                 id: true,
                                 username: true,
+                                first_name: true,
+                                last_name: true,
+                                cover_image: {
+                                    id: true,
+                                    image_path: true
+                                },
                                 profile: {
                                     id: true,
-                                    first_name: true,
-                                    last_name: true
+                                    // first_name: true,
+                                    // last_name: true
                                 },
                             },
                         },
@@ -346,8 +353,8 @@ playHistoryRouter.get(
                         played_at: item.played_at,
                         music_image: item.song.image?.image_path || null,
                         music_adio: item.song.audio.audio_file_path,
-                        artist_first_name: item.song.artist.user.profile?.first_name || null,
-                        artist_last_name: item.song.artist.user.profile?.last_name || null,
+                        artist_first_name: item.song.artist.user?.first_name || null,
+                        artist_last_name: item.song.artist.user?.last_name || null,
                         nick_name: item.song.artist?.nick_name || null,
                         username: item.song.artist.user.username,
                         album_title: item.song.album.title,

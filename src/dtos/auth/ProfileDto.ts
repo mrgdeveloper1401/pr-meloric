@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString } from "class-validator";
+import { IsArray, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class ProfileDto {
 
@@ -18,13 +18,13 @@ export class ProfileDto {
     @IsString()
     bio?: string;
 
-    // @IsOptional()
-    // @IsArray()
-    // jobs?: string[];
+    @IsOptional()
+    @IsArray()
+    jobs?: string[];
 
-    // @IsOptional()
-    // @IsArray()
-    // social?: string[];
+    @IsOptional()
+    @IsArray()
+    social?: string[];
     
     @IsOptional()
     @IsNumber()
@@ -36,7 +36,7 @@ export class ProfileDto {
 
     @IsOptional()
     @IsNumber()
-    banner_galery_image_id?: number;
+    cover_image_id?: number;
     
     @IsOptional()
     @IsString()

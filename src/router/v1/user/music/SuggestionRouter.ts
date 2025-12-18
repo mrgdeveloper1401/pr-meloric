@@ -200,12 +200,12 @@ suggestRouter.get(
                     // monthly_listeners: randomMusic.artist?.monthly_listeners,
                     // bio: randomMusic.artist?.bio,
                     nicke_name: randomMusic.artist?.nick_name || null,
-                    first_name: randomMusic.artist?.first_name || null,
-                    last_name: randomMusic.artist?.last_name || null,
+                    first_name: randomMusic.artist.user?.first_name || null,
+                    last_name: randomMusic.artist.user?.last_name || null,
                     username: randomMusic.artist.user.username,
                     cover_image: {
-                        id: randomMusic.artist.cover_image?.id || null,
-                        image_path: randomMusic.artist.cover_image?.image_path || null,
+                        id: randomMusic.artist.user.cover_image?.id || null,
+                        image_path: randomMusic.artist.user.cover_image?.image_path || null,
                         // file_name: randomMusic.artist.cover_image.file_name
                     }
                 },

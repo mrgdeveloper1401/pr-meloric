@@ -250,7 +250,7 @@ downloadRouter.get(
             const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
             const skip = (page - 1) * limit;
 
-            const downloadRepository = AppDataSource.getRepository(DownloadMusics);
+            const downloadRepository = AppDataSource.getRepository(DownloadMusics); // TODO, use query builder
             const [downloads, total] = await downloadRepository.findAndCount({
                 where: {
                     user: { id: userId },
@@ -260,7 +260,9 @@ downloadRouter.get(
                     song: {
                         audio: true,
                         image: true,
-                        artist: true,
+                        artist: {
+                            user: true
+                        },
                         album: {
                             user: true
                         }
@@ -275,9 +277,14 @@ downloadRouter.get(
                         play_count: true,
                         artist: {
                             id: true,
-                            first_name: true,
-                            last_name: true,
-                            nick_name: true
+                            // first_name: true,
+                            // last_name: true,
+                            nick_name: true,
+                            user: {
+                                id: true,
+                                first_name: true,
+                                last_name: true
+                            }
                         },
                         audio: {
                             audio_file_path: true
@@ -310,8 +317,8 @@ downloadRouter.get(
                         music_title: item.song.title,
                         audio: item.song.audio.audio_file_path,
                         music_cover_image: item.song.image?.image_path || null,
-                        artist_first_name: item.song.artist?.first_name || null,
-                        artist_last_name: item.song.artist?.last_name || null,
+                        artist_first_name: item.song.artist.user?.first_name || null,
+                        artist_last_name: item.song.artist.user?.last_name || null,
                         artist_nick_name: item.song.artist?.nick_name || null,
                         play_count: item.song.play_count
 

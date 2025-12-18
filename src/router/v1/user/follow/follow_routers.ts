@@ -121,9 +121,9 @@ followRouter.get(
                     },
                     relations: {
                         from_user: {
-                            profile: {
+                            // profile: {
                                 profile_image: true
-                            }
+                            // }
                         }
                     },
                     select: {
@@ -135,11 +135,15 @@ followRouter.get(
                             user_artist_set: {
                                 id: true
                             },
+                            profile_image: {
+                                id: true,
+                                image_path: true
+                            },
                             profile: {
                                 id: true,
-                                profile_image: {
-                                    image_path: true
-                                }
+                                // profile_image: {
+                                //     image_path: true
+                                // }
                             }
                         }
                     },
@@ -156,7 +160,7 @@ followRouter.get(
                         from_user_artist_id: item.from_user.user_artist_set?.id || null,
                         from_user_is_artist: item.from_user.is_artist,
                         from_user_username: item.from_user.username,
-                        from_user_profile_image: item.from_user.profile.profile_image?.image_path || null
+                        from_user_profile_image: item.from_user.profile_image?.image_path || null
                     }
                 )
             )
@@ -307,9 +311,10 @@ followRouter.get(
                     relations: {
                         to_user: {
                             user_artist_set: true,
-                            profile: {
-                                profile_image: true
-                            }
+                            profile_image: true
+                            // profile: {
+                            //     profile_image: true
+                            // }
                         }
                     },
                     select: {
@@ -321,11 +326,15 @@ followRouter.get(
                             },
                             id: true,
                             username: true,
+                            profile_image: {
+                                id: true,
+                                image_path: true
+                            },
                             profile: {
                                 id: true,
-                                profile_image: {
-                                    image_path: true
-                                }
+                                // profile_image: {
+                                //     image_path: true
+                                // }
                             }
                         }
                     },
@@ -341,7 +350,7 @@ followRouter.get(
                         to_user_is_artist: item.to_user.is_active,
                         to_user_artist_id: item.to_user.user_artist_set?.id || null,
                         to_user_username: item.to_user.username,
-                        to_user_profile_image: item.to_user.profile.profile_image?.image_path || null
+                        to_user_profile_image: item.to_user.profile_image?.image_path || null
                     }
                 )
             )

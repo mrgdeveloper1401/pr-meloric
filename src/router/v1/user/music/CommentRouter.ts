@@ -170,7 +170,7 @@ router.post("/comments", authenticateJWT, async (req: Request, res: Response) =>
         const getSong = await songRepository.findOne(
             {
                 where: { id: createCommentDto.song_id, is_active: true },
-                select: ['id']
+                select: {id: true}
             }
         );
         if (!getSong) {
@@ -201,7 +201,8 @@ router.post("/comments", authenticateJWT, async (req: Request, res: Response) =>
     } catch (error) {
         return res.status(500).json({
             status: false,
-            message: "Server error"
+            message: "Server error",
+            error: error.message
         });
     }
 });
@@ -284,10 +285,8 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
         const query = commentRepository
             .createQueryBuilder("comment")
             .leftJoinAndSelect("comment.user", "user")
-            .leftJoinAndSelect("user.profile", "profile")
-            .leftJoinAndSelect("profile.profile_image", "user_profile_image")
+            .leftJoinAndSelect("user.profile_image", "user_profile_image")
             .leftJoinAndSelect("user.user_artist_set", "artist")
-            .leftJoinAndSelect("artist.profile_image", "artist_profile_image")
             .leftJoinAndSelect("comment.song", "song")
             .where("comment.id = :commentId", { commentId })
             .andWhere("comment.is_active = :isActive", { isActive: true })
@@ -304,8 +303,8 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
                 "user_profile_image.image_path",
                 "artist.id",
                 "artist.nick_name",
-                "artist_profile_image.id",
-                "artist_profile_image.image_path",
+                // "artist_profile_image.id",
+                // "artist_profile_image.image_path",
                 "song.id",
             ]);
 
@@ -318,16 +317,11 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
             });
         }
 
-        const isArtist = comment.user.is_artist;
-        const profileImage = isArtist 
-            ? comment.user.user_artist_set?.profile_image?.image_path
-            : comment.user.profile?.profile_image?.image_path;
-
         const simpleData = {
             id: comment.id,
             user_id: comment.user.id,
             username: comment.user.username,
-            profile_image: profileImage || null,
+            profile_image: comment.user.profile_image?.image_path || null,
             song_id: comment.song.id,
             body: comment.body,
             created_at: comment.createdAt,
@@ -459,10 +453,7 @@ router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res:
         const query = commentRepository
             .createQueryBuilder("comment")
             .leftJoinAndSelect("comment.user", "user")
-            .leftJoinAndSelect("user.profile", "profile")
-            .leftJoinAndSelect("profile.profile_image", "user_profile_image")
-            .leftJoinAndSelect("user.user_artist_set", "artist")
-            .leftJoinAndSelect("artist.profile_image", "artist_profile_image")
+            .leftJoinAndSelect("user.profile_image", "user_profile_image")
             .leftJoinAndSelect("comment.song", "song")
             .where("comment.song_id = :songId", { songId })
             .andWhere("comment.is_active = :isActive", { isActive: true })
@@ -480,8 +471,6 @@ router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res:
                 "user_profile_image.image_path",
                 "artist.id",
                 "artist.nick_name",
-                "artist_profile_image.id",
-                "artist_profile_image.image_path",
                 "song.id"
             ])
             .orderBy("comment.createdAt", "DESC")
@@ -492,15 +481,10 @@ router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res:
         const totalPages = Math.ceil(total / limit);
 
         const simpleData = comments.map(item => {
-            const isArtist = item.user.is_artist;
-            const profileImage = isArtist 
-                ? item.user.user_artist_set?.profile_image?.image_path
-                : item.user.profile?.profile_image?.image_path;
-
             return {
                 id: item.id,
                 username: item.user.username,
-                profile_image: profileImage || null,
+                profile_image: item.user.profile_image?.image_path || null,
                 song_id: item.song.id,
                 body: item.body,
                 created_at: item.createdAt,

@@ -45,7 +45,7 @@ export const AppDataSource = new DataSource({
     port: DEBUG === "true" ? 5434: Number(process.env.PROD_POSTGRES_PORT),
     username: DEBUG === 'true' ? "postgres": process.env.PROD_POSTGRES_USER,
     password: DEBUG === "true" ? "postgres": process.env.PROD_POSTGRES_PASSWORD,
-    database: DEBUG === "true" ? "new_meloric_db": process.env.PROD_POSTGRES_DB,
+    database: DEBUG === "true" ? "new_meloric_db1": process.env.PROD_POSTGRES_DB,
     synchronize: true,
     logging: "all",
     entities: [

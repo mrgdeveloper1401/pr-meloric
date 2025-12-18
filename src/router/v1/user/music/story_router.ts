@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../../../../data-source";
 import { Story } from "../../../../entity/Story";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
-import { In, LessThan, MoreThan } from "typeorm";
+import { In, MoreThan } from "typeorm";
 import { User } from "../../../../entity/User";
 import { s3ClientConfig, videoUploaded } from "../../../../utils/amazon_s3/S3Config";
 import fs from "fs";
@@ -326,12 +326,16 @@ storyRouter.get(
                     user: {
                         id: true,
                         username: true,
+                        profile_image: {
+                            id: true,
+                            image_path: true
+                        },
                         profile: {
                             id: true,
-                            profile_image: {
-                                id: true,
-                                image_path: true
-                            }
+                            // profile_image: {
+                                // id: true,
+                                // image_path: true
+                            // }
                         }
                     }
                 }
@@ -608,8 +612,8 @@ storyRouter.get(
                     "user.is_artist",
                     "user.username",
                     "artist.id",
-                    "artist.first_name",
-                    "artist.last_name",
+                    "user.first_name",
+                    "user.last_name",
                     "profile_image.image_path",
                     "profile_image.id",
                     "COUNT(story.id) as story_count" // تعداد استوری‌های کاربر
@@ -1706,21 +1710,24 @@ storyRouter.get(
                         user: {
                             id: true,
                             username: true,
+                            profile_image: {
+                                id: true,
+                                image_path: true
+                            },
                             profile: {
                                 id: true,
-                                profile_image: {
-                                    id: true,
-                                    image_path: true
-                                }
+                                // profile_image: {
+                                //     id: true,
+                                //     image_path: true
+                                // }
                             }
                         }
                     },
                     relations: {
                         media: true,
                         user: {
-                            profile: {
-                                profile_image: true
-                            }
+                            profile_image: true,
+                            profile: true
                         }
                     },
                     order: {

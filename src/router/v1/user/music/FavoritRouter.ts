@@ -326,7 +326,7 @@ favoriteRouter.get(
             const limit = Number(req.query.limit) || 20;
             const page = Number(req.query.page) || 1;
             const skip = (page - 1) * limit;
-            const favoritMusicRepository = AppDataSource.getRepository(FavoriteSong);
+            const favoritMusicRepository = AppDataSource.getRepository(FavoriteSong); // TODO, use query builder
             const [favoritMusics, total] = await favoritMusicRepository.findAndCount(
                 {
                     where: {
@@ -347,10 +347,12 @@ favoriteRouter.get(
                                 user: {
                                     id: true,
                                     username: true,
+                                    first_name: true,
+                                    last_name: true,
                                     profile: {
                                         id: true,
-                                        first_name: true,
-                                        last_name: true
+                                        // first_name: true,
+                                        // last_name: true
                                     }
                                 }
                             },
@@ -389,8 +391,8 @@ favoriteRouter.get(
                         audio_path: item.song.audio.audio_file_path,
                         image_path: item.song.image?.image_path || null,
                         artist_nick_name: item.song.artist?.nick_name || null,
-                        artist_first_name: item.song.artist.user.profile.first_name || null,
-                        artist_last_name: item.song.artist.user.profile?.last_name || null,
+                        artist_first_name: item.song.artist.user.first_name || null,
+                        artist_last_name: item.song.artist.user?.last_name || null,
                         username: item.song.artist.user.username,
                         nick_name: item.song.artist?.nick_name || null,
                         created_at: item.song.createdAt,
@@ -555,7 +557,7 @@ favoriteRouter.get(
                 });
             }
 
-            const favoritMusicRepository = AppDataSource.getRepository(FavoriteSong);
+            const favoritMusicRepository = AppDataSource.getRepository(FavoriteSong); // TODO, use query builder
             
             // Find the favorite music with relations
             const favoriteMusic = await favoritMusicRepository.findOne({
@@ -579,10 +581,12 @@ favoriteRouter.get(
                             user: {
                                 id: true,
                                 username: true,
+                                first_name: true,
+                                last_name: true,
                                 profile: {
                                     id: true,
-                                    first_name: true,
-                                    last_name: true
+                                    // first_name: true,
+                                    // last_name: true
                                 }
                             }
                         },
@@ -623,8 +627,8 @@ favoriteRouter.get(
                 audio_path: favoriteMusic.song.audio.audio_file_path,
                 image_path: favoriteMusic.song.image?.image_path || null,
                 artist_nick_name: favoriteMusic.song.artist?.nick_name || null,
-                first_name: favoriteMusic.song.artist.user.profile?.first_name || null,
-                last_name: favoriteMusic.song.artist.user.profile?.last_name || null,
+                first_name: favoriteMusic.song.artist.user?.first_name || null,
+                last_name: favoriteMusic.song.artist.user?.last_name || null,
                 username: favoriteMusic.song.artist.user.username,
                 created_at: favoriteMusic.song.artist?.nick_name || null,
                 release_date: favoriteMusic.song.release_date,

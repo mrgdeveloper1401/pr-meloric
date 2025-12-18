@@ -10,7 +10,6 @@ import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { audioUpload, s3ClientConfig, upload } from "../../../utils/amazon_s3/S3Config";
 import { Audio } from "../../../entity/Audio";
 import { User } from "../../../entity/User";
-import mm from "music-metadata";
 
 
 export const coreRouter = express.Router();
@@ -896,6 +895,7 @@ coreRouter.post(
             }
 
             // parse metadata
+            const mm = await import("music-metadata");
             const metadata = await mm.parseFile(req.file.path);
             const durationInSeconds = Math.floor(metadata.format.duration || 0);
 

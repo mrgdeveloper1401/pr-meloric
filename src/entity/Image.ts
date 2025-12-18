@@ -36,21 +36,21 @@ export class Image extends TimestampEntity{
   @JoinColumn({name: "user_id"})
   user: User;
 
-  @OneToMany(
-    () => Profile,
-    (profile) => profile.profile_image
-  )
-  profile_image_set: Profile[];
+  // @OneToMany(
+  //   () => Profile,
+  //   (profile) => profile.profile_image
+  // )
+  // profile_image_set: Profile[];
 
-  @OneToMany(
-    () => Profile,
-    (profile) => profile.banner_image
-  )
-  profile_banner_image_set: Profile[];
+  // @OneToMany(
+  //   () => Profile,
+  //   (profile) => profile.banner_image
+  // )
+  // profile_banner_image_set: Profile[];
 
-  @OneToMany(
-    () => Profile,
-    (profile) => profile.banner_galery_image
-  )
-  profile_banner_galery_image_set: Profile[];
+  // @OneToMany(
+  //   () => Profile,
+  //   (profile) => profile.banner_galery_image
+  // )
+  // profile_banner_galery_image_set: Profile[];
 }

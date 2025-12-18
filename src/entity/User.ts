@@ -3,7 +3,9 @@ import {
   PrimaryGeneratedColumn, 
   Column,
   OneToOne,
-  OneToMany
+  OneToMany,
+  ManyToOne,
+  JoinColumn
 } from "typeorm";
 import { Profile } from "./Profile";
 import { TimestampEntity } from "./Abstract";
@@ -34,6 +36,12 @@ export class User extends TimestampEntity{
   @Column({ default: true})
   is_active: boolean;
 
+  // @Column({ default: false})
+  // is_verify_email: boolean;
+
+  // @Column({ default: false})
+  // is_verify_phone: boolean;
+
   @Column({ default: false })
   is_staff: boolean;
 
@@ -49,29 +57,28 @@ export class User extends TimestampEntity{
   @Column({nullable: true})
   last_login: Date;
 
-  // @Column({ length: 100, nullable: true}) #TODO, add this field
-  // first_name: string;
+  @Column({ length: 100, nullable: true})
+  first_name: string;
 
-  // @Column({ length: 100, nullable: true }) #TODO, add this field
-  // last_name: string;
+  @Column({ length: 100, nullable: true })
+  last_name: string;
 
-  // @Column({ type: 'date', nullable: true }) #TODO, add this field
-  // birth_date: Date;
+  @Column({ type: 'date', nullable: true })
+  birth_date: Date;
+
+  @Column({ type: 'text', nullable: true })
+  bio: string;
 
   // @Column({ default: true })  // #TODO, add this field
   // is_operatble: boolean;
 
-  // @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true}) #TODO, add this field
-  // @JoinColumn({name: "cover_image_id"})
-  // cover_image: Image;
+  @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
+  @JoinColumn({name: "profile_image_id"})
+  profile_image: Image;
 
-  // @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true}) #TODO, add this field
-  // @JoinColumn({name: "profile_image_id"})
-  // profile_image: Image;
-
-  // @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true}) #TODO, add this field
-  // @JoinColumn({name: "banner_image_id"})
-  // banner_image: Image;
+  @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
+  @JoinColumn({name: "cover_image_id"})
+  cover_image: Image;
 
   // profile normal user
   @OneToOne(() => Profile, profile => profile.user)

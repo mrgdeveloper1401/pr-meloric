@@ -12,17 +12,14 @@ import { Artist } from "../../../../entity/Artist";
 import { UpdateMusicDto } from "../../../../dtos/music/UpdateMusic";
 import { Image } from "../../../../entity/Image";
 import { FavoriteSong } from "../../../../entity/FavoriteSong";
-import { ILike, In, LessThan, Like } from "typeorm";
+import { In, LessThan, Like } from "typeorm";
 import { Genre } from "../../../../entity/Genre";
 import { PlaylistSong } from "../../../../entity/PlaylistSong";
 import { isArtistUser } from "../../../../middlewares/IsArtist";
-import {
-  SingleMusicDto,
-} from "../../../../dtos/music/SingleMusic";
+import { SingleMusicDto } from "../../../../dtos/music/SingleMusic";
 import { SongProductionRole } from "../../../../entity/MusicProductionRole";
 
 export const musicRouter = Router();
-
 
 // get all song by album
 /**
@@ -123,6 +120,7 @@ musicRouter.get(
       // query params
       const albumId = parseInt(req.params.album_id);
       const date = new Date();
+
       // get album id by query params
       const albumRepository = AppDataSource.getRepository(Album);
       const getAlbum = await albumRepository.findOne({
@@ -133,6 +131,7 @@ musicRouter.get(
         },
         select: ["id"],
       });
+
       if (!getAlbum) {
         return res.status(404).json({
           status: false,
@@ -140,87 +139,50 @@ musicRouter.get(
         });
       }
 
-      // all songs
-      const musicRepository = AppDataSource.getRepository(Song);
-      const [songs, count] = await musicRepository.findAndCount({
-        where: {
-          album: getAlbum,
-          is_active: true,
-          release_date: LessThan(date),
-        },
-        take: limit,
-        skip: skip,
-        select: {
-          id: true,
-          title: true,
-          release_date: true,
-          play_count: true,
-          music_lyrics: true,
-          createdAt: true,
-          album: {
-            id: true,
-            title: true,
-            cover_image: {
-              image_path: true,
-            },
-          },
-          audio: {
-            audio_file_path: true,
-            audio_format: true,
-          },
-          image: {
-            id: true,
-            image_path: true,
-          },
-          artist: {
-            id: true,
-            nick_name: true,
-            user: {
-              id: true,
-              username: true,
-              profile: {
-                id: true,
-                first_name: true,
-                last_name: true,
-              },
-            },
-          },
-        },
-        relations: {
-          audio: true,
-          image: true,
-          album: {
-            cover_image: true,
-          },
-          artist: {
-            cover_image: true,
-            user: {
-              profile: true,
-            },
-          },
-        },
-      });
-      // const simpleData = songs.map(
-      //     item => (
-      //         {
-      //             music_id: item.id,
-      //             artist_id: item.artist.id,
-      //             nick_name: item.artist?.nick_name || null,
-      //             first_name: item.artist.user.profile?.first_name || null,
-      //             last_name: item.artist.user.profile?.last_name || null,
-      //             username: item.artist.user.username,
-      //             title: item.title,
-      //             release_date: item.release_date,
-      //             created_at: item.createdAt,
-      //             play_count: item.play_count,
-      //             music_lyrics: item.music_lyrics,
-      //             audio_file_path: item.audio.audio_file_path,
-      //             music_cover_image: item.image?.image_path || null
-      //         }
-      //     )
-      // )
+      // ایجاد QueryBuilder برای گرفتن تعداد کل
+      const queryBuilder = AppDataSource.getRepository(Song)
+        .createQueryBuilder("song")
+        .leftJoinAndSelect("song.album", "album")
+        .leftJoinAndSelect("album.cover_image", "album_image")
+        .leftJoinAndSelect("song.audio", "audio")
+        .leftJoinAndSelect("song.image", "image")
+        .leftJoinAndSelect("song.artist", "artist")
+        .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("user.profile", "profile")
+        .where(
+          "album.id = :albumId AND song.is_active = :isActive AND song.release_date < :currentTime",
+          { albumId, isActive: true, currentTime: date }
+        );
+
+      // گرفتن تعداد کل رکوردها
+      const count = await queryBuilder.getCount();
+
+      // گرفتن داده‌ها با pagination
+      const musics = await queryBuilder
+        .skip(skip)
+        .take(limit)
+        .select([
+          "song.id",
+          "song.title",
+          "song.release_date",
+          "song.play_count",
+          "song.music_lyrics",
+          "song.createdAt",
+          "album.id",
+          "album.title",
+          "album_image.id",
+          "album_image.image_path",
+          "artist.id",
+          "artist.nick_name",
+          "user.id",
+          "user.first_name",
+          "user.last_name",
+          "profile.id",
+        ])
+        .getMany();
+
       const userId = (req as any).user.user_id;
-      const data = songs.map((item) => ({
+      const data = musics.map((item) => ({
         is_owner: item.artist?.user.id === userId,
         id: item.id,
         title: item.title,
@@ -239,12 +201,12 @@ musicRouter.get(
         artist: {
           id: item.artist.id,
           nicke_name: item.artist?.nick_name || null,
-          first_name: item.artist.user.profile?.first_name || null,
-          last_name: item.artist.user.profile?.last_name || null,
+          first_name: item.artist.user?.first_name || null,
+          last_name: item.artist.user?.last_name || null,
           username: item.artist.user.username,
           cover_image: {
-            id: item.artist.cover_image?.id || null,
-            image_path: item.artist.cover_image?.image_path || null,
+            id: item.artist.user.cover_image?.id || null,
+            image_path: item.artist.user.cover_image?.image_path || null,
           },
           audio: {
             audio_file_path: item.audio.audio_file_path,
@@ -252,10 +214,12 @@ musicRouter.get(
           },
         },
       }));
+
       return res.status(200).json({
         status: "success",
-        count: count,
-        page: page,
+        count: count, // تعداد کل آهنگ‌ها
+        total_pages: Math.ceil(count / limit),
+        current_page: page,
         limit: limit,
         data: data,
       });
@@ -264,6 +228,7 @@ musicRouter.get(
       return res.status(500).json({
         status: false,
         message: "server error",
+        error: error.message,
       });
     }
   }
@@ -373,103 +338,78 @@ musicRouter.get(
   authenticateJWT,
   async (req: Request, res: Response) => {
     const musicId = Number(req.params.musicId);
-    const date = new Date();
+    const currentDate = new Date();
 
     try {
-      const musicRepository = AppDataSource.getRepository(Song);
-      const getMusic = await musicRepository.findOne({
-        where: {
-          id: musicId,
-          is_active: true,
-          release_date: LessThan(date),
-        },
-        select: {
-          id: true,
-          title: true,
-          release_date: true,
-          play_count: true,
-          music_lyrics: true,
-          createdAt: true,
-          featured_artists: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            is_active: true,
-            profile_image: {
-              id: true,
-              image_path: true
-            },
-            user: {
-              id: true,
-              username: true
-            }
-          },
-          production_roles: {
-            id: true,
-            artist: {
-              id: true,
-              nick_name: true,
-              first_name: true,
-              last_name: true,
-              user: {
-                id: true,
-                username: true
-              }
-            },
-            role: true,
-            is_active: true
-          },
-          album: {
-            id: true,
-            title: true,
-            cover_image: {
-              image_path: true,
-            },
-          },
-          image: {
-            image_path: true,
-          },
-          audio: {
-            audio_file_path: true,
-            audio_format: true, // این رو هم اضافه کردم
-          },
-          artist: {
-            id: true,
-            nick_name: true,
-            first_name: true,
-            last_name: true,
-            cover_image: {
-              id: true,
-              image_path: true
-            },
-            user: {
-              id: true,
-              username: true,
-            },
-          },
-        },
-        relations: {
-          featured_artists: {
-            profile_image: true,
-            user: true
-          },
-          production_roles: {
-            artist: {
-              user: true
-            }
-          },
-          album: {
-            cover_image: true,
-          },
-          image: true,
-          audio: true,
-          artist: {
-            cover_image: true,
-            user: true,
-          },
-        },
-      });
-      
+      const getMusic = await AppDataSource.getRepository(Song)
+        .createQueryBuilder("song")
+        .leftJoinAndSelect("song.image", "song_image")
+        .leftJoinAndSelect("song.featured_artists", "featured_artists")
+        .leftJoinAndSelect("featured_artists.user", "featured_artists_user")
+        .leftJoinAndSelect(
+          "featured_artists_user.profile_image",
+          "featured_artists_user_profile_image"
+        )
+        .leftJoinAndSelect("song.production_roles", "production_roles")
+        .leftJoinAndSelect("production_roles.user", "production_roles_user")
+        .leftJoinAndSelect(
+          "production_roles_user.artist",
+          "production_roles_user_artist"
+        )
+        .leftJoinAndSelect("song.album", "album")
+        .leftJoinAndSelect("song.audio", "audio")
+        .leftJoinAndSelect("song.artist", "artist")
+        .leftJoinAndSelect("artist.user", "artist_user")
+        .leftJoinAndSelect("artist_user.profile_image", "artist_profile_image")
+        .select([
+          "song.id",
+          "song.title",
+          "song.release_date",
+          "song.play_count",
+          "song.music_lyrics",
+          "song.createdAt",
+          "featured_artists.id",
+          "featured_artists_user.username",
+          "featured_artists_user.id",
+          "featured_artists_user.first_name",
+          "featured_artists_user.last_name",
+          "featured_artists_user.is_active",
+          "featured_artists_user_profile_image.id",
+          "featured_artists_user_profile_image.image_path",
+          "production_roles.id",
+          "production_roles.role",
+          "production_roles.is_active",
+          "production_roles_user.first_name",
+          "production_roles_user.last_name",
+          "production_roles_user.id",
+          "production_roles_user.username",
+          "production_roles_user_artist.id",
+          "production_roles_user_artist.nick_name",
+          "album.id",
+          "album.title",
+          "album_image.image_path",
+          "song_image.image_path",
+          "audio.audio_file_path",
+          "song.audio_format",
+          "artist.id",
+          "artist.nick_name",
+          "artist_user.first_name",
+          "artist_user.last_name",
+          "artist_user.id",
+          "artist_user.username",
+          "artist_profile_image.id",
+          "artist_profile_image.image_path",
+        ])
+        .where(
+          "song.is_active = :isActive AND song.release_date < :currentDate AND album.release_date < :currentDateAlbum",
+          {
+            isActive: true,
+            currentDate: currentDate,
+            currentDateAlbum: currentDate,
+          }
+        )
+        .getOne();
+
       if (!getMusic) {
         return res.status(404).json({
           status: false,
@@ -533,34 +473,44 @@ musicRouter.get(
 
       // is owner
       const isOwner = getMusic.artist?.user?.id == userId;
-      
+
       // Format featured artists
-      const formattedFeaturedArtists = getMusic.featured_artists
-        ?.filter(feat => feat.is_active)
-        .map(feat => ({
-          id: feat.id,
-          // nick_name: feat.nick_name,
-          // first_name: feat.first_name,
-          // last_name: feat.last_name,
-          full_name: `${feat.first_name || ''} ${feat.last_name || ''}`.trim(),
-          username: feat.user?.username || null,
-          profile_image: feat.profile_image ? {
-            id: feat.profile_image.id,
-            image_path: feat.profile_image.image_path
-          } : null
-        })) || [];
+      const formattedFeaturedArtists =
+        getMusic.featured_artists
+          ?.filter((feat) => feat.is_active)
+          .map((feat) => ({
+            id: feat.id,
+            // nick_name: feat.nick_name,
+            // first_name: feat.first_name,
+            // last_name: feat.last_name,
+            full_name: `${feat.user.first_name || ""} ${
+              feat.user.last_name || ""
+            }`.trim(),
+            username: feat.user?.username || null,
+            profile_image: feat.user.profile_image
+              ? {
+                  id: feat.user.profile_image.id,
+                  image_path: feat.user.profile_image.image_path,
+                }
+              : null,
+          })) || [];
 
       // Format production roles
-      const formattedProductionRoles = getMusic.production_roles
-        ?.filter(role => role.is_active)
-        .map(role => ({
-          id: role.id,
-          artist_id: role.artist?.id || null,
-          username: role.artist.user.username,
-          artist_name: role.artist?.nick_name || 
-                     `${role.artist?.first_name || ''} ${role.artist?.last_name || ''}`.trim() || null,
-          role: role.role
-        })) || [];
+      const formattedProductionRoles =
+        getMusic.production_roles
+          ?.filter((role) => role.is_active)
+          .map((role) => ({
+            id: role.id,
+            artist_id: role.artist?.id || null,
+            username: role.artist.user.username,
+            artist_name:
+              role.artist?.nick_name ||
+              `${role.artist.user?.first_name || ""} ${
+                role.artist.user?.last_name || ""
+              }`.trim() ||
+              null,
+            role: role.role,
+          })) || [];
 
       const data = {
         id: getMusic.id,
@@ -570,30 +520,41 @@ musicRouter.get(
         play_count: getMusic.play_count,
         music_lyrics: getMusic.music_lyrics,
         created_at: getMusic.createdAt,
-        image: getMusic.image ? {
-          id: getMusic.image.id,
-          image_path: getMusic.image.image_path
-        } : null,
-        album: getMusic.album ? {
-          id: getMusic.album.id,
-          title: getMusic.album.title,
-          cover_image: getMusic.album.cover_image ? {
-            id: getMusic.album.cover_image.id,
-            image_path: getMusic.album.cover_image.image_path
-          } : null,
-        } : null,
+        image: getMusic.image
+          ? {
+              id: getMusic.image.id,
+              image_path: getMusic.image.image_path,
+            }
+          : null,
+        album: getMusic.album
+          ? {
+              id: getMusic.album.id,
+              title: getMusic.album.title,
+              cover_image: getMusic.album.cover_image
+                ? {
+                    id: getMusic.album.cover_image.id,
+                    image_path: getMusic.album.cover_image.image_path,
+                  }
+                : null,
+            }
+          : null,
         artist: {
           id: getMusic.artist.id,
           nick_name: getMusic.artist.nick_name,
-          first_name: getMusic.artist.first_name,
-          last_name: getMusic.artist.last_name,
-          full_name: getMusic.artist.nick_name || 
-                    `${getMusic.artist.first_name || ''} ${getMusic.artist.last_name || ''}`.trim(),
+          first_name: getMusic.artist.user.first_name || null,
+          last_name: getMusic.artist.user.last_name || null,
+          full_name:
+            getMusic.artist.nick_name ||
+            `${getMusic.artist.user.first_name || ""} ${
+              getMusic.artist.user.last_name || ""
+            }`.trim(),
           username: getMusic.artist.user.username,
-          cover_image: getMusic.artist.cover_image ? {
-            id: getMusic.artist.cover_image.id,
-            image_path: getMusic.artist.cover_image.image_path
-          } : null,
+          cover_image: getMusic.artist.user.cover_image
+            ? {
+                id: getMusic.artist.user.cover_image.id,
+                image_path: getMusic.artist.user.cover_image.image_path,
+              }
+            : null,
         },
         audio: {
           isLiked: isLiked,
@@ -616,7 +577,7 @@ musicRouter.get(
       return res.status(500).json({
         status: false,
         message: "server error",
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -790,7 +751,7 @@ musicRouter.post(
   authenticateJWT,
   async (req: Request, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
-    
+
     try {
       await queryRunner.connect();
       await queryRunner.startTransaction();
@@ -810,7 +771,7 @@ musicRouter.post(
         where: { id: userId, is_active: true, is_artist: true },
         select: ["id"],
       });
-      
+
       if (!getUser) {
         return res.status(403).json({
           status: false,
@@ -852,7 +813,7 @@ musicRouter.post(
         },
         select: ["id"],
       });
-      
+
       if (!getAudio) {
         return res.status(404).json({
           status: false,
@@ -866,7 +827,7 @@ musicRouter.post(
         where: { id: parseInt(req.params.album_id), is_active: true },
         select: ["id"],
       });
-      
+
       if (!getAlbum) {
         return res.status(404).json({
           status: false,
@@ -883,7 +844,7 @@ musicRouter.post(
         },
         select: ["id"],
       });
-      
+
       if (!getArtist) {
         return res.status(404).json({
           status: false,
@@ -894,14 +855,14 @@ musicRouter.post(
       // check image
       const imageRepository = queryRunner.manager.getRepository(Image);
       const getImage = await imageRepository.findOne({
-        where: { 
-          id: image_id, 
-          is_active: true, 
-          user: { id: userId } 
+        where: {
+          id: image_id,
+          is_active: true,
+          user: { id: userId },
         },
         select: ["id"],
       });
-      
+
       if (!getImage) {
         return res.status(404).json({
           status: false,
@@ -921,35 +882,36 @@ musicRouter.post(
         music_lyrics: music_lyrics,
         image: getImage,
         is_active: true,
-        is_single: false // چون در آلبوم است
+        is_single: false, // چون در آلبوم است
       });
 
       const savedSong = await songRepository.save(newSong);
 
       // Add production roles
       if (production_roles.length > 0) {
-        const productionRoleRepository = queryRunner.manager.getRepository(SongProductionRole);
+        const productionRoleRepository =
+          queryRunner.manager.getRepository(SongProductionRole);
         const productionEntities = [];
-        const artistIds = production_roles.map(prod => prod.artist_id);
-        
+        const artistIds = production_roles.map((prod) => prod.artist_id);
+
         // Get all artists in one query
         const artists = await artistRepository.find({
           where: {
             id: In(artistIds),
-            is_active: true
-          }
+            is_active: true,
+          },
         });
 
-        const artistMap = new Map(artists.map(artist => [artist.id, artist]));
+        const artistMap = new Map(artists.map((artist) => [artist.id, artist]));
 
         for (const prod of production_roles) {
           const artist = artistMap.get(prod.artist_id);
-          
+
           if (!artist) {
             await queryRunner.rollbackTransaction();
             return res.status(404).json({
               status: false,
-              message: `Artist with id ${prod.artist_id} not found`
+              message: `Artist with id ${prod.artist_id} not found`,
             });
           }
 
@@ -958,7 +920,7 @@ musicRouter.post(
             await queryRunner.rollbackTransaction();
             return res.status(400).json({
               status: false,
-              message: "You cannot add yourself as a production role"
+              message: "You cannot add yourself as a production role",
             });
           }
 
@@ -966,9 +928,9 @@ musicRouter.post(
             song: savedSong,
             artist: artist,
             role: prod.role,
-            is_active: true
+            is_active: true,
           });
-          
+
           productionEntities.push(productionEntity);
         }
 
@@ -978,21 +940,21 @@ musicRouter.post(
       // Add featured artists
       if (featured_artist_ids.length > 0) {
         const uniqueFeaturedIds = [...new Set(featured_artist_ids)];
-        
+
         // Check if artist is not trying to feature themselves (optional)
         if (uniqueFeaturedIds.includes(getArtist.id)) {
           await queryRunner.rollbackTransaction();
           return res.status(400).json({
             status: false,
-            message: "You cannot add yourself as a featured artist"
+            message: "You cannot add yourself as a featured artist",
           });
         }
 
         const featuredArtists = await artistRepository.find({
           where: {
             id: In(uniqueFeaturedIds),
-            is_active: true
-          }
+            is_active: true,
+          },
         });
 
         if (featuredArtists.length > 0) {
@@ -1011,17 +973,16 @@ musicRouter.post(
           album_id: savedSong.album?.id,
           artist_id: savedSong.artist?.id,
           production_roles_count: production_roles.length,
-          featured_artists_count: featured_artist_ids.length
+          featured_artists_count: featured_artist_ids.length,
         },
       });
-
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      
+
       return res.status(500).json({
         status: false,
         message: "server error",
-        error: error.message
+        error: error.message,
       });
     } finally {
       await queryRunner.release();
@@ -1377,6 +1338,7 @@ musicRouter.delete(
   }
 );
 
+
 // show music by genre id
 /**
  * @swagger
@@ -1509,12 +1471,12 @@ musicRouter.get(
         artist: {
           id: item.artist.id,
           nick_name: item.artist?.nick_name || null,
-          first_name: item.artist?.first_name || null,
-          last_name: item.artist?.last_name || null,
+          first_name: item.artist.user?.first_name || null,
+          last_name: item.artist.user?.last_name || null,
           username: item.artist.user?.username || null,
           cover_image: {
-            id: item.artist.cover_image?.id || null,
-            image_path: item.artist.cover_image?.image_path || null,
+            id: item.artist.user.cover_image?.id || null,
+            image_path: item.artist.user.cover_image?.image_path || null,
           },
         },
         audio: {
@@ -1836,9 +1798,9 @@ musicRouter.get(
             cover_image: true,
           },
           artist: {
-            cover_image: true,
             user: {
               profile: true,
+              profile_image: true
             },
           },
         },
@@ -1867,18 +1829,24 @@ musicRouter.get(
           artist: {
             id: true,
             nick_name: true,
-            cover_image: {
-              id: true,
-              image_path: true,
-            },
+            // cover_image: {
+              // id: true,
+              // image_path: true,
+            // },
             user: {
               username: true,
               id: true,
-              profile: {
+              first_name: true,
+              last_name: true,
+              profile_image: {
                 id: true,
-                first_name: true,
-                last_name: true,
-              },
+                image_path: true
+              }
+              // profile: {
+                // id: true,
+                // first_name: true,
+                // last_name: true,
+              // },
             },
           },
         },
@@ -1909,12 +1877,12 @@ musicRouter.get(
         artist: {
           id: item.artist.id,
           nick_name: item.artist?.nick_name || null,
-          first_name: item.artist.user.profile?.first_name || null,
-          last_name: item.artist.user.profile?.last_name || null,
+          first_name: item.artist.user?.first_name || null,
+          last_name: item.artist.user?.last_name || null,
           username: item.artist.user.username,
-          cover_image: {
-            id: item.artist.cover_image?.id || null,
-            image_path: item.artist.cover_image?.image_path || null,
+          cover_image: { // TODO, chnage cover_image into profile_image
+            id: item.artist.user.profile_image?.id || null,
+            image_path: item.artist.user.cover_image?.image_path || null,
           },
         },
         audio: {
@@ -1946,6 +1914,7 @@ musicRouter.get(
       return res.status(500).json({
         status: false,
         message: "Internal server error",
+        error: error.message
       });
     }
   }
@@ -2071,11 +2040,11 @@ musicRouter.get(
               id: true,
             },
             id: true,
-            profile: {
-              id: true,
-              first_name: true,
-              last_name: true,
-            },
+            // profile: {
+            //   id: true,
+            //   first_name: true,
+            //   last_name: true,
+            // },
           },
         },
         take: limit,
@@ -2089,8 +2058,8 @@ musicRouter.get(
         updated_at: item.updatedAt,
         title: item.title,
         image_path: item.cover_image?.image_path || null,
-        artist_first_name: item.user.profile?.first_name || null,
-        artist_last_name: item.user.profile?.last_name || null,
+        artist_first_name: item.user?.first_name || null,
+        artist_last_name: item.user?.last_name || null,
       }));
       return res.status(200).json({
         status: "success",
@@ -2107,7 +2076,6 @@ musicRouter.get(
     }
   }
 );
-
 
 // search music by title
 /**
@@ -2447,9 +2415,8 @@ musicRouter.get(
             cover_image: true,
           },
           artist: {
-            cover_image: true,
             user: {
-              profile: true,
+              profile_image: true
             },
           },
         },
@@ -2474,12 +2441,12 @@ musicRouter.get(
         artist: {
           id: item.artist.id,
           nicke_name: item.artist?.nick_name || null,
-          first_name: item.artist?.first_name || null,
-          last_name: item.artist?.last_name || null,
+          first_name: item.artist.user?.first_name || null,
+          last_name: item.artist.user?.last_name || null,
           username: item.artist.user.username,
           cover_image: {
-            id: item.artist.cover_image?.id || null,
-            image_path: item.artist.cover_image?.image_path || null,
+            id: item.artist.user.cover_image?.id || null,
+            image_path: item.artist.user.cover_image?.image_path || null,
           },
           audio: {
             audio_file_path: item.audio.audio_file_path,
@@ -2503,7 +2470,6 @@ musicRouter.get(
     }
   }
 );
-
 
 // search artist
 /**
@@ -2604,35 +2570,48 @@ musicRouter.get(
       const [artists, total] = await artistRepository.findAndCount({
         where: [
           { user: { username: Like(searchTerm) }, is_active: true },
-          { first_name: Like(searchTerm), is_active: true },
-          { last_name: Like(searchTerm), is_active: true },
+          { user: {first_name: Like(searchTerm), is_active: true }},
+          { user: {last_name: Like(searchTerm), is_active: true }},
           { nick_name: Like(searchTerm), is_active: true },
         ],
         relations: {
-          user: true,
-          cover_image: true,
-          profile_image: true,
+          user: {
+            profile_image: true,
+            cover_image: true
+          },
+          // profile_image: true,
         },
         select: {
           id: true,
           nick_name: true,
-          first_name: true,
-          last_name: true,
+          // first_name: true,
+          // last_name: true,
           // bio: true,
           createdAt: true,
           monthly_listeners: true,
-          cover_image: {
-            id: true,
-            image_path: true,
-          },
-          profile_image: {
-            id: true,
-            image_path: true,
-          },
+          // cover_image: {
+            // id: true,
+            // image_path: true,
+          // },
+          // profile_image: {
+            // id: true,
+            // image_path: true,
+          // },
           user: {
             id: true,
             username: true,
             is_artist: true,
+            first_name: true,
+            last_name: true,
+            bio: true,
+            profile_image: {
+              id: true,
+              image_path: true,
+            },
+            cover_image: {
+              id: true,
+              image_path: true
+            }
           },
         },
         order: {
@@ -2647,17 +2626,19 @@ musicRouter.get(
         user_id: artist.user?.id || null,
         username: artist.user?.username || null,
         nick_name: artist?.nick_name || null,
-        first_name: artist?.first_name || null,
-        last_name: artist?.last_name || null,
+        first_name: artist.user?.first_name || null,
+        last_name: artist.user?.last_name || null,
         created_at: artist.createdAt,
         monthly_listeners: artist.monthly_listeners || 0,
-        cover_image: artist.cover_image ? {
-          id: artist.cover_image.id,
-          image_path: artist.cover_image.image_path,
-        } : null,
+        cover_image: artist.user?.cover_image
+          ? {
+              id: artist.user.cover_image.id,
+              image_path: artist.user.cover_image.image_path,
+            }
+          : null,
         profile_image: {
-          id: artist.profile_image?.id || null,
-          image_path: artist.profile_image?.image_path || null,
+          id: artist.user.profile_image?.id || null,
+          image_path: artist.user.profile_image?.image_path || null,
         },
         type: "artist",
       }));
@@ -2680,7 +2661,6 @@ musicRouter.get(
     }
   }
 );
-
 
 // search album
 /**
@@ -2820,18 +2800,24 @@ musicRouter.get(
         id: album.id,
         title: album.title,
         release_date: album.release_date,
-        cover_image: album.cover_image ? {
-          id: album.cover_image.id,
-          image_path: album.cover_image.image_path,
-        } : null,
-        genre: album.genre ? {
-          id: album.genre.id,
-          name: album.genre.name,
-        } : null,
-        artist: album.user ? {
-          id: album.user.id,
-          username: album.user.username,
-        } : null,
+        cover_image: album.cover_image
+          ? {
+              id: album.cover_image.id,
+              image_path: album.cover_image.image_path,
+            }
+          : null,
+        genre: album.genre
+          ? {
+              id: album.genre.id,
+              name: album.genre.name,
+            }
+          : null,
+        artist: album.user
+          ? {
+              id: album.user.id,
+              username: album.user.username,
+            }
+          : null,
         created_at: album.createdAt,
         type: "album",
       }));
@@ -2855,7 +2841,6 @@ musicRouter.get(
     }
   }
 );
-
 
 // increemt play count
 /**
@@ -2987,7 +2972,6 @@ musicRouter.post(
     }
   }
 );
-
 
 // create single music
 /**
@@ -3335,7 +3319,6 @@ musicRouter.post(
   }
 );
 
-
 // get upload music
 /**
  * @swagger
@@ -3571,21 +3554,21 @@ musicRouter.get(
         "song.release_date",
         "artist.id",
         "artist.nick_name",
-        "artist.first_name",
-        "artist.last_name",
+        "user.first_name",
+        "user.last_name",
         "user.id",
         "user.username",
         "audio.id",
         "audio.audio_file_path",
         "image.id",
         "image.image_path",
-        "album.id"
+        "album.id",
       ]);
 
       // Get data and count in parallel for better performance
       const [songs, total] = await Promise.all([
         queryBuilder.getMany(),
-        queryBuilder.getCount()
+        queryBuilder.getCount(),
       ]);
 
       // Transform data
@@ -3595,14 +3578,14 @@ musicRouter.get(
         audio_path: song.audio?.audio_file_path || null,
         image_path: song.image?.image_path || null,
         artist_nick_name: song.artist.nick_name,
-        artist_first_name: song.artist.first_name,
-        artist_last_name: song.artist.last_name,
+        artist_first_name: song.artist.user?.first_name || null,
+        artist_last_name: song.artist.user?.last_name || null,
         username: song.artist.user.username,
         created_at: song.createdAt,
         play_count: song.play_count,
         release_dat: song.release_date,
         title: song.title,
-        album_id: song.album?.id || null
+        album_id: song.album?.id || null,
       }));
 
       res.status(200).json({
