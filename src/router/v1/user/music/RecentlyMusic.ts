@@ -154,98 +154,73 @@ recentMusicRouter.get(
   authenticateJWT,
   async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user.userId;
+      const userId = (req as any).user.user_id;
+
       const recentMusicRepository = AppDataSource.getRepository(RecentMusic);
 
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-      const offset = parseInt(req.query.offset as string) || 0;
+      const page = 1;
+      const skip = (page - 1) * limit;
       const hours = parseInt(req.query.hours as string) || 72; // Default 72 hours
 
       const hoursAgo = new Date();
       hoursAgo.setHours(hoursAgo.getHours() - hours);
+      const currentDate = new Date();
 
-      const queryBuilder = recentMusicRepository
+      const queryBuilder = await recentMusicRepository
         .createQueryBuilder("recent")
-        .select(["recent.id", "recent.createdAt", "recent.updatedAt"])
+        .leftJoinAndSelect("recent.user", "user")
         .leftJoinAndSelect("recent.song", "song")
-        .leftJoinAndSelect("song.artist", "artist")
-        .leftJoin("artist.user", "user")
-        .addSelect(["artist.id", "artist.nick_name", "user.username"])
-        .leftJoinAndSelect("song.album", "album")
-        .addSelect(["album.id", "album.title"])
-        .leftJoinAndSelect("song.audio", "audio")
-        .addSelect(["audio.audio_file_path", "audio.audio_format"])
+        .leftJoinAndSelect("song.featured_artists", "song_featured_artists")
+        .leftJoinAndSelect(
+          "song_featured_artists.user",
+          "song_featured_artists_user"
+        )
         .leftJoinAndSelect("song.image", "song_image")
-        .addSelect("song_image.image_path")
-        .where("recent.user.id = :userId", { userId })
-        .andWhere("recent.is_active = :isActive", { isActive: true })
-        .andWhere("song.is_active = :songIsActive", { songIsActive: true })
-        .andWhere("audio.is_active = :audioIsActive", { audioIsActive: true })
-        .andWhere("recent.updatedAt >= :hoursAgo", { hoursAgo })
-        .orderBy("recent.updatedAt", "DESC");
-
-      // گرفتن داده‌ها با pagination
-      const recentMusics = await queryBuilder
-        .skip(offset)
+        .leftJoinAndSelect("song.artist", "artist")
+        .leftJoinAndSelect("artist.user", "artist_user")
+        .where("recent.is_active = :isActive", { isActive: true })
+        .andWhere("song.is_active = :isActive", { isActive: true })
+        .andWhere("song.release_date < :currentDate", {
+          currentDate: currentDate,
+        })
+        .andWhere("recent.createdAt >= :hoursAgo", { hoursAgo })
+        .andWhere("recent.user.id = :userId", { userId: userId })
+        .select([
+          "recent.id",
+          "song.id",
+          "artist.id",
+          "artist_user.username",
+          "song_featured_artists.id",
+          "song_featured_artists_user.username",
+          "song.title",
+          "song_image.image_path",
+          "recent.createdAt",
+        ])
+        .skip(skip)
         .take(limit)
         .getMany();
 
-      // گرفتن تعداد کل برای pagination (با فیلتر hours)
-      const totalQuery = recentMusicRepository
-        .createQueryBuilder("recent")
-        .where("recent.user.id = :userId", { userId })
-        .andWhere("recent.is_active = :isActive", { isActive: true })
-        .andWhere("recent.updatedAt >= :hoursAgo", { hoursAgo })
-        .innerJoin("recent.song", "song")
-        .andWhere("song.is_active = :songIsActive", { songIsActive: true });
-
-      const total = await totalQuery.getCount();
-
-      const response = recentMusics.map((recent) => ({
-        id: recent.id,
-        added_at: recent.updatedAt,
-        song: {
-          id: recent.song.id,
-          title: recent.song.title,
-          release_date: recent.song.release_date,
-          play_count: recent.song.play_count,
-          image: recent.song.image
-            ? {
-                image_path: recent.song.image.image_path,
-              }
-            : null,
-          album: recent.song.album
-            ? {
-                id: recent.song.album.id,
-                title: recent.song.album.title,
-              }
-            : null,
-          artist: recent.song.artist
-            ? {
-                id: recent.song.artist.id,
-                nick_name: recent.song.artist.nick_name,
-                username: recent.song.artist.user?.username || null,
-              }
-            : null,
-          audio: recent.song.audio
-            ? {
-                audio_file_path: recent.song.audio.audio_file_path,
-                audio_format: recent.song.audio.audio_format,
-              }
-            : null,
-        },
+      const data = queryBuilder.map((item) => ({
+        recent_id: item.id,
+        song_id: item.song.id,
+        artist_id: item.song.artist.id,
+        song_title: item.song.title,
+        song_image_url: item.song.image?.image_path || null,
+        artist_username: item.song.artist.user.username,
+        created_at: item.createdAt,
+        song_featured_artists: item.song.featured_artists.map((item) => ({
+          id: item.id,
+          artist_username: item.user.username,
+        })),
       }));
-
       return res.json({
         status: "success",
-        data: response,
-        pagination: {
-          total,
-          limit,
-          offset,
-          has_more: offset + limit < total,
-          hours, // اضافه کردن hours به پاسخ
-        },
+        limit: limit,
+        skip: skip,
+        page: page,
+        hours: hours,
+        data: data,
       });
     } catch (error) {
       return res.status(500).json({
@@ -365,7 +340,7 @@ recentMusicRouter.post(
           is_active: true,
           release_date: LessThan(date),
         },
-        select: {id: true}
+        select: { id: true },
       });
       if (!findMusic) {
         return res.status(404).json({
@@ -374,25 +349,21 @@ recentMusicRouter.post(
         });
       }
 
-    //   check duplicate
-    const recentMusicRepository = AppDataSource.getRepository(RecentMusic);
-    const checkDuplicate = await recentMusicRepository.findOne(
-        {
-            where: {
-                is_active: true,
-                song: {id: recentMusicDto.song_id}
-            },
-            select: {id: true}
-        }
-    );
-    if (checkDuplicate) {
-        return res.status(400).json(
-            {
-                status: false,
-                message: "music already exists in recent music"
-            }
-        )
-    }
+      //   check duplicate
+      const recentMusicRepository = AppDataSource.getRepository(RecentMusic);
+      const checkDuplicate = await recentMusicRepository.findOne({
+        where: {
+          is_active: true,
+          song: { id: recentMusicDto.song_id },
+        },
+        select: { id: true },
+      });
+      if (checkDuplicate) {
+        return res.status(400).json({
+          status: false,
+          message: "music already exists in recent music",
+        });
+      }
       //   create recent music
       const createRecentMusic = new RecentMusic();
       createRecentMusic.song = findMusic;
