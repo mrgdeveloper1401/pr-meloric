@@ -26,12 +26,12 @@ services:
   app:
     container_name: music_app
     ports:
-      - "3000:3000"
+      - "8000:8000"
     build:
       context: .
       dockerfile: Dockerfile
     expose:
-      - 3000
+      - 8000
     env_file: ".env"
     restart: always
 
