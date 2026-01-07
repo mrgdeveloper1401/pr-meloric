@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express";
 import { AppDataSource } from "../../../../data-source";
 import { Song } from "../../../../entity/Song";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
-import { FavoriteSong } from "../../../../entity/FavoriteSong";
 
 
 export const bestMusicRouter = Router();

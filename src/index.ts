@@ -1,6 +1,6 @@
 import { AppDataSource } from "./data-source";
 import { blue } from "colors";
-import express, { Request, Response } from 'express';
+import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import { userAuthRouter } from "./router/v1/user/auth/auth_router";
 import bodyParser from "body-parser";
@@ -25,112 +25,58 @@ import { downloadRouter } from "./router/v1/user/music/DownloadMusicRouter";
 import { wallerRouter } from "./router/v1/user/wallet/WalletRouter";
 import { emailRouter } from "./router/v1/user/auth/EmailRouter";
 import { relatedMusicrouter } from "./router/v1/user/music/RelatedMusicRouter";
+import { recentMusicRouter } from "./router/v1/user/music/RecentlyMusic";
 
-dotenv.config()
+dotenv.config();
 
-const debug = process.env.DEBUG
+const debug = process.env.DEBUG;
 
-AppDataSource.initialize().then(() => {
+AppDataSource.initialize()
+  .then(() => {
     console.log(blue("success connect database"));
-    console.log("Here you can setup and run express / fastify / any other framework.")
+    console.log(
+      "Here you can setup and run express / fastify / any other framework."
+    );
 
     // express
-    const app = express()
+    const app = express();
     if (debug) {
-        app.use(cors());
+      app.use(cors());
     } else {
-        app.use(cors(CorsOptionsMiddleware));
+      app.use(cors(CorsOptionsMiddleware));
     }
     app.use(bodyParser.json());
     app.use(bodyParser.urlencoded({ extended: true }));
     const port = process.env.PORT;
 
     // router
-    app.get(
-        "/", (req: Request, res: Response) => {
-            res.send("rest api music");
-        }
-    );
-    app.use(
-        "/v1/auth/user/", 
-        userAuthRouter
-    );
-    app.use(
-        "/v1/follow/user/", 
-        followRouter
-    );
-    app.use(
-        "/v1/user/core/",
-        coreRouter
-    );
-    app.use(
-        "/v1/user/story/",
-        storyRouter
-    );
-    app.use(
-        "/v1/user/genre/",
-        genreRouter
-    );
-    app.use(
-        "/v1/album/user/",
-        albumRouter
-    );
-    app.use(
-        "/v1/user/music/",
-        musicRouter
-    );
-    app.use(
-        "/v1/user/favorite/",
-        favoriteRouter
-    );
-    app.use(
-        "/v1/user/comment_music/",
-        commentMusicRouter
-    );
-    app.use(
-        "/v1/user/play_list/",
-        playListRouter
-    );
-    app.use(
-        "/v1/user/play/",
-        playHistoryRouter
-    )
-    app.use(
-        "/v1/user/information/",
-        informationUserRouter
-    )
-    app.use(
-        "/v1/suggestion/music/",
-        suggestRouter
-    )
-    app.use(
-        '/v1/user/artist/',
-        artistReouter
-    )
-    app.use(
-        "/v1/best/user/music/",
-        bestMusicRouter
-    )
-    app.use(
-        "/v1/user/downloads/",
-        downloadRouter
-    )
-    app.use(
-        "/v1/user/wallet/",
-        wallerRouter
-    ),
-    app.use(
-        "/v1/email/",
-        emailRouter
-    ),
-    app.use(
-        "/v1/related_music/",
-        relatedMusicrouter
-    )
+    app.get("/", (req: Request, res: Response) => {
+      res.send("rest api music");
+    });
+    app.use("/v1/auth/user/", userAuthRouter);
+    app.use("/v1/follow/user/", followRouter);
+    app.use("/v1/user/core/", coreRouter);
+    app.use("/v1/user/story/", storyRouter);
+    app.use("/v1/user/genre/", genreRouter);
+    app.use("/v1/album/user/", albumRouter);
+    app.use("/v1/user/music/", musicRouter);
+    app.use("/v1/user/favorite/", favoriteRouter);
+    app.use("/v1/user/comment_music/", commentMusicRouter);
+    app.use("/v1/user/play_list/", playListRouter);
+    app.use("/v1/user/play/", playHistoryRouter);
+    app.use("/v1/user/information/", informationUserRouter);
+    app.use("/v1/suggestion/music/", suggestRouter);
+    app.use("/v1/user/artist/", artistReouter);
+    app.use("/v1/best/user/music/", bestMusicRouter);
+    app.use("/v1/user/downloads/", downloadRouter);
+    app.use("/v1/user/wallet/", wallerRouter),
+    app.use("/v1/email/", emailRouter),
+    app.use("/v1/related_music/", relatedMusicrouter);
+    app.use("/v1/music/recent/", recentMusicRouter)
     // listen
-    app.listen(port)
+    app.listen(port);
 
     // swagger
     swaggerDocs(app, port);
-
-}).catch(error => console.log(error))
+  })
+  .catch((error) => console.log(error));

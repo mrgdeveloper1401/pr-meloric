@@ -34,6 +34,7 @@ import { WalletTransaction } from "./entity/WalletTransaction";
 import { ArtistGallery } from "./entity/ArtistGallery";
 import { ArtistSocial } from "./entity/ArtistSocial";
 import { SongProductionRole } from "./entity/MusicProductionRole";
+import { RecentMusic } from "./entity/RecentMusic";
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ export const AppDataSource = new DataSource({
     ArtistGallery,
     ArtistSocial,
     SongProductionRole,
+    RecentMusic
   ],
   migrations: [],
   subscribers: [UserSubscriber],
