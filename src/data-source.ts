@@ -1,5 +1,5 @@
-import "reflect-metadata"
-import { DataSource } from "typeorm"
+import "reflect-metadata";
+import { DataSource } from "typeorm";
 import { User } from "./entity/User";
 import { Profile } from "./entity/Profile";
 import { Image } from "./entity/Image";
@@ -37,51 +37,51 @@ import { SongProductionRole } from "./entity/MusicProductionRole";
 
 dotenv.config();
 
-const DEBUG=process.env.DEBUG_MODE;
+const DEBUG = process.env.DEBUG_MODE;
 
 export const AppDataSource = new DataSource({
-    type: "postgres",
-    host: DEBUG === "true" ? "localhost" : process.env.PROD_POSTGRES_HOST,
-    port: DEBUG === "true" ? 5434: Number(process.env.PROD_POSTGRES_PORT),
-    username: DEBUG === 'true' ? "postgres": process.env.PROD_POSTGRES_USER,
-    password: DEBUG === "true" ? "postgres": process.env.PROD_POSTGRES_PASSWORD,
-    database: DEBUG === "true" ? "new_meloric_db1": process.env.PROD_POSTGRES_DB,
-    synchronize: true,
-    logging: "all",
-    entities: [
-        User,
-        Profile, 
-        Image,
-        UserNotification, 
-        PublicNotification, 
-        Follow,
-        Wallet,
-        CartNumber,
-        Audio,
-        Album,
-        Artist,
-        Genre,
-        Playlist,
-        PlaylistSong,
-        Song,
-        FavoriteSong,
-        PlayHistory,
-        Comment,
-        Subscription,
-        Plan,
-        PlanFeature,
-        UserPayment,
-        UserLog,
-        Gateway,
-        TokenBlock,
-        Story,
-        StoryMedia,
-        DownloadMusics,
-        WalletTransaction,
-        ArtistGallery,
-        ArtistSocial,
-        SongProductionRole
-    ],
-    migrations: [],
-    subscribers: [UserSubscriber],
-})
+  type: "postgres",
+  host: DEBUG === "true" ? "localhost" : process.env.PROD_POSTGRES_HOST,
+  port: DEBUG === "true" ? 5434 : Number(process.env.PROD_POSTGRES_PORT),
+  username: DEBUG === "true" ? "postgres" : process.env.PROD_POSTGRES_USER,
+  password: DEBUG === "true" ? "postgres" : process.env.PROD_POSTGRES_PASSWORD,
+  database: DEBUG === "true" ? "new_meloric_db1" : process.env.PROD_POSTGRES_DB,
+  synchronize: true,
+  logging: "all",
+  entities: [
+    User,
+    Profile,
+    Image,
+    UserNotification,
+    PublicNotification,
+    Follow,
+    Wallet,
+    CartNumber,
+    Audio,
+    Album,
+    Artist,
+    Genre,
+    Playlist,
+    PlaylistSong,
+    Song,
+    FavoriteSong,
+    PlayHistory,
+    Comment,
+    Subscription,
+    Plan,
+    PlanFeature,
+    UserPayment,
+    UserLog,
+    Gateway,
+    TokenBlock,
+    Story,
+    StoryMedia,
+    DownloadMusics,
+    WalletTransaction,
+    ArtistGallery,
+    ArtistSocial,
+    SongProductionRole,
+  ],
+  migrations: [],
+  subscribers: [UserSubscriber],
+});

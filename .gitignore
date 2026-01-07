@@ -20,4 +20,3 @@ uploads
 test.ts
 nodejs.env
 pgadmin.env
-dockerfile
