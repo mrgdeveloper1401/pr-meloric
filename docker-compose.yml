@@ -17,8 +17,6 @@ services:
       - pg_stat_statements.track=all
 
   redis:
-    # volumes:
-    #   - redis_data:/data
     container_name: music_db_redis
     image: docker.arvancloud.ir/redis:8.2-alpine
     restart: always
@@ -40,9 +38,7 @@ services:
   nginx:
     container_name: music_nginx
     volumes:
-      - static_files:/var/www/static/
-      - log_nginx:/var/log/nginx
-      - /root/nginx/certbot:/etc/letsencrypt:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     ports:
       - "80:80"
       - "443:443"
@@ -53,6 +49,3 @@ services:
 
 volumes:
   music_volume:
-  static_files:
-  # redis_data:
-  log_nginx:
