@@ -82,7 +82,7 @@ emailRouter.post(
         });
       }
 
-      // store otp in redis
+      // store otp in redis // TODO, use background task
       const otpCode = await createEmailService.storeEmailOtp(
         emailDto.email,
         req.ip
@@ -151,9 +151,9 @@ emailRouter.post(
  *                 description: ایمیل کاربر
  *                 example: "user@example.com"
  *               code:
- *                 type: string
+ *                 type: number
  *                 description: کد ۶ رقمی ارسال شده به ایمیل
- *                 example: "123456"
+ *                 example: 123456
  *                 minLength: 6
  *                 maxLength: 6
  *     responses:
@@ -238,7 +238,7 @@ emailRouter.post("/verify_otp_email", async (req: Request, res: Response) => {
     if (errors.length > 0) {
       return res.status(400).json({
         status: false,
-        message: "داده‌های ورودی نامعتبر است",
+        message: "Invalid Data",
         errors: errors.map((err) => ({
           property: err.property,
           constraints: err.constraints,

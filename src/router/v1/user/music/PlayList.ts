@@ -123,6 +123,7 @@ playListRouter.get(
       return res.status(500).json({
         status: false,
         message: "server error",
+        error: error.message
       });
     }
   }
