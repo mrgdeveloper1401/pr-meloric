@@ -129,7 +129,9 @@ musicRouter.get(
           is_active: true,
           release_date: LessThan(date),
         },
-        select: ["id"],
+        select: {
+          "id": true
+        },
       });
 
       if (!getAlbum) {
@@ -178,6 +180,8 @@ musicRouter.get(
           "user.first_name",
           "user.last_name",
           "profile.id",
+          "audio.id",
+          "audio.audio_file_path"
         ])
         .getMany();
 

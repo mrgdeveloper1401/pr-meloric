@@ -347,7 +347,9 @@ albumRouter.post(
             const getUser = await userRepository.findOne(
                 {
                     where: {id: userId, is_artist: true, is_active: true},
-                    select: ['id']
+                    select: {
+                        "id": true
+                    }
                 }
             );
             if (!getUser) {
