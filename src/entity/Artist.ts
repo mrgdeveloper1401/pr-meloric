@@ -31,9 +31,9 @@ export class Artist extends TimestampEntity{
   // @JoinColumn({name: "profile_image_id"})
   // profile_image: Image;
 
-  // @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
-  // @JoinColumn({name: "banner_image_id"})
-  // banner_image: Image;
+  @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
+  @JoinColumn({name: "banner_image_id"})
+  banner_image: Image;
 
   @OneToMany(() => ArtistGallery, gallery => gallery.artist)
   gallery_images: ArtistGallery[];

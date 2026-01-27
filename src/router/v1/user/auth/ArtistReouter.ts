@@ -719,7 +719,7 @@ artistReouter.get(
         .leftJoinAndSelect("artist.user", "user")
         .leftJoinAndSelect("user.cover_image", "cover_image")
         .leftJoinAndSelect("user.profile_image", "profile_image")
-        .leftJoinAndSelect("user.banner_image", "banner_image")
+        .leftJoinAndSelect("artist.banner_image", "banner_image")
         .leftJoinAndSelect("artist.gallery_images", "gallery_images")
         .leftJoinAndSelect("gallery_images.image", "gallery_image")
         .leftJoinAndSelect("artist.social_links", "social_links")
@@ -791,7 +791,7 @@ artistReouter.get(
         artist_username: getArtist.user.username,
         artist_cover_image: getArtist.user.cover_image?.image_path || null,
         artist_profile_image: getArtist.user.profile_image?.image_path || null,
-        artist_banner_image: getArtist.user.profile.banner_image?.image_path || null,
+        artist_banner_image: getArtist.banner_image?.image_path || null,
         artist_first_name: getArtist.user.first_name || null,
         artist_last_name: getArtist.user.last_name || null,
         monthly_listeners: getArtist.monthly_listeners || 0,
