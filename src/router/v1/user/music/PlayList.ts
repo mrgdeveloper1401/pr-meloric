@@ -799,7 +799,7 @@ playListRouter.get(
       if (!playlistAccess) {
         return res.status(404).json({
           status: false,
-          message: "Playlist not found or you don't have access"
+          message: "Playlist not found"
         });
       }
 
@@ -835,8 +835,9 @@ playListRouter.get(
         "album.title",
         "image.image_path",
         "artist.id",
-        "artist.first_name",
-        "artist.last_name",
+        "user.id",
+        "user.first_name",
+        "user.last_name",
         "user.username"
       ]);
 
@@ -875,7 +876,8 @@ playListRouter.get(
       console.error("Error fetching playlist songs:", error);
       return res.status(500).json({
         status: false,
-        message: "Internal server error"
+        message: "Internal server error",
+        error: error.message
       });
     }
   }
