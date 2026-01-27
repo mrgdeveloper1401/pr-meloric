@@ -12,7 +12,7 @@ import { Artist } from "../../../../entity/Artist";
 import { UpdateMusicDto } from "../../../../dtos/music/UpdateMusic";
 import { Image } from "../../../../entity/Image";
 import { FavoriteSong } from "../../../../entity/FavoriteSong";
-import { In, LessThan, Like } from "typeorm";
+import { ILike, In, LessThan, Like } from "typeorm";
 import { Genre } from "../../../../entity/Genre";
 import { PlaylistSong } from "../../../../entity/PlaylistSong";
 import { isArtistUser } from "../../../../middlewares/IsArtist";
@@ -2382,7 +2382,7 @@ musicRouter.get(
       const MusicListResponse = AppDataSource.getRepository(Song);
       const [findMusics, count] = await MusicListResponse.findAndCount({
         where: {
-          title: Like(`%${title}%`),
+          title: ILike(`%${title}%`),
           is_active: true,
           release_date: LessThan(date),
           album: {
