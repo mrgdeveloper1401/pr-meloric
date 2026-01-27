@@ -130,7 +130,7 @@ musicRouter.get(
           release_date: LessThan(date),
         },
         select: {
-          "id": true
+          id: true,
         },
       });
 
@@ -181,7 +181,7 @@ musicRouter.get(
           "user.last_name",
           "profile.id",
           "audio.id",
-          "audio.audio_file_path"
+          "audio.audio_file_path",
         ])
         .getMany();
 
@@ -237,7 +237,6 @@ musicRouter.get(
     }
   }
 );
-
 
 // detail music
 /**
@@ -345,6 +344,14 @@ musicRouter.get(
     const currentDate = new Date();
 
     try {
+      if(isNaN(musicId)){
+        return res.status(400).json(
+          {
+            status: false,
+            message: "music_id in params not found"
+          }
+        )
+      }
       const getMusic = await AppDataSource.getRepository(Song)
         .createQueryBuilder("song")
         .leftJoinAndSelect("song.image", "song_image")
@@ -356,7 +363,10 @@ musicRouter.get(
         )
         .leftJoinAndSelect("song.production_roles", "production_roles")
         .leftJoinAndSelect("production_roles.artist", "production_roles_artist")
-        .leftJoinAndSelect("production_roles_artist.user", "production_roles_user")
+        .leftJoinAndSelect(
+          "production_roles_artist.user",
+          "production_roles_user"
+        )
         // .leftJoinAndSelect(
         //   "production_roles_user.artist",
         //   "production_roles_user_artist"
@@ -407,11 +417,12 @@ musicRouter.get(
           "artist_profile_image.image_path",
         ])
         .where(
-          "song.is_active = :isActive AND song.release_date < :currentDate AND album.release_date < :currentDateAlbum",
+          "song.is_active = :isActive AND song.release_date < :currentDate AND album.release_date < :currentDateAlbum AND song.id = :id",
           {
             isActive: true,
             currentDate: currentDate,
             currentDateAlbum: currentDate,
+            id: musicId
           }
         )
         .getOne();
@@ -588,7 +599,6 @@ musicRouter.get(
     }
   }
 );
-
 
 // create song by artist
 /**
@@ -996,7 +1006,6 @@ musicRouter.post(
   }
 );
 
-
 // path update music
 // update song by artist
 /**
@@ -1219,7 +1228,6 @@ musicRouter.patch(
   }
 );
 
-
 // delete (soft delete) song by artist
 /**
  * @swagger
@@ -1343,7 +1351,6 @@ musicRouter.delete(
     }
   }
 );
-
 
 // show music by genre id
 /**
@@ -1509,12 +1516,11 @@ musicRouter.get(
       return res.status(500).json({
         status: "error",
         message: "Internal server error",
-        error: error.message
+        error: error.message,
       });
     }
   }
 );
-
 
 // show music by artist id
 /**
@@ -1807,7 +1813,7 @@ musicRouter.get(
           artist: {
             user: {
               profile: true,
-              profile_image: true
+              profile_image: true,
             },
           },
         },
@@ -1837,8 +1843,8 @@ musicRouter.get(
             id: true,
             nick_name: true,
             // cover_image: {
-              // id: true,
-              // image_path: true,
+            // id: true,
+            // image_path: true,
             // },
             user: {
               username: true,
@@ -1847,12 +1853,12 @@ musicRouter.get(
               last_name: true,
               profile_image: {
                 id: true,
-                image_path: true
-              }
+                image_path: true,
+              },
               // profile: {
-                // id: true,
-                // first_name: true,
-                // last_name: true,
+              // id: true,
+              // first_name: true,
+              // last_name: true,
               // },
             },
           },
@@ -1887,7 +1893,8 @@ musicRouter.get(
           first_name: item.artist.user?.first_name || null,
           last_name: item.artist.user?.last_name || null,
           username: item.artist.user.username,
-          cover_image: { // TODO, chnage cover_image into profile_image
+          cover_image: {
+            // TODO, chnage cover_image into profile_image
             id: item.artist.user.profile_image?.id || null,
             image_path: item.artist.user.cover_image?.image_path || null,
           },
@@ -1921,12 +1928,11 @@ musicRouter.get(
       return res.status(500).json({
         status: false,
         message: "Internal server error",
-        error: error.message
+        error: error.message,
       });
     }
   }
 );
-
 
 // get album by artist_id
 /**
@@ -2423,7 +2429,7 @@ musicRouter.get(
           },
           artist: {
             user: {
-              profile_image: true
+              profile_image: true,
             },
           },
         },
@@ -2577,14 +2583,14 @@ musicRouter.get(
       const [artists, total] = await artistRepository.findAndCount({
         where: [
           { user: { username: Like(searchTerm) }, is_active: true },
-          { user: {first_name: Like(searchTerm), is_active: true }},
-          { user: {last_name: Like(searchTerm), is_active: true }},
+          { user: { first_name: Like(searchTerm), is_active: true } },
+          { user: { last_name: Like(searchTerm), is_active: true } },
           { nick_name: Like(searchTerm), is_active: true },
         ],
         relations: {
           user: {
             profile_image: true,
-            cover_image: true
+            cover_image: true,
           },
           // profile_image: true,
         },
@@ -2597,12 +2603,12 @@ musicRouter.get(
           createdAt: true,
           monthly_listeners: true,
           // cover_image: {
-            // id: true,
-            // image_path: true,
+          // id: true,
+          // image_path: true,
           // },
           // profile_image: {
-            // id: true,
-            // image_path: true,
+          // id: true,
+          // image_path: true,
           // },
           user: {
             id: true,
@@ -2617,8 +2623,8 @@ musicRouter.get(
             },
             cover_image: {
               id: true,
-              image_path: true
-            }
+              image_path: true,
+            },
           },
         },
         order: {
