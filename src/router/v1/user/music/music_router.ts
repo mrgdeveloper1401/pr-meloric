@@ -351,12 +351,14 @@ musicRouter.get(
           "featured_artists_user_profile_image"
         )
         .leftJoinAndSelect("song.production_roles", "production_roles")
-        .leftJoinAndSelect("production_roles.user", "production_roles_user")
-        .leftJoinAndSelect(
-          "production_roles_user.artist",
-          "production_roles_user_artist"
-        )
+        .leftJoinAndSelect("production_roles.artist", "production_roles_artist")
+        .leftJoinAndSelect("production_roles_artist.user", "production_roles_user")
+        // .leftJoinAndSelect(
+        //   "production_roles_user.artist",
+        //   "production_roles_user_artist"
+        // )
         .leftJoinAndSelect("song.album", "album")
+        .leftJoinAndSelect("album.cover_image", "album_image")
         .leftJoinAndSelect("song.audio", "audio")
         .leftJoinAndSelect("song.artist", "artist")
         .leftJoinAndSelect("artist.user", "artist_user")
@@ -383,14 +385,14 @@ musicRouter.get(
           "production_roles_user.last_name",
           "production_roles_user.id",
           "production_roles_user.username",
-          "production_roles_user_artist.id",
-          "production_roles_user_artist.nick_name",
+          // "production_roles_user_artist.id",
+          // "production_roles_user_artist.nick_name",
           "album.id",
           "album.title",
           "album_image.image_path",
           "song_image.image_path",
           "audio.audio_file_path",
-          "song.audio_format",
+          "audio.audio_format",
           "artist.id",
           "artist.nick_name",
           "artist_user.first_name",
