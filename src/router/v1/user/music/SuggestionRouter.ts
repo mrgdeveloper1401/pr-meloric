@@ -160,7 +160,7 @@ suggestRouter.get(
                 .leftJoinAndSelect("song.artist", "artist")
                 .leftJoinAndSelect("artist.user", "user")
                 // .leftJoinAndSelect("user.profile", "profile")
-                .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
+                .leftJoinAndSelect("user.cover_image", "artist_cover_image")
                 .leftJoinAndSelect("song.album", "album")
                 .leftJoinAndSelect("song.audio", "audio")
                 .leftJoinAndSelect("song.image", "image")
