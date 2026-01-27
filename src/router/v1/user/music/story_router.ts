@@ -602,7 +602,7 @@ storyRouter.get(
                 .createQueryBuilder("story")
                 .leftJoinAndSelect("story.user", "user")
                 .leftJoinAndSelect("user.user_artist_set", "artist")
-                .leftJoinAndSelect("artist.profile_image", "profile_image")
+                .leftJoinAndSelect("user.profile_image", "profile_image")
                 .where("story.is_active = :isActive AND story.expires_at > :expiredAt", {
                     isActive: true, 
                     expiredAt: twentyFourHoursAgo
