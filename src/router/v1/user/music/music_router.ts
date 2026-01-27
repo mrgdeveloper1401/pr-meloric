@@ -1430,8 +1430,8 @@ musicRouter.get(
         .leftJoinAndSelect("song.album", "album")
         .leftJoinAndSelect("song.image", "image")
         .leftJoinAndSelect("song.artist", "artist")
-        .leftJoinAndSelect("artist.cover_image", "artist_cover_image")
         .leftJoinAndSelect("artist.user", "user")
+        .leftJoinAndSelect("user.cover_image", "artist_cover_image")
         // .leftJoinAndSelect("user.profile", "profile")
         .leftJoinAndSelect("album.cover_image", "album_cover_image")
         .leftJoinAndSelect("album.genre", "genre")
@@ -1505,6 +1505,7 @@ musicRouter.get(
       return res.status(500).json({
         status: "error",
         message: "Internal server error",
+        error: error.message
       });
     }
   }
