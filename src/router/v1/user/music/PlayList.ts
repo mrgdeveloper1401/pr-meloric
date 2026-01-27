@@ -857,6 +857,7 @@ playListRouter.get(
         album_title: item.song.album?.title || null,
         artist_first_name: item.song.artist.user?.first_name || null,
         artist_last_name: item.song.artist.user.last_name || null,
+        user_id: item.song.artist.user.id,
         username: item.song.artist.user.username,
         release_date: item.song.release_date,
         play_count: item.song.play_count,
