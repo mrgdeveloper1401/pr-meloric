@@ -210,6 +210,7 @@ relatedMusicrouter.get(
                 .leftJoinAndSelect("album.genre", "genre")
                 .leftJoinAndSelect("song.image", "image")
                 .leftJoinAndSelect("song.featured_artists", "featured_artists")
+                .leftJoinAndSelect("featured_artists.user", "featured_artists_user")
                 .where("song.is_active = true")
                 .andWhere("song.id != :songId", { songId })
                 .addOrderBy("song.play_count", "DESC")
@@ -227,8 +228,8 @@ relatedMusicrouter.get(
                     "artist.nick_name", 
                     "user.first_name", 
                     "user.last_name",
-                    "featured_artists.first_name", 
-                    "featured_artists.last_name",
+                    "featured_artists_user.first_name", 
+                    "featured_artists_user.last_name",
                     "image.image_path"
                 ])
                 .take(limit)
