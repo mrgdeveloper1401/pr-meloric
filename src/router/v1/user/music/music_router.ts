@@ -2582,10 +2582,10 @@ musicRouter.get(
       const artistRepository = AppDataSource.getRepository(Artist);
       const [artists, total] = await artistRepository.findAndCount({
         where: [
-          { user: { username: Like(searchTerm) }, is_active: true },
-          { user: { first_name: Like(searchTerm), is_active: true } },
-          { user: { last_name: Like(searchTerm), is_active: true } },
-          { nick_name: Like(searchTerm), is_active: true },
+          { user: { username: ILike(searchTerm) }, is_active: true },
+          { user: { first_name: ILike(searchTerm), is_active: true } },
+          { user: { last_name: ILike(searchTerm), is_active: true } },
+          { nick_name: ILike(searchTerm), is_active: true },
         ],
         relations: {
           user: {
