@@ -31,6 +31,7 @@ import { UserNotification } from "../../../../entity/UserNotification";
 import { confirmForgetPasswordDto } from "../../../../dtos/auth/ConfirmForgetPassword";
 import { ProfileDto } from "../../../../dtos/auth/ProfileDto";
 import { Image } from "../../../../entity/Image";
+import { CheckUsernameDto } from "../../../../dtos/auth/CheckUsername";
 
 const userAuthRouter = express.Router();
 
@@ -2739,6 +2740,166 @@ userAuthRouter.get(
       return res.status(500).json({
         message: "server error",
         status: false,
+      });
+    }
+  }
+);
+
+// check username
+// check username
+/**
+ * @swagger
+ * /v1/auth/user/check_username/:
+ *   post:
+ *     summary: بررسی موجود بودن نام کاربری
+ *     description: |
+ *       این endpoint برای بررسی اینکه آیا یک نام کاربری در سیستم ثبت شده است یا خیر، استفاده می‌شود.
+ *       این endpoint فقط برای کاربران لاگین نکرده (Not Authenticated) قابل دسترسی است.
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 description: نام کاربری برای بررسی
+ *                 example: "john_doe"
+ *                 minLength: 3
+ *                 maxLength: 50
+ *     responses:
+ *       200:
+ *         description: نام کاربری آزاد است و می‌توان از آن استفاده کرد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "ok"
+ *       400:
+ *         description: |
+ *           - نام کاربری قبلاً ثبت شده است
+ *           - داده‌های ارسالی نامعتبر می‌باشند
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - type: object
+ *                   properties:
+ *                     status:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: "username already exists"
+ *                 - type: object
+ *                   properties:
+ *                     status:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: "Invalid Data"
+ *                     error:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           field:
+ *                             type: string
+ *                           value:
+ *                             type: object
+ *       401:
+ *         description: کاربر قبلاً لاگین کرده است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *             example:
+ *               message: "Unauthorized - User already authenticated"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *                 error:
+ *                   type: string
+ *                   description: پیغام خطای جزئی
+ *             example:
+ *               status: false
+ *               message: "server error"
+ *               error: "Some error details"
+ */
+userAuthRouter.post(
+  "/check_username/",
+  notAuthenticateJwt,
+  async (req: Request, res: Response) => {
+    try {
+      const checkUsernameDto = plainToClass(CheckUsernameDto, req.body);
+      const errors = await validate(checkUsernameDto);
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid Data",
+          error: errors.map((err) => ({
+            field: err.property,
+            value: err.constraints,
+          })),
+        });
+      }
+
+      const userRepository = AppDataSource.getRepository(User);
+      const checkUsername = await userRepository.findOne({
+        where: {
+          username: checkUsernameDto.username,
+        },
+        select: {
+          username: true,
+          id: true,
+        },
+      });
+
+      if (checkUsername) {
+        return res.status(400).json(
+            {
+                status: false,
+                message: "username already exists"
+            }
+        )
+      } else {
+        return res.status(200).json(
+            {
+                status: "success",
+                message: "ok"
+            }
+        )
+      }
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
       });
     }
   }
