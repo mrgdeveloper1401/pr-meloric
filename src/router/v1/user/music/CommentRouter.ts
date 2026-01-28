@@ -57,7 +57,7 @@ const router = Router();
  *               type: integer
  *             title:
  *               type: string
- * 
+ *
  *     CreateCommentRequest:
  *       type: object
  *       required:
@@ -70,7 +70,7 @@ const router = Router();
  *         body:
  *           type: string
  *           description: متن نظر
- * 
+ *
  *     UpdateCommentRequest:
  *       type: object
  *       properties:
@@ -118,94 +118,84 @@ const router = Router();
  *       500:
  *         description: خطای سرور
  */
-router.post("/comments", authenticateJWT, async (req: Request, res: Response) => {
+router.post(
+  "/comments",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
     try {
-        // check get user
-        const userId = (req as any).user.user_id;
-        // const userRepository = AppDataSource.getRepository(User)
-        // const getUser = await userRepository.findOne(
-        //   {
-        //     where: {id: userId, is_active: true},
-        //     select: ['id']
-        //   }
-        // );
-        // if (!getUser) {
-        //   return res.status(404).json(
-        //     {
-        //       status: false,
-        //       message: "user not found"
-        //     }
-        //   )
-        // }
+      // check get user
+      const userId = (req as any).user.user_id;
+      // const userRepository = AppDataSource.getRepository(User)
+      // const getUser = await userRepository.findOne(
+      //   {
+      //     where: {id: userId, is_active: true},
+      //     select: ['id']
+      //   }
+      // );
+      // if (!getUser) {
+      //   return res.status(404).json(
+      //     {
+      //       status: false,
+      //       message: "user not found"
+      //     }
+      //   )
+      // }
 
-        if (!req.body) {
-            return res.status(400).json(
-                {
-                    status: false,
-                    message: "request body is required"
-                }
-            );
-        }
-
-        const createCommentDto = plainToClass(CreateCommentDTO, req.body);
-        const errors = await validate(createCommentDto);
-        if (errors.length > 0) {
-            return res.status(400).json(
-                {
-                    status: false,
-                    error: errors.map(
-                        error => (
-                            {
-                                field: error.property,
-                                value: error.constraints
-                            }
-                        )
-                    )
-                }
-            );
-        }
-
-        // check song dose exits
-        const songRepository = AppDataSource.getRepository(Song);
-        const getSong = await songRepository.findOne(
-            {
-                where: { id: createCommentDto.song_id, is_active: true },
-                select: {id: true}
-            }
-        );
-        if (!getSong) {
-            return res.status(404).json(
-                {
-                    status: false,
-                    message: "song not found"
-                }
-            );
-        }
-
-        // create comment
-        const createComment = new Comment();
-        createComment.body = createCommentDto.body;
-        createComment.song = getSong;
-        createComment.user = { id: userId } as User;
-        await createComment.save();
-
-        return res.status(201).json(
-            {
-                status: "success",
-                data: {
-                    id: createComment.id,
-                    body: createComment.body
-                }
-            }
-        );
-    } catch (error) {
-        return res.status(500).json({
-            status: false,
-            message: "Server error",
-            error: error.message
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
         });
+      }
+
+      const createCommentDto = plainToClass(CreateCommentDTO, req.body);
+      const errors = await validate(createCommentDto);
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          error: errors.map((error) => ({
+            field: error.property,
+            value: error.constraints,
+          })),
+        });
+      }
+
+      // check song dose exits
+      const songRepository = AppDataSource.getRepository(Song);
+      const getSong = await songRepository.findOne({
+        where: { id: createCommentDto.song_id, is_active: true },
+        select: { id: true },
+      });
+      if (!getSong) {
+        return res.status(404).json({
+          status: false,
+          message: "song not found",
+        });
+      }
+
+      // create comment
+      const createComment = new Comment();
+      createComment.body = createCommentDto.body;
+      createComment.song = getSong;
+      createComment.user = { id: userId } as User;
+      await createComment.save();
+
+      return res.status(201).json({
+        status: "success",
+        data: {
+          id: createComment.id,
+          body: createComment.body,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "Server error",
+        error: error.message,
+      });
     }
-});
+  }
+);
 
 // read detail comment
 /**
@@ -270,77 +260,77 @@ router.post("/comments", authenticateJWT, async (req: Request, res: Response) =>
  *       500:
  *         description: خطای سرور
  */
-router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response) => {
+router.get(
+  "/comments/:id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
     try {
-        if (isNaN(Number(req.params.id))){
-            return res.status(400).json({
-                status: false,
-                message: "Comment ID must be a valid number"
-            });
-        }
-        
-        const commentId = Number(req.params.id);
-        const commentRepository = AppDataSource.getRepository(Comment);
-
-        const query = commentRepository
-            .createQueryBuilder("comment")
-            .leftJoinAndSelect("comment.user", "user")
-            .leftJoinAndSelect("user.profile_image", "user_profile_image")
-            .leftJoinAndSelect("user.user_artist_set", "artist")
-            .leftJoinAndSelect("comment.song", "song")
-            .where("comment.id = :commentId", { commentId })
-            .andWhere("comment.is_active = :isActive", { isActive: true })
-            .select([
-                "comment.id",
-                "comment.body",
-                "comment.createdAt",
-                "comment.updatedAt",
-                "user.id",
-                "user.username",
-                "user.is_artist",
-                "profile.id",
-                "user_profile_image.id",
-                "user_profile_image.image_path",
-                "artist.id",
-                "artist.nick_name",
-                // "artist_profile_image.id",
-                // "artist_profile_image.image_path",
-                "song.id",
-            ]);
-
-        const comment = await query.getOne();
-
-        if (!comment) {
-            return res.status(404).json({
-                status: false,
-                message: "Comment not found"
-            });
-        }
-
-        const simpleData = {
-            id: comment.id,
-            user_id: comment.user.id,
-            username: comment.user.username,
-            profile_image: comment.user.profile_image?.image_path || null,
-            song_id: comment.song.id,
-            body: comment.body,
-            created_at: comment.createdAt,
-            updated_at: comment.updatedAt
-        };
-
-        res.json({
-            status: "success",
-            data: simpleData
+      if (isNaN(Number(req.params.id))) {
+        return res.status(400).json({
+          status: false,
+          message: "Comment ID must be a valid number",
         });
+      }
 
+      const commentId = Number(req.params.id);
+      const commentRepository = AppDataSource.getRepository(Comment);
+
+      const query = commentRepository
+        .createQueryBuilder("comment")
+        .leftJoinAndSelect("comment.user", "user")
+        .leftJoinAndSelect("user.profile_image", "user_profile_image")
+        .leftJoinAndSelect("user.user_artist_set", "artist")
+        .leftJoinAndSelect("comment.song", "song")
+        .where("comment.id = :commentId", { commentId })
+        .andWhere("comment.is_active = :isActive", { isActive: true })
+        .select([
+          "comment.id",
+          "comment.body",
+          "comment.createdAt",
+          "comment.updatedAt",
+          "user.id",
+          "user.username",
+          "user.is_artist",
+          "user_profile_image.id",
+          "user_profile_image.image_path",
+          "artist.id",
+          "artist.nick_name",
+          "song.id",
+        ]);
+
+      const comment = await query.getOne();
+
+      if (!comment) {
+        return res.status(404).json({
+          status: false,
+          message: "Comment not found",
+        });
+      }
+
+      const simpleData = {
+        id: comment.id,
+        user_id: comment.user.id,
+        username: comment.user.username,
+        profile_image: comment.user.profile_image?.image_path || null,
+        song_id: comment.song.id,
+        body: comment.body,
+        created_at: comment.createdAt,
+        updated_at: comment.updatedAt,
+      };
+
+      res.json({
+        status: "success",
+        data: simpleData,
+      });
     } catch (error) {
-        res.status(500).json({
-            status: false,
-            message: "Server error",
-            error: error.message
-        });
+      res.status(500).json({
+        status: false,
+        message: "Server error",
+        error: error.message,
+      });
     }
-});
+  }
+);
 
 // read comment by song_id
 /**
@@ -434,83 +424,83 @@ router.get("/comments/:id", authenticateJWT, async (req: Request, res: Response)
  *       500:
  *         description: خطای سرور
  */
-router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res: Response) => {
+router.get(
+  "/songs/:songId/comments",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
     try {
-        const songId = parseInt(req.params.songId);
-        if (isNaN(songId)) {
-            return res.status(400).json({
-                status: false,
-                message: "songId must be a valid number"
-            });
-        }
-
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 20;
-        const skip = (page - 1) * limit;
-
-        const commentRepository = AppDataSource.getRepository(Comment);
-        
-        const query = commentRepository
-            .createQueryBuilder("comment")
-            .leftJoinAndSelect("comment.user", "user")
-            .leftJoinAndSelect("user.profile_image", "user_profile_image")
-            .leftJoinAndSelect("comment.song", "song")
-            .where("comment.song_id = :songId", { songId })
-            .andWhere("comment.is_active = :isActive", { isActive: true })
-            .andWhere("song.is_active = :isActive", { isActive: true })
-            .select([
-                "comment.id",
-                "comment.body",
-                "comment.createdAt",
-                "comment.updatedAt",
-                "user.id",
-                "user.username",
-                "user.is_artist",
-                "profile.id",
-                "user_profile_image.id",
-                "user_profile_image.image_path",
-                "artist.id",
-                "artist.nick_name",
-                "song.id"
-            ])
-            .orderBy("comment.createdAt", "DESC")
-            .skip(skip)
-            .take(limit);
-
-        const [comments, total] = await query.getManyAndCount();
-        const totalPages = Math.ceil(total / limit);
-
-        const simpleData = comments.map(item => {
-            return {
-                id: item.id,
-                username: item.user.username,
-                profile_image: item.user.profile_image?.image_path || null,
-                song_id: item.song.id,
-                body: item.body,
-                created_at: item.createdAt,
-                updated_at: item.updatedAt
-            };
+      const songId = parseInt(req.params.songId);
+      if (isNaN(songId)) {
+        return res.status(400).json({
+          status: false,
+          message: "songId must be a valid number",
         });
+      }
 
-        res.json({
-            status: "success",
-            pagination: {
-                currentPage: page,
-                totalPages,
-                totalItems: total,
-                itemsPerPage: limit
-            },
-            data: simpleData,
-        });
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const skip = (page - 1) * limit;
 
+      const commentRepository = AppDataSource.getRepository(Comment);
+
+      const query = commentRepository
+        .createQueryBuilder("comment")
+        .leftJoinAndSelect("comment.user", "user")
+        .leftJoinAndSelect("user.profile_image", "user_profile_image")
+        .leftJoinAndSelect("comment.song", "song")
+        .where("comment.song_id = :songId", { songId })
+        .andWhere("comment.is_active = :isActive", { isActive: true })
+        .andWhere("song.is_active = :isActive", { isActive: true })
+        .select([
+          "comment.id",
+          "comment.body",
+          "comment.createdAt",
+          "comment.updatedAt",
+          "user.id",
+          "user.username",
+          "user.is_artist",
+          "user_profile_image.id",
+          "user_profile_image.image_path",
+          "song.id",
+        ])
+        .orderBy("comment.createdAt", "DESC")
+        .skip(skip)
+        .take(limit);
+
+      const [comments, total] = await query.getManyAndCount();
+      const totalPages = Math.ceil(total / limit);
+
+      const simpleData = comments.map((item) => {
+        return {
+          id: item.id,
+          username: item.user.username,
+          profile_image: item.user.profile_image?.image_path || null,
+          song_id: item.song.id,
+          body: item.body,
+          created_at: item.createdAt,
+          updated_at: item.updatedAt,
+        };
+      });
+
+      res.json({
+        status: "success",
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+        },
+        data: simpleData,
+      });
     } catch (error) {
-        res.status(500).json({
-            status: false,
-            message: "Server error",
-            error: error.message
-        });
+      res.status(500).json({
+        status: false,
+        message: "Server error",
+        error: error.message,
+      });
     }
-});
+  }
+);
 
 // update comment
 /**
@@ -555,63 +545,66 @@ router.get("/songs/:songId/comments", authenticateJWT, async (req: Request, res:
  *       500:
  *         description: خطای سرور
  */
-router.put("/comments/:id", authenticateJWT, async (req: Request, res: Response) => {
+router.put(
+  "/comments/:id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).user.user_id;
-        const commentId = parseInt(req.params.id);
-        const { body, is_active } = req.body;
+      const userId = (req as any).user.user_id;
+      const commentId = parseInt(req.params.id);
+      const { body, is_active } = req.body;
 
-        const commentRepository = AppDataSource.getRepository(Comment);
+      const commentRepository = AppDataSource.getRepository(Comment);
 
-        const comment = await commentRepository.findOne({
-            where: { id: commentId },
-            relations: ["user"]
+      const comment = await commentRepository.findOne({
+        where: { id: commentId },
+        relations: ["user"],
+      });
+
+      if (!comment) {
+        return res.status(404).json({
+          status: false,
+          message: "Comment not found",
         });
+      }
 
-        if (!comment) {
-            return res.status(404).json({
-                status: false,
-                message: "Comment not found"
-            });
-        }
-
-        // بررسی مالکیت نظر
-        if (comment.user.id !== userId) {
-            return res.status(403).json({
-                status: false,
-                message: "You are not the owner of this comment"
-            });
-        }
-
-        // به‌روزرسانی فیلدها
-        if (body !== undefined) comment.body = body;
-        if (is_active !== undefined) comment.is_active = is_active;
-
-        const updatedComment = await commentRepository.save(comment);
-
-        // بازگرداندن داده با relations
-        const commentWithRelations = await commentRepository.findOne({
-            where: { id: updatedComment.id },
-            relations: ["user", "song"],
-            select: {
-                user: { id: true, username: true },
-                song: { id: true, title: true }
-            }
+      // بررسی مالکیت نظر
+      if (comment.user.id !== userId) {
+        return res.status(403).json({
+          status: false,
+          message: "You are not the owner of this comment",
         });
+      }
 
-        res.json({
-            status: "success",
-            data: commentWithRelations
-        });
+      // به‌روزرسانی فیلدها
+      if (body !== undefined) comment.body = body;
+      if (is_active !== undefined) comment.is_active = is_active;
 
+      const updatedComment = await commentRepository.save(comment);
+
+      // بازگرداندن داده با relations
+      const commentWithRelations = await commentRepository.findOne({
+        where: { id: updatedComment.id },
+        relations: ["user", "song"],
+        select: {
+          user: { id: true, username: true },
+          song: { id: true, title: true },
+        },
+      });
+
+      res.json({
+        status: "success",
+        data: commentWithRelations,
+      });
     } catch (error) {
-        console.error("Update comment error:", error);
-        res.status(500).json({
-            status: false,
-            message: "Server error"
-        });
+      console.error("Update comment error:", error);
+      res.status(500).json({
+        status: false,
+        message: "Server error",
+      });
     }
-});
+  }
+);
 
 // delete comment
 /**
@@ -651,59 +644,61 @@ router.put("/comments/:id", authenticateJWT, async (req: Request, res: Response)
  *       500:
  *         description: خطای سرور
  */
-router.delete("/comments/:id", authenticateJWT, async (req: Request, res: Response) => {
+router.delete(
+  "/comments/:id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).user.user_id;
-        const commentId = parseInt(req.params.id);
+      const userId = (req as any).user.user_id;
+      const commentId = parseInt(req.params.id);
 
-        const commentRepository = AppDataSource.getRepository(Comment);
-        const comment = await commentRepository.findOne({
-            where: {
-                id: commentId,
-                is_active: true,
-                user: {
-                    id: userId
-                }
-            },
-            relations: ['user'],
-            select: {
-                id: true,
-                user: {
-                    id: true
-                }
-            }
+      const commentRepository = AppDataSource.getRepository(Comment);
+      const comment = await commentRepository.findOne({
+        where: {
+          id: commentId,
+          is_active: true,
+          user: {
+            id: userId,
+          },
+        },
+        relations: ["user"],
+        select: {
+          id: true,
+          user: {
+            id: true,
+          },
+        },
+      });
+      if (!comment) {
+        return res.status(404).json({
+          status: false,
+          message: "Comment not found",
         });
-        if (!comment) {
-            return res.status(404).json({
-                status: false,
-                message: "Comment not found"
-            });
-        }
+      }
 
-        // check owner comment
-        if (comment.user.id !== userId) {
-            return res.status(403).json({
-                status: false,
-                message: "You don't have permission to delete this comment"
-            });
-        }
-
-        // (soft delete)
-        comment.is_active = false;
-        await commentRepository.save(comment);
-
-        res.json({
-            status: "success",
-            message: "Comment deleted successfully"
+      // check owner comment
+      if (comment.user.id !== userId) {
+        return res.status(403).json({
+          status: false,
+          message: "You don't have permission to delete this comment",
         });
+      }
 
+      // (soft delete)
+      comment.is_active = false;
+      await commentRepository.save(comment);
+
+      res.json({
+        status: "success",
+        message: "Comment deleted successfully",
+      });
     } catch (error) {
-        res.status(500).json({
-            status: false,
-            message: "Server error"
-        });
+      res.status(500).json({
+        status: false,
+        message: "Server error",
+      });
     }
-});
-
+  }
+);
 
 export const commentMusicRouter = router;
