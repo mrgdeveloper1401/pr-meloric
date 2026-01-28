@@ -28,4 +28,8 @@ export class UpdateArtistProfile {
     @IsString()
     @IsOptional()
     last_name: string;
+
+    @IsString()
+    @IsOptional()
+    birth_date: string
 }

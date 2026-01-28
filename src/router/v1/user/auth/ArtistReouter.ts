@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express";
-import { authenticateJWT } from "../../../../middlewares/authenticate";
+import { authenticateJWT, isArtistUserMiddlewere } from "../../../../middlewares/authenticate";
 import { AppDataSource } from "../../../../data-source";
 import { Artist } from "../../../../entity/Artist";
 import { plainToClass } from "class-transformer";
@@ -222,7 +222,6 @@ artistReouter.get(
   }
 );
 
-
 // update artiste profile
 /**
  * @swagger
@@ -233,6 +232,8 @@ artistReouter.get(
  *     summary: بروزرسانی پروفایل آرتیست
  *     description: |
  *       بروزرسانی اطلاعات پروفایل آرتیست کاربر جاری
+ *       - کاربر باید احراز هویت شده باشد
+ *       - کاربر باید دارای حساب آرتیست فعال باشد
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -242,47 +243,128 @@ artistReouter.get(
  *           schema:
  *             type: object
  *             properties:
+ *               birth_date:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 2026-01-01
  *               bio:
  *                 type: string
  *                 nullable: true
  *                 description: بیوگرافی آرتیست
+ *                 maxLength: 500
  *                 example: "بیوگرافی جدید آرتیست"
- *               cover_image:
+ *               nick_name:
+ *                 type: string
+ *                 description: لقب آرتیست
+ *                 nullable: true
+ *                 maxLength: 100
+ *                 example: "ali rezaei"
+ *               first_name:
+ *                 type: string
+ *                 description: نام
+ *                 nullable: true
+ *                 maxLength: 100
+ *                 example: "علی"
+ *               last_name:
+ *                 type: string
+ *                 description: نام خانوادگی
+ *                 nullable: true
+ *                 maxLength: 100
+ *                 example: "رضایی"
+ *               cover_image_id:
  *                 type: integer
  *                 nullable: true
  *                 description: آیدی تصویر کاور
  *                 example: 123
- *               nick_name:
- *                  type: string
- *                  description: لقب ارتیست
- *                  example: string
- *                  nullable: true
- *           examples:
- *             example1:
- *               summary: بروزرسانی کامل
- *               value:
- *                 bio: "بیوگرافی جدید"
- *                 cover_image: 123
- *                 nick_name: "ali rezaei"
+ *               profile_image_id:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: آیدی تصویر پروفایل
+ *                 example: 456
+ *               banner_image_id:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: آیدی تصویر بنر
+ *                 example: 789
  *     responses:
  *       '200':
  *         description: موفقیت‌آمیز - پروفایل آرتیست با موفقیت بروزرسانی شد
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ArtistProfileResponse'
- *             examples:
- *               success:
- *                 summary: نمونه پاسخ موفق
- *                 value:
- *                   status: "success"
- *                   data:
- *                     id: 1
- *                     monthly_listeners: 15000
- *                     bio: "بیوگرافی جدید آرتیست با تجربه‌های تازه"
- *                     cover_image:
- *                       id: 456
- *                       image_path: "https://example.com/images/new-cover.jpg"
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     nick_name:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "ali rezaei"
+ *                     bio:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "بیوگرافی جدید"
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                           example: 1
+ *                         first_name:
+ *                           type: string
+ *                           nullable: true
+ *                           example: "علی"
+ *                         last_name:
+ *                           type: string
+ *                           nullable: true
+ *                           example: "رضایی"
+ *                         bio:
+ *                           type: string
+ *                           nullable: true
+ *                           example: "بیوگرافی کاربر"
+ *                         cover_image:
+ *                           type: object
+ *                           nullable: true
+ *                           properties:
+ *                             id:
+ *                               type: integer
+ *                               example: 123
+ *                             image_path:
+ *                               type: string
+ *                               example: "https://example.com/images/cover.jpg"
+ *                         profile_image:
+ *                           type: object
+ *                           nullable: true
+ *                           properties:
+ *                             id:
+ *                               type: integer
+ *                               example: 456
+ *                             image_path:
+ *                               type: string
+ *                               example: "https://example.com/images/profile.jpg"
+ *                         profile:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: integer
+ *                               example: 1
+ *                             banner_image:
+ *                               type: object
+ *                               nullable: true
+ *                               properties:
+ *                                 id:
+ *                                   type: integer
+ *                                   example: 789
+ *                                 image_path:
+ *                                   type: string
+ *                                   example: "https://example.com/images/banner.jpg"
  *       '400':
  *         description: |
  *           داده‌های نامعتبر
@@ -291,20 +373,23 @@ artistReouter.get(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             examples:
- *               validationError:
- *                 summary: خطای اعتبارسنجی
- *                 value:
- *                   status: false
- *                   message: "invalid data"
- *                   error:
- *                     - field: "bio"
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "invalid data"
+ *                 error:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
  *                       value:
- *                         maxLength: "بیوگرافی نمی‌تواند بیشتر از 500 کاراکتر باشد"
- *                     - field: "cover_image"
- *                       value:
- *                         isInt: "cover_image باید یک عدد صحیح باشد"
+ *                         type: object
  *       '401':
  *         description: |
  *           عدم دسترسی
@@ -313,13 +398,30 @@ artistReouter.get(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             examples:
- *               unauthorized:
- *                 summary: کاربر احراز هویت نشده
- *                 value:
- *                   status: "error"
- *                   message: "Authentication required"
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Authentication required"
+ *       '403':
+ *         description: |
+ *           دسترسی غیرمجاز
+ *           - کاربر حساب آرتیست ندارد
+ *           - حساب آرتیست غیرفعال است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Your account is not an artist account"
  *       '404':
  *         description: |
  *           منبع مورد نظر یافت نشد
@@ -328,97 +430,81 @@ artistReouter.get(
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             examples:
- *               artistNotFound:
- *                 summary: آرتیست یافت نشد
- *                 value:
- *                   status: false
- *                   message: "artist not found"
- *               imageNotFound:
- *                 summary: تصویر یافت نشد
- *                 value:
- *                   status: false
- *                   message: "image not found"
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "artist not found"
  *       '500':
  *         description: خطای داخلی سرور
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             examples:
- *               serverError:
- *                 summary: خطای سرور
- *                 value:
- *                   status: false
- *                   message: "server error"
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *                 error:
+ *                   type: string
  */
 artistReouter.patch(
   "/update_artist_profile/",
   authenticateJWT,
+  isArtistUserMiddlewere,
   async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user.user_id;
 
-      // check user artist
-      const artistRepository = AppDataSource.getRepository(Artist); // TODO better query
-      const checkUserArtist = await artistRepository.findOne({
+      // find artist with user relations
+      const artistRepository = AppDataSource.getRepository(Artist);
+      const artist = await artistRepository.findOne({
         where: {
-          user: {
-            id: userId,
-            is_active: true,
-            is_artist: true,
-          },
+          user: { id: userId },
         },
         relations: {
-          user: {cover_image: true,
-          profile: {
-            banner_image: true
+          banner_image: true,
+          user: {
+            cover_image: true,
+            profile_image: true,
           },
-          profile_image: true,
-        }},
+        },
         select: {
           id: true,
           nick_name: true,
-          user: {
           bio: true,
-          first_name: true,
-          last_name: true,
-          // monthly_listeners: true,
-          cover_image: {
+          banner_image: {
             id: true,
-            image_path: true,
+            image_path: true
           },
-          profile_image: {
+          user: {
             id: true,
-            image_path: true,
-          },
-          // banner_image: {
-          //   id: true,
-          //   image_path: true,
-          // },
-          profile: {
-            id: true,
-            banner_image: {
+            first_name: true,
+            last_name: true,
+            bio: true,
+            cover_image: {
               id: true,
-              image_path: true
-            } 
-          }
-        }},
+              image_path: true,
+            },
+            profile_image: {
+              id: true,
+              image_path: true,
+            }
+          },
+        },
       });
 
-      if (!checkUserArtist) {
-        return res.status(404).json({
-          status: false,
-          message: "artist not found",
-        });
-      }
-
-      // validate data
-      if (!req.body) {
+      // validate request body
+      if (!req.body || Object.keys(req.body).length === 0) {
         return res.status(400).json({
           status: false,
-          message: "request body is required",
+          message: "request body is required with at least one field",
         });
       }
 
@@ -440,86 +526,92 @@ artistReouter.patch(
 
       // Update cover image
       if (updateArtistProfile.cover_image_id !== undefined) {
-        const checkImageUpload = await imageRepository.findOne({
+        const coverImage = await imageRepository.findOne({
           where: {
             id: updateArtistProfile.cover_image_id,
             is_active: true,
             user: { id: userId },
           },
-          select: { id: true, image_path: true },
+          select: {id: true}
         });
 
-        if (!checkImageUpload) {
+        if (!coverImage) {
           return res.status(404).json({
             status: false,
-            message: "cover image id not found",
+            message: "cover image not found",
           });
         }
-        checkUserArtist.user.cover_image = checkImageUpload;
+        artist.user.cover_image = coverImage;
       }
 
-      // Update profile image - اینجا مشکل بود
+      // Update profile image
       if (updateArtistProfile.profile_image_id !== undefined) {
-        const checkProfileImageId = await imageRepository.findOne({
+        const profileImage = await imageRepository.findOne({
           where: {
-            user: { id: userId },
-            is_active: true,
             id: updateArtistProfile.profile_image_id,
+            is_active: true,
+            user: { id: userId },
           },
-          select: { id: true, image_path: true },
+          select: {id: true}
         });
 
-        if (!checkProfileImageId) {
+        if (!profileImage) {
           return res.status(404).json({
             status: false,
-            message: "profile image id not found",
+            message: "profile image not found",
           });
         }
-        checkUserArtist.user.profile_image = checkProfileImageId;
+        artist.user.profile_image = profileImage;
       }
 
+      // Update banner image
       if (updateArtistProfile.banner_image_id !== undefined) {
-        const checkImage = await imageRepository.findOne({
+        const bannerImage = await imageRepository.findOne({
           where: {
             id: updateArtistProfile.banner_image_id,
             is_active: true,
             user: { id: userId },
           },
-          select: { id: true, image_path: true },
+          select: {id: true}
         });
 
-        if (!checkImage) {
+        if (!bannerImage) {
           return res.status(404).json({
             status: false,
-            message: "banner image id not found",
+            message: "banner image not found",
           });
         }
-        checkUserArtist.user.profile.banner_image = checkImage;
+        
+        artist.banner_image = bannerImage;
       }
 
       // Update other fields
       if (updateArtistProfile.nick_name !== undefined) {
-        checkUserArtist.nick_name = updateArtistProfile.nick_name;
+        artist.nick_name = updateArtistProfile.nick_name;
       }
 
       if (updateArtistProfile.bio !== undefined) {
-        checkUserArtist.bio = updateArtistProfile.bio;
+        artist.bio = updateArtistProfile.bio;
       }
 
       if (updateArtistProfile.first_name !== undefined) {
-        checkUserArtist.user.first_name = updateArtistProfile.first_name;
+        artist.user.first_name = updateArtistProfile.first_name;
       }
 
       if (updateArtistProfile.last_name !== undefined) {
-        checkUserArtist.user.last_name = updateArtistProfile.last_name;
+        artist.user.last_name = updateArtistProfile.last_name;
       }
 
-      // save
-      await artistRepository.save(checkUserArtist);
+      if (updateArtistProfile.birth_date !== undefined){
+        artist.user.birth_date = new Date(updateArtistProfile.birth_date);
+      }
+      // Save changes
+      await artist.save();
+      await artist.user.save();
 
       return res.status(200).json({
         status: "success",
-        data: checkUserArtist,
+        data: artist,
       });
     } catch (error) {
       return res.status(500).json({
@@ -530,7 +622,6 @@ artistReouter.patch(
     }
   }
 );
-
 
 // get artist public profile
 /**
@@ -827,7 +918,6 @@ artistReouter.get(
   }
 );
 
-
 // create gallery images
 /**
  * @swagger
@@ -1057,7 +1147,6 @@ artistReouter.post(
   }
 );
 
-
 // get list artist gallery_image
 /**
  * @swagger
@@ -1195,7 +1284,6 @@ artistReouter.get(
   }
 );
 
-
 // delete gallaery_image
 /**
  * @swagger
@@ -1327,7 +1415,6 @@ artistReouter.delete(
     }
   }
 );
-
 
 // create artist scoial
 /**
@@ -1508,7 +1595,6 @@ artistReouter.post(
   }
 );
 
-
 // list artist scoial
 /**
  * @swagger
@@ -1607,7 +1693,6 @@ artistReouter.get(
     }
   }
 );
-
 
 // update artist social
 /**
@@ -1785,7 +1870,6 @@ artistReouter.patch(
   }
 );
 
-
 // delete artist social
 /**
  * @swagger
@@ -1893,7 +1977,6 @@ artistReouter.delete(
     }
   }
 );
-
 
 // artist list
 /**

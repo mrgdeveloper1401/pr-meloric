@@ -17,19 +17,8 @@ export class Artist extends TimestampEntity{
   @Column({ default: true })
   is_active: boolean;
 
-  // @Column({ default: true })  // #TODO, add this field
-  // is_operatble: boolean;
-
   @Column({default: 0, nullable: true}) // # remove this field
   monthly_listeners: number;
-
-  // @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
-  // @JoinColumn({name: "cover_image_id"})
-  // cover_image: Image;
-
-  // @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
-  // @JoinColumn({name: "profile_image_id"})
-  // profile_image: Image;
 
   @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
   @JoinColumn({name: "banner_image_id"})
@@ -46,11 +35,4 @@ export class Artist extends TimestampEntity{
 
   @Column({nullable: true, length: 100})
   nick_name: string
-
-  // @Column({ length: 100, nullable: true})
-  // first_name: string;
-
-  // @Column({ length: 100, nullable: true })
-  // last_name: string;
-
 }

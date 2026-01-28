@@ -36,12 +36,6 @@ export class User extends TimestampEntity{
   @Column({ default: true})
   is_active: boolean;
 
-  // @Column({ default: false})
-  // is_verify_email: boolean;
-
-  // @Column({ default: false})
-  // is_verify_phone: boolean;
-
   @Column({ default: false })
   is_staff: boolean;
 
@@ -68,9 +62,6 @@ export class User extends TimestampEntity{
 
   @Column({ type: 'text', nullable: true })
   bio: string;
-
-  // @Column({ default: true })  // #TODO, add this field
-  // is_operatble: boolean;
 
   @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
   @JoinColumn({name: "profile_image_id"})
