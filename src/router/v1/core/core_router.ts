@@ -10,6 +10,7 @@ import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { audioUpload, s3ClientConfig, upload } from "../../../utils/amazon_s3/S3Config";
 import { Audio } from "../../../entity/Audio";
 import { User } from "../../../entity/User";
+import { handleMulterError } from "../../../middlewares/HandleMulterError";
 
 
 export const coreRouter = express.Router();
@@ -378,6 +379,7 @@ coreRouter.post(
     "/upload_image/",
     authenticateJWT,
     upload.single("file"),
+    handleMulterError,
     async (req: Request, res: Response) => {
         try {
             // validate data
