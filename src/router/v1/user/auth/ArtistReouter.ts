@@ -1364,7 +1364,7 @@ artistReouter.delete(
 
       const userId = (req as any).user.user_id;
 
-      // پیدا کردن آرتیست جاری
+      // check artist
       const artistRepository = AppDataSource.getRepository(Artist);
       const artist = await artistRepository.findOne({
         where: {
@@ -1381,7 +1381,7 @@ artistReouter.delete(
         });
       }
 
-      // پیدا کردن تصویر گالری
+      // find gallery_image
       const galleryRepository = AppDataSource.getRepository(ArtistGallery);
       const galleryImage = await galleryRepository.findOne({
         where: {
@@ -1389,6 +1389,10 @@ artistReouter.delete(
           artist: { id: artist.id },
           is_active: true,
         },
+        select: {
+          id: true,
+          is_active: true
+        }
       });
 
       if (!galleryImage) {
@@ -1398,7 +1402,7 @@ artistReouter.delete(
         });
       }
 
-      // حذف نرم (soft delete) با تغییر is_active به false
+      // soft delete
       galleryImage.is_active = false;
       await galleryRepository.save(galleryImage);
 
@@ -1731,10 +1735,6 @@ artistReouter.get(
  *                 description: آدرس کامل لینک اجتماعی
  *                 example: "https://twitter.com/artistname"
  *                 maxLength: 500
- *               is_active:
- *                 type: boolean
- *                 description: وضعیت فعال بودن لینک
- *                 example: true
  *     responses:
  *       '200':
  *         description: موفقیت‌آمیز - لینک اجتماعی به‌روزرسانی شد
@@ -1761,9 +1761,6 @@ artistReouter.get(
  *                     url:
  *                       type: string
  *                       example: "https://twitter.com/artistname"
- *                     is_active:
- *                       type: boolean
- *                       example: true
  *                     updated_at:
  *                       type: string
  *                       format: date-time
@@ -1849,6 +1846,7 @@ artistReouter.patch(
       if (artistSocialDto.url !== undefined)
         socialLink.url = artistSocialDto.url;
 
+      // save in database
       await socialRepository.save(socialLink);
 
       return res.status(200).json({
@@ -1858,6 +1856,7 @@ artistReouter.patch(
           id: socialLink.id,
           platform: socialLink.platform,
           url: socialLink.url,
+          is_active: socialLink.is_active
         },
       });
     } catch (error) {
@@ -1951,6 +1950,10 @@ artistReouter.delete(
           artist: (req as any).artist,
           is_active: true,
         },
+        select: {
+          id: true,
+          is_active: true
+        }
       });
 
       if (!socialLink) {

@@ -349,11 +349,11 @@ favoriteRouter.get(
                                     username: true,
                                     first_name: true,
                                     last_name: true,
-                                    profile: {
-                                        id: true,
+                                    // profile: {
+                                    //     id: true,
                                         // first_name: true,
                                         // last_name: true
-                                    }
+                                    // }
                                 }
                             },
                             audio: {
@@ -369,9 +369,10 @@ favoriteRouter.get(
                             image: true,
                             audio: true,
                             artist: {
-                                user: {
-                                    profile: true
-                                }
+                                user: true
+                                // user: {
+                                //     profile: true
+                                // }
                             }
                         }
                     },

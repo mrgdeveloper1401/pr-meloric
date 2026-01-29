@@ -21,6 +21,360 @@ import { SongProductionRole } from "../../../../entity/MusicProductionRole";
 
 export const musicRouter = Router();
 
+// detail music
+/**
+ * @swagger
+ * /v1/user/music/music/{musicId}:
+ *   get:
+ *     summary: دریافت اطلاعات یک آهنگ
+ *     description: |
+ *       این endpoint برای دریافت اطلاعات کامل یک آهنگ خاص بر اساس شناسه آن استفاده می‌شود.
+ *       آهنگ باید فعال (is_active=true) باشد.
+ *     tags:
+ *       - Music
+ *     parameters:
+ *       - in: path
+ *         name: musicId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: شناسه یکتای آهنگ
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: اطلاعات آهنگ با موفقیت بازگردانده شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Song'
+ *             examples:
+ *               success:
+ *                 summary: نمونه پاسخ موفق
+ *                 value:
+ *                   status: true
+ *                   data:
+ *                     id: 1
+ *                     title: "آهنگ نمونه"
+ *                     release_date: "2024-01-15T00:00:00.000Z"
+ *                     is_active: true
+ *                     play_count: 150
+ *                     music_lyrics: "متن آهنگ نمونه..."
+ *                     created_at: "2024-01-15T10:30:00.000Z"
+ *                     updated_at: "2024-01-20T15:45:00.000Z"
+ *                     artist:
+ *                       id: 1
+ *                       name: "هنرمند نمونه"
+ *                     album:
+ *                       id: 1
+ *                       title: "آلبوم نمونه"
+ *                     audio:
+ *                       id: 1
+ *                       audio_file_path: "/audio/sample.mp3"
+ *                     image:
+ *                       id: 1
+ *                       image_path: "/images/sample.jpg"
+ *       404:
+ *         description: آهنگ یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "music not found"
+ *             examples:
+ *               not_found:
+ *                 summary: آهنگ وجود ندارد یا غیرفعال است
+ *                 value:
+ *                   status: false
+ *                   message: "music not found"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *             examples:
+ *               server_error:
+ *                 summary: خطای سرور
+ *                 value:
+ *                   status: false
+ *                   message: "server error"
+ */
+musicRouter.get(
+  "/music/:musicId/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    const musicId = Number(req.params.musicId);
+    const currentDate = new Date();
+
+    try {
+      if(isNaN(musicId)){
+        return res.status(400).json(
+          {
+            status: false,
+            message: "music_id in params not found"
+          }
+        )
+      }
+      const getMusic = await AppDataSource.getRepository(Song)
+        .createQueryBuilder("song")
+        .leftJoinAndSelect("song.image", "song_image")
+        .leftJoinAndSelect("song.featured_artists", "featured_artists")
+        .leftJoinAndSelect("featured_artists.user", "featured_artists_user")
+        .leftJoinAndSelect(
+          "featured_artists_user.profile_image",
+          "featured_artists_user_profile_image"
+        )
+        .leftJoinAndSelect("song.production_roles", "production_roles")
+        .leftJoinAndSelect("production_roles.artist", "production_roles_artist")
+        .leftJoinAndSelect(
+          "production_roles_artist.user",
+          "production_roles_user"
+        )
+        .leftJoinAndSelect("song.album", "album")
+        .leftJoinAndSelect("album.cover_image", "album_image")
+        .leftJoinAndSelect("song.audio", "audio")
+        .leftJoinAndSelect("song.artist", "artist")
+        .leftJoinAndSelect("artist.user", "artist_user")
+        .leftJoinAndSelect("artist_user.profile_image", "artist_profile_image")
+        .select([
+          "song.id",
+          "song.title",
+          "song.release_date",
+          "song.play_count",
+          "song.music_lyrics",
+          "song.createdAt",
+          "featured_artists.id",
+          "featured_artists_user.username",
+          "featured_artists_user.id",
+          "featured_artists_user.first_name",
+          "featured_artists_user.last_name",
+          "featured_artists_user.is_active",
+          "featured_artists_user_profile_image.id",
+          "featured_artists_user_profile_image.image_path",
+          "production_roles.id",
+          "production_roles.role",
+          "production_roles.is_active",
+          "production_roles_user.first_name",
+          "production_roles_user.last_name",
+          "production_roles_user.id",
+          "production_roles_user.username",
+          "album.id",
+          "album.title",
+          "album_image.image_path",
+          "song_image.image_path",
+          "audio.audio_file_path",
+          "audio.audio_format",
+          "artist.id",
+          "artist.nick_name",
+          "artist_user.first_name",
+          "artist_user.last_name",
+          "artist_user.id",
+          "artist_user.username",
+          "artist_profile_image.id",
+          "artist_profile_image.image_path",
+        ])
+        .where("song.is_active = :isActive", { isActive: true })
+        .andWhere("song.release_date < :currentDate", { currentDate: currentDate })
+        .andWhere("song.id = :id", { id: musicId })
+        .andWhere("song.id = :id", {id: musicId})
+        .andWhere("(album.id IS NULL OR album.release_date < :currentDate);", {
+          currentDate: currentDate,
+        })
+        .getOne();
+
+      if (!getMusic) {
+        return res.status(404).json({
+          status: false,
+          message: "music not found",
+        });
+      }
+
+      const userId = (req as any).user.user_id;
+      const FavoriteRepository = AppDataSource.getRepository(FavoriteSong);
+      const checkFavoritMusic = await FavoriteRepository.findOne({
+        where: {
+          user: { id: userId },
+          is_active: true,
+          song: { id: musicId },
+        },
+        select: {
+          id: true,
+        },
+      });
+      let isLiked = false;
+      if (checkFavoritMusic) {
+        isLiked = true;
+      }
+
+      const likeCount = await FavoriteRepository.count({
+        where: {
+          is_active: true,
+          song: { id: musicId },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      // check playlistSong
+      const playListRepository = AppDataSource.getRepository(PlaylistSong);
+      const checkPlayList = await playListRepository.findOne({
+        where: {
+          is_active: true,
+          song: { id: musicId },
+          playlist: {
+            user: { id: userId },
+            is_active: true,
+          },
+        },
+        select: {
+          id: true,
+          playlist: {
+            id: true,
+            is_active: true,
+          },
+        },
+        relations: {
+          playlist: true,
+        },
+      });
+      let is_in_playList = false;
+      if (checkPlayList) {
+        is_in_playList = true;
+      }
+
+      // is owner
+      const isOwner = getMusic.artist?.user?.id == userId;
+
+      // Format featured artists
+      const formattedFeaturedArtists =
+        getMusic.featured_artists
+          ?.filter((feat) => feat.is_active)
+          .map((feat) => ({
+            id: feat.id,
+            // nick_name: feat.nick_name,
+            // first_name: feat.first_name,
+            // last_name: feat.last_name,
+            full_name: `${feat.user.first_name || ""} ${
+              feat.user.last_name || ""
+            }`.trim(),
+            username: feat.user?.username || null,
+            profile_image: feat.user.profile_image
+              ? {
+                  id: feat.user.profile_image.id,
+                  image_path: feat.user.profile_image.image_path,
+                }
+              : null,
+          })) || [];
+
+      // Format production roles
+      const formattedProductionRoles =
+        getMusic.production_roles
+          ?.filter((role) => role.is_active)
+          .map((role) => ({
+            id: role.id,
+            artist_id: role.artist?.id || null,
+            username: role.artist.user.username,
+            artist_name:
+              role.artist?.nick_name ||
+              `${role.artist.user?.first_name || ""} ${
+                role.artist.user?.last_name || ""
+              }`.trim() ||
+              null,
+            role: role.role,
+          })) || [];
+
+      const data = {
+        id: getMusic.id,
+        is_owner: isOwner,
+        title: getMusic.title,
+        release_date: getMusic.release_date,
+        play_count: getMusic.play_count,
+        music_lyrics: getMusic.music_lyrics,
+        created_at: getMusic.createdAt,
+        image: getMusic.image
+          ? {
+              id: getMusic.image.id,
+              image_path: getMusic.image.image_path,
+            }
+          : null,
+        album: getMusic.album
+          ? {
+              id: getMusic.album.id,
+              title: getMusic.album.title,
+              cover_image: getMusic.album.cover_image
+                ? {
+                    id: getMusic.album.cover_image.id,
+                    image_path: getMusic.album.cover_image.image_path,
+                  }
+                : null,
+            }
+          : null,
+        artist: {
+          id: getMusic.artist.id,
+          nick_name: getMusic.artist.nick_name,
+          first_name: getMusic.artist.user.first_name || null,
+          last_name: getMusic.artist.user.last_name || null,
+          full_name:
+            getMusic.artist.nick_name ||
+            `${getMusic.artist.user.first_name || ""} ${
+              getMusic.artist.user.last_name || ""
+            }`.trim(),
+          username: getMusic.artist.user.username,
+          cover_image: getMusic.artist.user.cover_image
+            ? {
+                id: getMusic.artist.user.cover_image.id,
+                image_path: getMusic.artist.user.cover_image.image_path,
+              }
+            : null,
+        },
+        audio: {
+          isLiked: isLiked,
+          likeCount: likeCount,
+          isInPlayList: is_in_playList,
+          playListId: checkPlayList?.id || null,
+          // playListTitle: checkPlayList?.playlist?.title || null,
+          audio_file_path: getMusic.audio.audio_file_path,
+          audio_format: getMusic.audio.audio_format,
+        },
+        featured_artists: formattedFeaturedArtists,
+        production_roles: formattedProductionRoles,
+      };
+
+      return res.status(200).json({
+        status: "success",
+        data: data,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
+    }
+  }
+);
+
 // get all song by album
 /**
  * @swagger
@@ -229,368 +583,6 @@ musicRouter.get(
       });
     } catch (error) {
       console.log(error);
-      return res.status(500).json({
-        status: false,
-        message: "server error",
-        error: error.message,
-      });
-    }
-  }
-);
-
-// detail music
-/**
- * @swagger
- * /v1/user/music/music/{musicId}:
- *   get:
- *     summary: دریافت اطلاعات یک آهنگ
- *     description: |
- *       این endpoint برای دریافت اطلاعات کامل یک آهنگ خاص بر اساس شناسه آن استفاده می‌شود.
- *       آهنگ باید فعال (is_active=true) باشد.
- *     tags:
- *       - Music
- *     parameters:
- *       - in: path
- *         name: musicId
- *         required: true
- *         schema:
- *           type: integer
- *           minimum: 1
- *         description: شناسه یکتای آهنگ
- *         example: 1
- *     responses:
- *       200:
- *         description: اطلاعات آهنگ با موفقیت بازگردانده شد
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/Song'
- *             examples:
- *               success:
- *                 summary: نمونه پاسخ موفق
- *                 value:
- *                   status: true
- *                   data:
- *                     id: 1
- *                     title: "آهنگ نمونه"
- *                     release_date: "2024-01-15T00:00:00.000Z"
- *                     is_active: true
- *                     play_count: 150
- *                     music_lyrics: "متن آهنگ نمونه..."
- *                     created_at: "2024-01-15T10:30:00.000Z"
- *                     updated_at: "2024-01-20T15:45:00.000Z"
- *                     artist:
- *                       id: 1
- *                       name: "هنرمند نمونه"
- *                     album:
- *                       id: 1
- *                       title: "آلبوم نمونه"
- *                     audio:
- *                       id: 1
- *                       audio_file_path: "/audio/sample.mp3"
- *                     image:
- *                       id: 1
- *                       image_path: "/images/sample.jpg"
- *       404:
- *         description: آهنگ یافت نشد
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "music not found"
- *             examples:
- *               not_found:
- *                 summary: آهنگ وجود ندارد یا غیرفعال است
- *                 value:
- *                   status: false
- *                   message: "music not found"
- *       500:
- *         description: خطای سرور داخلی
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "server error"
- *             examples:
- *               server_error:
- *                 summary: خطای سرور
- *                 value:
- *                   status: false
- *                   message: "server error"
- */
-musicRouter.get(
-  "/music/:musicId/",
-  authenticateJWT,
-  async (req: Request, res: Response) => {
-    const musicId = Number(req.params.musicId);
-    const currentDate = new Date();
-
-    try {
-      if(isNaN(musicId)){
-        return res.status(400).json(
-          {
-            status: false,
-            message: "music_id in params not found"
-          }
-        )
-      }
-      const getMusic = await AppDataSource.getRepository(Song)
-        .createQueryBuilder("song")
-        .leftJoinAndSelect("song.image", "song_image")
-        .leftJoinAndSelect("song.featured_artists", "featured_artists")
-        .leftJoinAndSelect("featured_artists.user", "featured_artists_user")
-        .leftJoinAndSelect(
-          "featured_artists_user.profile_image",
-          "featured_artists_user_profile_image"
-        )
-        .leftJoinAndSelect("song.production_roles", "production_roles")
-        .leftJoinAndSelect("production_roles.artist", "production_roles_artist")
-        .leftJoinAndSelect(
-          "production_roles_artist.user",
-          "production_roles_user"
-        )
-        // .leftJoinAndSelect(
-        //   "production_roles_user.artist",
-        //   "production_roles_user_artist"
-        // )
-        .leftJoinAndSelect("song.album", "album")
-        .leftJoinAndSelect("album.cover_image", "album_image")
-        .leftJoinAndSelect("song.audio", "audio")
-        .leftJoinAndSelect("song.artist", "artist")
-        .leftJoinAndSelect("artist.user", "artist_user")
-        .leftJoinAndSelect("artist_user.profile_image", "artist_profile_image")
-        .select([
-          "song.id",
-          "song.title",
-          "song.release_date",
-          "song.play_count",
-          "song.music_lyrics",
-          "song.createdAt",
-          "featured_artists.id",
-          "featured_artists_user.username",
-          "featured_artists_user.id",
-          "featured_artists_user.first_name",
-          "featured_artists_user.last_name",
-          "featured_artists_user.is_active",
-          "featured_artists_user_profile_image.id",
-          "featured_artists_user_profile_image.image_path",
-          "production_roles.id",
-          "production_roles.role",
-          "production_roles.is_active",
-          "production_roles_user.first_name",
-          "production_roles_user.last_name",
-          "production_roles_user.id",
-          "production_roles_user.username",
-          // "production_roles_user_artist.id",
-          // "production_roles_user_artist.nick_name",
-          "album.id",
-          "album.title",
-          "album_image.image_path",
-          "song_image.image_path",
-          "audio.audio_file_path",
-          "audio.audio_format",
-          "artist.id",
-          "artist.nick_name",
-          "artist_user.first_name",
-          "artist_user.last_name",
-          "artist_user.id",
-          "artist_user.username",
-          "artist_profile_image.id",
-          "artist_profile_image.image_path",
-        ])
-        .where(
-          "song.is_active = :isActive AND song.release_date < :currentDate AND album.release_date < :currentDateAlbum AND song.id = :id",
-          {
-            isActive: true,
-            currentDate: currentDate,
-            currentDateAlbum: currentDate,
-            id: musicId
-          }
-        )
-        .getOne();
-
-      if (!getMusic) {
-        return res.status(404).json({
-          status: false,
-          message: "music not found",
-        });
-      }
-
-      const userId = (req as any).user.user_id;
-      const FavoriteRepository = AppDataSource.getRepository(FavoriteSong);
-      const checkFavoritMusic = await FavoriteRepository.findOne({
-        where: {
-          user: { id: userId },
-          is_active: true,
-          song: { id: musicId },
-        },
-        select: {
-          id: true,
-        },
-      });
-      let isLiked = false;
-      if (checkFavoritMusic) {
-        isLiked = true;
-      }
-
-      const likeCount = await FavoriteRepository.count({
-        where: {
-          is_active: true,
-          song: { id: musicId },
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      // check playlistSong
-      const playListRepository = AppDataSource.getRepository(PlaylistSong);
-      const checkPlayList = await playListRepository.findOne({
-        where: {
-          is_active: true,
-          song: { id: musicId },
-          playlist: {
-            user: { id: userId },
-            is_active: true,
-          },
-        },
-        select: {
-          id: true,
-          playlist: {
-            id: true,
-            is_active: true,
-          },
-        },
-        relations: {
-          playlist: true,
-        },
-      });
-      let is_in_playList = false;
-      if (checkPlayList) {
-        is_in_playList = true;
-      }
-
-      // is owner
-      const isOwner = getMusic.artist?.user?.id == userId;
-
-      // Format featured artists
-      const formattedFeaturedArtists =
-        getMusic.featured_artists
-          ?.filter((feat) => feat.is_active)
-          .map((feat) => ({
-            id: feat.id,
-            // nick_name: feat.nick_name,
-            // first_name: feat.first_name,
-            // last_name: feat.last_name,
-            full_name: `${feat.user.first_name || ""} ${
-              feat.user.last_name || ""
-            }`.trim(),
-            username: feat.user?.username || null,
-            profile_image: feat.user.profile_image
-              ? {
-                  id: feat.user.profile_image.id,
-                  image_path: feat.user.profile_image.image_path,
-                }
-              : null,
-          })) || [];
-
-      // Format production roles
-      const formattedProductionRoles =
-        getMusic.production_roles
-          ?.filter((role) => role.is_active)
-          .map((role) => ({
-            id: role.id,
-            artist_id: role.artist?.id || null,
-            username: role.artist.user.username,
-            artist_name:
-              role.artist?.nick_name ||
-              `${role.artist.user?.first_name || ""} ${
-                role.artist.user?.last_name || ""
-              }`.trim() ||
-              null,
-            role: role.role,
-          })) || [];
-
-      const data = {
-        id: getMusic.id,
-        is_owner: isOwner,
-        title: getMusic.title,
-        release_date: getMusic.release_date,
-        play_count: getMusic.play_count,
-        music_lyrics: getMusic.music_lyrics,
-        created_at: getMusic.createdAt,
-        image: getMusic.image
-          ? {
-              id: getMusic.image.id,
-              image_path: getMusic.image.image_path,
-            }
-          : null,
-        album: getMusic.album
-          ? {
-              id: getMusic.album.id,
-              title: getMusic.album.title,
-              cover_image: getMusic.album.cover_image
-                ? {
-                    id: getMusic.album.cover_image.id,
-                    image_path: getMusic.album.cover_image.image_path,
-                  }
-                : null,
-            }
-          : null,
-        artist: {
-          id: getMusic.artist.id,
-          nick_name: getMusic.artist.nick_name,
-          first_name: getMusic.artist.user.first_name || null,
-          last_name: getMusic.artist.user.last_name || null,
-          full_name:
-            getMusic.artist.nick_name ||
-            `${getMusic.artist.user.first_name || ""} ${
-              getMusic.artist.user.last_name || ""
-            }`.trim(),
-          username: getMusic.artist.user.username,
-          cover_image: getMusic.artist.user.cover_image
-            ? {
-                id: getMusic.artist.user.cover_image.id,
-                image_path: getMusic.artist.user.cover_image.image_path,
-              }
-            : null,
-        },
-        audio: {
-          isLiked: isLiked,
-          likeCount: likeCount,
-          isInPlayList: is_in_playList,
-          playListId: checkPlayList?.id || null,
-          // playListTitle: checkPlayList?.playlist?.title || null,
-          audio_file_path: getMusic.audio.audio_file_path,
-          audio_format: getMusic.audio.audio_format,
-        },
-        featured_artists: formattedFeaturedArtists,
-        production_roles: formattedProductionRoles,
-      };
-
-      return res.status(200).json({
-        status: "success",
-        data: data,
-      });
-    } catch (error) {
       return res.status(500).json({
         status: false,
         message: "server error",
