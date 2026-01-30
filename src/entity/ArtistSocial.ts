@@ -18,12 +18,6 @@ export class ArtistSocial extends TimestampEntity {
   @Column({ length: 500 })
   url: string;
 
-//   @Column({ length: 100, nullable: true })
-//   username: string;
-
   @Column({ default: true })
   is_active: boolean;
-
-//   @Column({ type: "int", default: 0 })
-//   order: number;
 }

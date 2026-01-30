@@ -17,7 +17,7 @@ export class Artist extends TimestampEntity{
   @Column({ default: true })
   is_active: boolean;
 
-  @Column({default: 0, nullable: true}) // # remove this field
+  @Column({default: 0, nullable: true}) // TODO, remove this field
   monthly_listeners: number;
 
   @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})

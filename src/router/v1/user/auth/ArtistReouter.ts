@@ -2111,31 +2111,30 @@ artistReouter.get(
     try {
       const limit = Number(req.query.limit) || 20;
       const page = Number(req.query.page) || 1;
-      const search = req.query.search as string;
+      const search = req.query.search;
       const skip = (page - 1) * limit;
 
-      const artistRepository = AppDataSource.getRepository(Artist); // TODO, better query
+      const artistRepository = AppDataSource.getRepository(Artist);
 
       const query = artistRepository.createQueryBuilder("artist")
       .leftJoinAndSelect("artist.user", "user")
-        .leftJoinAndSelect("user.cover_image", "cover_image")
-        // .leftJoinAndSelect("artist.user", "user")
-        .where("artist.is_active = :isActive", { isActive: true })
+        .leftJoinAndSelect("user.profile_image", "profile_image")
+        .where("user.is_active = :isActive", { isActive: true })
         .select([
           "artist.id",
           "user.first_name",
           "user.last_name",
-          "user.nick_name",
+          "artist.nick_name",
           "artist.monthly_listeners",
-          "cover_image.id",
-          "cover_image.image_path",
+          "profile_image.id",
+          "profile_image.image_path",
           "user.id",
           "user.username"
         ]);
 
       if (search) {
         query.andWhere(
-          "(user.username LIKE :search)",
+          "(user.username ILIKE :search)",
           { search: `%${search}%` }
         );
       }
@@ -2146,15 +2145,13 @@ artistReouter.get(
 
       const simpleData = artists.map(artist => ({
         id: artist.id,
-        full_name: artist.user.first_name && artist.user.last_name 
-          ? `${artist.user.first_name} ${artist.user.last_name}`
-          : artist.nick_name || "بدون نام",
-        nick_name: artist.nick_name,
-        monthly_listeners: artist.monthly_listeners,
-        username: artist.user?.username,
-        cover_image: artist.user.cover_image ? {
-          id: artist.user.cover_image.id,
-          image_path: artist.user.cover_image.image_path
+        full_name: `${artist.user.first_name} ${artist.user.last_name}`,
+        nick_name: artist?.nick_name || null,
+        monthly_listeners: artist?.monthly_listeners || 0,
+        username: artist.user.username,
+        profile_image: artist.user.profile_image ? {
+          id: artist.user.profile_image.id,
+          image_path: artist.user.profile_image.image_path
         } : null
       }));
 
