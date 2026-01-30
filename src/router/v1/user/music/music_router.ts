@@ -127,14 +127,13 @@ musicRouter.get(
     const currentDate = new Date();
 
     try {
-      if(isNaN(musicId)){
-        return res.status(400).json(
-          {
-            status: false,
-            message: "music_id in params not found"
-          }
-        )
+      if (isNaN(musicId)) {
+        return res.status(400).json({
+          status: false,
+          message: "music_id in params not found"
+        });
       }
+
       const getMusic = await AppDataSource.getRepository(Song)
         .createQueryBuilder("song")
         .leftJoinAndSelect("song.image", "song_image")
@@ -156,6 +155,7 @@ musicRouter.get(
         .leftJoinAndSelect("song.artist", "artist")
         .leftJoinAndSelect("artist.user", "artist_user")
         .leftJoinAndSelect("artist_user.profile_image", "artist_profile_image")
+        .leftJoinAndSelect("artist_user.cover_image", "artist_cover_image")
         .select([
           "song.id",
           "song.title",
@@ -174,6 +174,7 @@ musicRouter.get(
           "production_roles.id",
           "production_roles.role",
           "production_roles.is_active",
+          "production_roles_artist.id",
           "production_roles_user.first_name",
           "production_roles_user.last_name",
           "production_roles_user.id",
@@ -192,12 +193,13 @@ musicRouter.get(
           "artist_user.username",
           "artist_profile_image.id",
           "artist_profile_image.image_path",
+          "artist_cover_image.id",
+          "artist_cover_image.image_path",
         ])
         .where("song.is_active = :isActive", { isActive: true })
         .andWhere("song.release_date < :currentDate", { currentDate: currentDate })
         .andWhere("song.id = :id", { id: musicId })
-        .andWhere("song.id = :id", {id: musicId})
-        .andWhere("(album.id IS NULL OR album.release_date < :currentDate);", {
+        .andWhere("(album.id IS NULL OR album.release_date < :currentDate)", {
           currentDate: currentDate,
         })
         .getOne();
@@ -230,9 +232,6 @@ musicRouter.get(
         where: {
           is_active: true,
           song: { id: musicId },
-        },
-        select: {
-          id: true,
         },
       });
 
@@ -272,13 +271,8 @@ musicRouter.get(
           ?.filter((feat) => feat.is_active)
           .map((feat) => ({
             id: feat.id,
-            // nick_name: feat.nick_name,
-            // first_name: feat.first_name,
-            // last_name: feat.last_name,
-            full_name: `${feat.user.first_name || ""} ${
-              feat.user.last_name || ""
-            }`.trim(),
-            username: feat.user?.username || null,
+            full_name: `${feat.user.first_name || ""} ${feat.user.last_name || ""}` || null,
+            username: feat.user.username,
             profile_image: feat.user.profile_image
               ? {
                   id: feat.user.profile_image.id,
@@ -294,13 +288,8 @@ musicRouter.get(
           .map((role) => ({
             id: role.id,
             artist_id: role.artist?.id || null,
-            username: role.artist.user.username,
-            artist_name:
-              role.artist?.nick_name ||
-              `${role.artist.user?.first_name || ""} ${
-                role.artist.user?.last_name || ""
-              }`.trim() ||
-              null,
+            username: role.artist?.user?.username || null,
+            artist_name: role.artist?.user ? `${role.artist.user.first_name || ""} ${role.artist.user.last_name || ""}` : null,
             role: role.role,
           })) || [];
 
@@ -332,28 +321,21 @@ musicRouter.get(
           : null,
         artist: {
           id: getMusic.artist.id,
-          nick_name: getMusic.artist.nick_name,
+          nick_name: getMusic.artist?.nick_name || null,
           first_name: getMusic.artist.user.first_name || null,
           last_name: getMusic.artist.user.last_name || null,
-          full_name:
-            getMusic.artist.nick_name ||
-            `${getMusic.artist.user.first_name || ""} ${
-              getMusic.artist.user.last_name || ""
-            }`.trim(),
+          full_name: `${getMusic.artist.user.first_name || ""} ${getMusic.artist.user.last_name || ""}` || null,
           username: getMusic.artist.user.username,
-          cover_image: getMusic.artist.user.cover_image
-            ? {
+          cover_image: getMusic.artist.user.cover_image ? {
                 id: getMusic.artist.user.cover_image.id,
                 image_path: getMusic.artist.user.cover_image.image_path,
-              }
-            : null,
+              } : null,
         },
         audio: {
           isLiked: isLiked,
           likeCount: likeCount,
           isInPlayList: is_in_playList,
           playListId: checkPlayList?.id || null,
-          // playListTitle: checkPlayList?.playlist?.title || null,
           audio_file_path: getMusic.audio.audio_file_path,
           audio_format: getMusic.audio.audio_format,
         },
@@ -3064,7 +3046,7 @@ musicRouter.post(
  *                 description: آرایه‌ای از آیدی‌های آرتیست‌های فیت (اختیاری)
  *                 items:
  *                   type: integer
- *                   example: [10, 11, 12]
+ *                   example: 10
  *     responses:
  *       '201':
  *         description: آهنگ با موفقیت ایجاد شد
@@ -3245,6 +3227,7 @@ musicRouter.post(
             id: In(artistIds),
             is_active: true,
           },
+          select: {id: true}
         });
 
         const artistMap = new Map(artists.map((artist) => [artist.id, artist]));
@@ -3281,7 +3264,7 @@ musicRouter.post(
           await queryRunner.rollbackTransaction();
           return res.status(400).json({
             status: false,
-            message: "شما نمی‌توانید خود را به عنوان آرتیست فیت اضافه کنید",
+            message: "You cannot add yourself as a Fit Artist.",
           });
         }
 
@@ -3290,6 +3273,7 @@ musicRouter.post(
             id: In(uniqueFeaturedIds),
             is_active: true,
           },
+          select: {id: true}
         });
 
         if (featuredArtists.length > 0) {
@@ -3302,7 +3286,7 @@ musicRouter.post(
 
       return res.status(201).json({
         status: true,
-        message: "آهنگ با موفقیت ایجاد شد",
+        message: "The song was created successfully.",
         data: {
           id: savedSong.id,
           title: savedSong.title,

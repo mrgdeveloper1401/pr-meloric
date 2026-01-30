@@ -193,6 +193,7 @@ relatedMusicrouter.get(
             
             const currentSong = await songRepository.findOne({
                 where: { id: songId },
+                select: {id: true}
             });
 
             if (!currentSong) {
