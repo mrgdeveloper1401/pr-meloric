@@ -18,6 +18,7 @@ export const s3ClientConfig = new S3Client({
     },
 });
 
+// audio filter
 export const AudioFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     const allowedMimeTypes = [
         'audio/mpeg', // mp3
@@ -40,7 +41,7 @@ export const AudioFileFilter = (req: Request, file: Express.Multer.File, cb: mul
     }
 }
 
-
+// image filter
 const imageFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
@@ -49,7 +50,8 @@ const imageFileFilter = (req: Request, file: Express.Multer.File, cb: multer.Fil
     }
 };
 
-const videoFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+// video and image file filter
+const videoOrImageFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     if (file.mimetype.startsWith("video/") || file.mimetype.startsWith("image/")) {
         cb(null, true)
     } else {
@@ -57,6 +59,7 @@ const videoFileFilter = (req: Request, file: Express.Multer.File, cb: multer.Fil
     }
 }
 
+// config storage
 const configStorage = multer.diskStorage({
     destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
         const uploadDir = path.join(process.cwd(), 'uploads');
@@ -90,10 +93,11 @@ export const audioUpload = multer(
     }
 )
 
-export const videoUploaded = multer(
+// upload for story
+export const videoOrImageUploaded = multer(
     {
         storage: configStorage,
-        fileFilter: videoFileFilter,
+        fileFilter: videoOrImageFilter,
         limits: {
             fileSize:50 * 1024 * 1024
         }

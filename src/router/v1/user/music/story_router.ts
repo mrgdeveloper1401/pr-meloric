@@ -5,7 +5,7 @@ import { Story } from "../../../../entity/Story";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { In, MoreThan } from "typeorm";
 import { User } from "../../../../entity/User";
-import { s3ClientConfig, videoUploaded } from "../../../../utils/amazon_s3/S3Config";
+import { s3ClientConfig, videoOrImageUploaded } from "../../../../utils/amazon_s3/S3Config";
 import fs from "fs";
 import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { MediaTypeEnum, StoryMedia } from "../../../../entity/StoryMedia";
@@ -14,6 +14,7 @@ import { getVideoDurationInSeconds } from 'get-video-duration';
 import { plainToClass } from "class-transformer";
 import { CreateStoryDto } from "../../../../dtos/music/CreateStory";
 import { validate } from "class-validator";
+import { handleUploadMediaStoryMidd } from "../../../../middlewares/HandleMulterError";
 
 export const storyRouter = express.Router();
 dotenv.config()
@@ -41,11 +42,6 @@ dotenv.config()
  *             required:
  *               - media_ids
  *             properties:
- *               caption:
- *                 type: string
- *                 description: توضیحات اختیاری استوری
- *                 example: "این یک استوری تست است!"
- *                 nullable: true
  *               media_ids:
  *                 type: array
  *                 items:
@@ -194,7 +190,7 @@ storyRouter.post(
             // create story
             const storyRepository = AppDataSource.getRepository(Story);
             const newStory = new Story();
-            newStory.caption = createStoryDto.caption;
+            // newStory.caption = createStoryDto.caption;
             newStory.user = {id: userId} as User;
             newStory.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
             // newStory.view_count = 0;
@@ -316,7 +312,7 @@ storyRouter.get(
                     id: true,
                     createdAt: true,
                     updatedAt: true,
-                    caption: true,
+                    // caption: true,
                     // view_count: true,
                     media: {
                         id: true,
@@ -366,7 +362,6 @@ storyRouter.get(
         }
     }
 );
-
 
 // Delete story 
 /**
@@ -503,7 +498,6 @@ storyRouter.delete(
     }
 );
 
-
 // Get all stories with pagination
 /**
  * @swagger
@@ -583,8 +577,6 @@ storyRouter.delete(
  *             schema:
  *               $ref: '#/components/schemas/ServerError'
  */
-// در endpoint اصلی خود این تغییرات را اعمال کنید:
-
 storyRouter.get(
     "/all_user_story/",
     authenticateJWT,
@@ -616,18 +608,18 @@ storyRouter.get(
                     "user.last_name",
                     "profile_image.image_path",
                     "profile_image.id",
-                    "COUNT(story.id) as story_count" // تعداد استوری‌های کاربر
+                    "COUNT(story.id) as story_count" // number user story
                 ])
                 .groupBy("user.id, artist.id, profile_image.id")
-                .orderBy("MAX(story.createdAt)", "DESC") // بر اساس آخرین استوری مرتب‌سازی
+                .orderBy("MAX(story.createdAt)", "DESC") // order story
                 .skip(skip)
                 .take(limit)
                 .getRawMany();
 
-            // حالا برای هر کاربر، تمام مدیاها را بگیرید
+            // get media for all user
             const simpleData = await Promise.all(
                 usersWithStories.map(async (userRow) => {
-                    // تمام مدیاهای کاربر در ۲۴ ساعت گذشته
+                    // media in 24 hour ago
                     const userStories = await AppDataSource.getRepository(Story)
                         .createQueryBuilder("story")
                         .leftJoinAndSelect("story.media", "media")
@@ -639,7 +631,7 @@ storyRouter.get(
                         .orderBy("story.createdAt", "DESC")
                         .getMany();
 
-                    // ادغام تمام مدیاهای کاربر
+                    // meage story_media
                     const allMedia = userStories.flatMap(story => 
                         story.media?.map(media => ({
                             id: media.id,
@@ -652,21 +644,21 @@ storyRouter.get(
                     );
 
                     return {
-                        id: userRow.user_id, // یا می‌توانید از story id اول استفاده کنید
+                        id: userRow.user_id,
                         user_id: userRow.user_id,
                         username: userRow.user_username,
                         artist_id: userRow.artist_id || null,
                         is_artist: userRow.user_is_artist,
-                        created_at: userStories[0]?.createdAt, // تاریخ اولین استوری
+                        created_at: userStories[0]?.createdAt,
                         profile_image: userRow.profile_image_image_path || null,
                         profile_image_id: userRow.profile_image_id || null,
                         story_media: allMedia,
-                        stories_count: userStories.length // تعداد کل استوری‌های کاربر
+                        stories_count: userStories.length
                     };
                 })
             );
 
-            // برای pagination نیاز داریم کل کاربران را بشماریم
+            // count all number
             const totalUsersCount = await AppDataSource.getRepository(Story)
                 .createQueryBuilder("story")
                 .leftJoin("story.user", "user")
@@ -702,7 +694,6 @@ storyRouter.get(
         }
     }
 );
-
 
 // Create media
 /**
@@ -772,7 +763,8 @@ storyRouter.get(
 storyRouter.post(
     "/create_media/",
     authenticateJWT,
-    videoUploaded.single("file"),
+    videoOrImageUploaded.single("file"),
+    handleUploadMediaStoryMidd,
     async (req: Request, res: Response) => {
         try {
             // check request body
@@ -837,7 +829,6 @@ storyRouter.post(
         }
     }
 );
-
 
 // Get user media with pagination
 /**
@@ -978,7 +969,6 @@ storyRouter.get(
         }
     }
 );
-
 
 // Delete media
 /**
@@ -1545,7 +1535,7 @@ storyRouter.delete(
     }
 );
 
-// getmy story
+// my story
 /**
  * @swagger
  * /v1/user/story/my_story/:
@@ -1699,7 +1689,7 @@ storyRouter.get(
                         id: true,
                         createdAt: true,
                         updatedAt: true,
-                        caption: true,
+                        // caption: true,
                         expires_at: true,
                         // view_count: true,
                         media: {

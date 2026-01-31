@@ -65,7 +65,6 @@ informationUserRouter.get(
                         email: true,
                         username: true,
                         is_artist: true,
-                        // is_public: true,
                         user_artist_set: {
                             id: true
                         }
@@ -88,6 +87,7 @@ informationUserRouter.get(
                 artist_id: getUser.user_artist_set?.id || null,
                 mobile_phone: getUser.mobile_phone,
                 email: getUser.email,
+                username: getUser.username,
                 is_artist: getUser.is_artist,
                 is_public: getUser.is_public
             }

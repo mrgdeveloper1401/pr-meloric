@@ -13,8 +13,8 @@ export class Story extends TimestampEntity {
     @JoinColumn({ name: "user_id" })
     user: User;
 
-    @Column({ type: "varchar", length: 500, nullable: true })
-    caption: string;
+    // @Column({ type: "varchar", length: 500, nullable: true })
+    // caption: string;
 
     @Column({ default: true })
     is_active: boolean;
