@@ -1026,7 +1026,7 @@ playListRouter.post(
     try {
       const playlistId = Number(req.params.playlist_id);
       const userId = (req as any).user.user_id;
-      const { song_id, position = 0 } = req.body;
+      const { song_id } = req.body;
 
       // check playlist_id
       if (isNaN(playlistId) || playlistId <= 0) {
@@ -1065,22 +1065,31 @@ playListRouter.post(
       }
 
       // check music
+      const currentDate = new Date();
       const songRepository = AppDataSource.getRepository(Song);
-      const song = await songRepository.findOne({
-        where: {
-          id: songId,
-          is_active: true,
-          album: {
-            is_active: true,
-          },
-        },
-        select: ["id"],
-      });
+      const song = await songRepository.createQueryBuilder("song")
+      .where("song.id = :songId", {songId: songId})
+      .andWhere("song.release_date <= :currentDate", {currentDate: currentDate})
+      .andWhere("song.is_active = :isActive", {isActive: true})
+      .select([
+        "song.id"
+      ])
+      .getOne();
+      // const song = await songRepository.findOne({
+      //   where: {
+      //     id: songId,
+      //     is_active: true,
+      //     release_date: 
+      //   },
+      //   select: {
+      //     id: true
+      //   },
+      // });
 
       if (!song) {
         return res.status(404).json({
           status: false,
-          message: "Song not found",
+          message: "Song not found"
         });
       }
 
@@ -1102,19 +1111,6 @@ playListRouter.post(
         });
       }
 
-      // calc position
-      // let finalPosition = position;
-      // if (!position || position < 0) {
-      //     const lastPosition = await playlistSongRepository
-      //         .createQueryBuilder("playlistSong")
-      //         .select("MAX(playlistSong.position)", "maxPosition")
-      //         .where("playlistSong.playlist_id = :playlistId", { playlistId })
-      //         .andWhere("playlistSong.is_active = :isActive", { isActive: true })
-      //         .getRawOne();
-
-      //     finalPosition = (lastPosition.maxPosition || 0) + 1;
-      // }
-
       // create data
       const playlistSong = new PlaylistSong();
       playlistSong.playlist = playlist;
@@ -1131,14 +1127,13 @@ playListRouter.post(
           id: playlistSong.id,
           playlist_id: playlistId,
           song_id: songId,
-          // position: finalPosition,
-          // created_at: playlistSong.created_at
         },
       });
     } catch (error) {
       return res.status(500).json({
         status: false,
         message: "server error",
+        error: error.message
       });
     }
   }
