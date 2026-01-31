@@ -12,9 +12,6 @@ export class Album extends TimestampEntity{
   @Column({ length: 255 })
   title: string;
 
-  @Column({ length: 255 })
-  bio: string;
-
   @Column({ default: true })
   is_active: boolean;
 

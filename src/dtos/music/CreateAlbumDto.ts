@@ -8,7 +8,6 @@ import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-val
  *       type: object
  *       required:
  *         - title
- *         - bio
  *         - cover_image
  *         - release_date
  *         - genre_ids
@@ -17,10 +16,6 @@ import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-val
  *           type: string
  *           description: عنوان آلبوم
  *           example: "آلبوم جدید"
- *         bio:
- *           type: string
- *           description: توضیحات آلبوم
- *           example: "این یک آلبوم جدید است"
  *         cover_image:
  *           type: number
  *           description: شناسه تصویر کاور آلبوم
@@ -38,7 +33,6 @@ import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-val
  *           example: [1, 2, 3]
  *       example:
  *         title: "آلبوم جدید"
- *         bio: "این یک آلبوم جدید است"
  *         cover_image: 1
  *         release_date: "2023-12-01"
  *         genre_ids: [1, 2, 3]
@@ -48,10 +42,6 @@ export class CreateAlbumDto {
     @IsString()
     @IsNotEmpty()
     title: string
-
-    @IsString()
-    @IsNotEmpty()
-    bio: string;
 
     @IsNumber()
     @IsNotEmpty()
@@ -80,11 +70,6 @@ export class CreateAlbumDto {
  *           description: عنوان آلبوم
  *           example: "آلبوم ویرایش شده"
  *           nullable: true
- *         bio:
- *           type: string
- *           description: توضیحات آلبوم
- *           example: "این آلبوم ویرایش شده است"
- *           nullable: true
  *         cover_image:
  *           type: number
  *           description: شناسه تصویر کاور آلبوم
@@ -110,7 +95,6 @@ export class CreateAlbumDto {
  *           nullable: true
  *       example:
  *         title: "آلبوم ویرایش شده"
- *         bio: "این آلبوم ویرایش شده است"
  *         cover_image: 2
  *         release_date: "2024-01-01"
  *         genre_ids: [1, 4]
@@ -121,11 +105,6 @@ export class UpdateAlbumDto {
     @IsOptional()
     @IsNotEmpty()
     title?: string
-
-    @IsString()
-    @IsOptional()
-    @IsNotEmpty()
-    bio?: string;
 
     @IsNumber()
     @IsOptional()

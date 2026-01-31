@@ -125,27 +125,25 @@ albumRouter.get(
                 .leftJoin(Artist, "artist", "artist.user_id = user.id")  // Join با Artist
                 .where("album.is_active = :isActive", { isActive: true })
                 .andWhere("album.release_date < :date", {date})
-                .andWhere("artist.is_active = :artistActive", { artistActive: true })  // فقط آرتیست‌های فعال
+                .andWhere("artist.is_active = :artistActive", { artistActive: true })
                 .select([
                     "album.id",
                     "album.title",
-                    "album.bio",
                     "album.release_date",
                     "cover_image.id",
                     "cover_image.image_path",
-                    "artist.id as artist_id",  // آیدی آرتیست
-                    "artist.nick_name",        // نام هنری
-                    "user.first_name",      // نام
-                    "user.last_name",       // نام خانوادگی
-                    "user.username"           // نام کاربری
+                    "artist.id as artist_id",
+                    "artist.nick_name",
+                    "user.first_name",
+                    "user.last_name",
+                    "user.username"
                 ])
-                .getRawMany();  // استفاده از getRawMany برای فیلدهای custom
+                .getRawMany();
 
             // تبدیل به فرمت تمیز
             const formattedAlbums = albums.map(album => ({
                 id: album.album_id,
                 title: album.album_title,
-                bio: album.album_bio,
                 release_date: album.album_release_date,
                 cover_image: {
                     id: album.cover_image_id,
@@ -196,7 +194,6 @@ albumRouter.get(
  *             $ref: '#/components/schemas/CreateAlbumDto'
  *           example:
  *             title: "آلبوم جدید"
- *             bio: "این یک آلبوم جدید است"
  *             cover_image: 1
  *             release_date: "2023-12-01"
  *             genre_id: 1
@@ -399,7 +396,6 @@ albumRouter.post(
             // create album
             const album = new Album();
             album.title = createAlbumDto.title;
-            album.bio = createAlbumDto.bio;
             album.cover_image = getImage;
             album.release_date = new Date(createAlbumDto.release_date);
             album.genre = genre;
@@ -458,7 +454,6 @@ albumRouter.post(
  *             $ref: '#/components/schemas/UpdateAlbumDto'
  *           example:
  *             title: "آلبوم ویرایش شده"
- *             bio: "این آلبوم ویرایش شده است"
  *             cover_image: 2
  *             release_date: "2024-01-01"
  *             genre_ids: [1, 4]
@@ -639,10 +634,6 @@ albumRouter.patch(
                 existingAlbum.title = updateAlbumDto.title;
             }
 
-            if (updateAlbumDto.bio !== undefined) {
-                existingAlbum.bio = updateAlbumDto.bio;
-            }
-
             if (updateAlbumDto.is_active !== undefined) {
                 existingAlbum.is_active = updateAlbumDto.is_active;
             }
@@ -697,7 +688,6 @@ albumRouter.patch(
                 data: {
                     id: existingAlbum.id,
                     title: existingAlbum.title,
-                    bio: existingAlbum.bio,
                     release_date: existingAlbum.release_date
                 }
             });
@@ -843,7 +833,6 @@ albumRouter.get(
                     select: {
                         id: true,
                         title: true,
-                        bio: true,
                         is_active: true,
                         cover_image: {
                             image_path: true
@@ -876,7 +865,6 @@ albumRouter.get(
                         id: item.id,
                         artist_id: item.user.user_artist_set.id,
                         title: item.title,
-                        bio: item?.bio || null,
                         is_active: item.is_active,
                         album_cover_image: item.cover_image?.image_path || null,
                         release_date: item.release_date,
@@ -887,11 +875,11 @@ albumRouter.get(
             )
             return res.status(200).json({
                 status: "success",
-                data: simpleData,
                 page: page,
                 skip: skip,
                 limit: limit,
-                total: total
+                total: total,
+                data: simpleData,
             });
         } catch (error) {
             console.log(error)
