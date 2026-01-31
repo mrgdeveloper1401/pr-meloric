@@ -128,7 +128,6 @@ playListRouter.get(
   }
 );
 
-
 // // create playlist
 /**
  * @swagger
@@ -292,7 +291,6 @@ playListRouter.post(
   }
 );
 
-
 // delete playlist
 /**
  * @swagger
@@ -398,7 +396,6 @@ playListRouter.delete(
     }
   }
 );
-
 
 // update playlist
 /**
@@ -545,7 +542,6 @@ playListRouter.patch(
     }
   }
 );
-
 
 // show music by playlist
 /**
@@ -815,6 +811,7 @@ playListRouter.get(
         .innerJoinAndSelect("artist.user", "user")
         .where("play_list_song.is_active = :isActive", { isActive: true })
         .andWhere("song.is_active = :isActive", { isActive: true })
+        .andWhere("playlist.id = :playlistId", {playlistId: playlistId})
         .orderBy("play_list_song.id", "ASC")
         .skip(skip)
         .take(limit)
