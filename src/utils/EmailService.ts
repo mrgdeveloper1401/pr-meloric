@@ -63,17 +63,18 @@ export class EmailService {
   }
 
   generateOtpCode() {
-    return crypto.randomInt(999999);
+    return crypto.randomInt(111111, 999999);
   }
 
-  async storeEmailOtp(email: string, ipAddress: string) {
+  // store email otp in redis
+  async storeEmailOtp(email: string, ipAddress: string, store_type: string) {
     const code = this.generateOtpCode();
-    await otpManagerClass.storeOtp(email, code, ipAddress);
+    await otpManagerClass.storeOtp(email, code, ipAddress, store_type);
     return code;
   }
 
-  async verifyEmailOtp(email: string, code: number, ipAddress: string) {
-    return await otpManagerClass.verifyOtp(email, code, ipAddress);
+  async verifyEmailOtp(email: string, code: number, ipAddress: string, store_type: string) {
+    return await otpManagerClass.verifyOtp(email, code, ipAddress, store_type);
   }
 }
 

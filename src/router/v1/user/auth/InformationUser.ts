@@ -209,7 +209,7 @@ informationUserRouter.post(
 
             const randomCode = Math.floor(Math.random() * (999999 - 111111) + 111111); // generate random code
              const userIp = req.ip; // get request ip
-             await otpManagerClass.storeOtp(updateMobilePhoneDto.mobile_phone, randomCode, userIp) // set into redis
+             await otpManagerClass.storeOtp(updateMobilePhoneDto.mobile_phone, randomCode, userIp, "otp") // set into redis
             // await sendOtp(updateMobilePhoneDto.mobile_phone, req) // send into phone
 
             return res.status(201).json(
@@ -328,7 +328,7 @@ informationUserRouter.post(
 
             // check otp code
              const userIp = req.ip;
-            const checkOtpCode = await otpManagerClass.verifyOtp(verifyOtpPhone.mobile_phone, verifyOtpPhone.code, userIp)
+            const checkOtpCode = await otpManagerClass.verifyOtp(verifyOtpPhone.mobile_phone, verifyOtpPhone.code, userIp, "otp")
             if (checkOtpCode === false) {
                 return res.status(404).json(
                     {

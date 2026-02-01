@@ -112,11 +112,11 @@ class RedisOtpManager {
   }
 
   // save otp in redis
-  async storeOtp(phone: string, code: number, ipAddress: string) {
+  async storeOtp(phone: string, code: number, ipAddress: string, store_type: string) {
     try {
       await this.connect();
 
-      const redisKey = `otp_${phone}_${code}_${ipAddress}`;
+      const redisKey = `${store_type}_${phone}_${code}_${ipAddress}`;
       await this.client.setEx(redisKey, 120, "valid");
       return true;
     } catch (error) {
@@ -152,10 +152,10 @@ class RedisOtpManager {
     }
   }
 
-  async verifyOtp(phone: string, code: number, ipAddress: string) {
+  async verifyOtp(phone: string, code: number, ipAddress: string, store_type: string) {
     try {
       await this.connect();
-      const redisKey = `otp_${phone}_${code}_${ipAddress}`;
+      const redisKey = `${store_type}_${phone}_${code}_${ipAddress}`;
       const result = await this.client.get(redisKey);
       if (result) {
         await this.client.del(redisKey);

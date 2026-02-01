@@ -1,6 +1,10 @@
 import { plainToClass } from "class-transformer";
 import { Router, Request, Response } from "express";
-import { EmailDto, VerifyOtpEmailDto } from "../../../../dtos/auth/EmailDtos";
+import {
+  EmailDto,
+  VerifyForgetPasswordEmailDto,
+  VerifyOtpEmailDto,
+} from "../../../../dtos/auth/EmailDtos";
 import { validate } from "class-validator";
 import { AppDataSource } from "../../../../data-source";
 import { User } from "../../../../entity/User";
@@ -11,8 +15,11 @@ import {
   decodeJwtToken,
 } from "../../../../utils/createJwtToken";
 import { createEmailService } from "../../../../utils/EmailService";
-import { authenticateJWT } from "../../../../middlewares/authenticate";
-import { otpManagerClass } from "../../../../utils/connectRedis";
+import {
+  authenticateJWT,
+  notAuthenticateJwt,
+} from "../../../../middlewares/authenticate";
+import { funcCreateHashPassword } from "../../../../utils/createHashPassword";
 
 export const emailRouter = Router();
 
@@ -85,7 +92,8 @@ emailRouter.post(
       // store otp in redis // TODO, use background task
       const otpCode = await createEmailService.storeEmailOtp(
         emailDto.email,
-        req.ip
+        req.ip,
+        "otp"
       );
 
       // // send otp into email
@@ -230,7 +238,7 @@ emailRouter.post(
  *                   type: string
  *                   example: "خطای داخلی سرور"
  */
-emailRouter.post("/verify_otp_email", async (req: Request, res: Response) => {
+emailRouter.post("/verify_otp_email/", async (req: Request, res: Response) => {
   try {
     const verifyEmailDto = plainToClass(VerifyOtpEmailDto, req.body);
     const errors = await validate(verifyEmailDto);
@@ -246,11 +254,12 @@ emailRouter.post("/verify_otp_email", async (req: Request, res: Response) => {
       });
     }
 
-    // 2. check otp
+    // check otp
     const verifyOtpRedis = await createEmailService.verifyEmailOtp(
       verifyEmailDto.email,
       verifyEmailDto.code,
-      req.ip
+      req.ip,
+      "otp"
     );
 
     if (!verifyOtpRedis) {
@@ -482,11 +491,11 @@ emailRouter.post(
       const token = await CreateJwtLink(checkUserEmail.id, req.ip);
       const domainName = process.env.DOMAIN_NAME || `http://localhost:8000`;
       const callBackUrl = `${domainName}/v1/email/verify_email_link/${token}`;
-        await createEmailService.sendEmail({
-          to: emailDto.email,
-          subject: "لینک اعتبار سنجی ایمیل",
-          text: "لینک اعتبار سنجی ایمیل",
-          html: `
+      await createEmailService.sendEmail({
+        to: emailDto.email,
+        subject: "لینک اعتبار سنجی ایمیل",
+        text: "لینک اعتبار سنجی ایمیل",
+        html: `
                     <div dir="rtl" style="font-family: Tahoma; padding: 20px;">
                       <h2>لینک تأیید ایمیل</h2>
                       <p>لینک تأیید شما:</p>
@@ -498,7 +507,7 @@ emailRouter.post(
                       <hr>
                     </div>
                   `,
-        });
+      });
 
       return res.status(200).json({
         status: "success",
@@ -514,7 +523,6 @@ emailRouter.post(
     }
   }
 );
-
 
 // verify email
 /**
@@ -657,7 +665,7 @@ emailRouter.post(
         );
       }
 
-      // بررسی وجود توکن
+      // check token dose exists
       if (!Token || Token.trim() === "") {
         return res.status(400).json({
           status: false,
@@ -665,21 +673,19 @@ emailRouter.post(
         });
       }
 
-      // دیکد کردن توکن JWT
+      // decode jwt
       const decoded = await decodeJwtToken(Token, req.ip);
-      if (decoded.success === false){
-        return res.status(400).json(
-            {
-                status: false,
-                message: decoded.error || null,
-                error: decoded.message || null
-            }
-        )
+      if (decoded.success === false) {
+        return res.status(400).json({
+          status: false,
+          message: decoded.error || null,
+          error: decoded.message || null,
+        });
       }
 
       const userId = (req as any).user.user_id;
 
-      // پیدا کردن کاربر
+      // find user
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({
         where: {
@@ -689,7 +695,7 @@ emailRouter.post(
         },
         select: {
           id: true,
-          email: true
+          email: true,
           // is_verify_email: true
         },
       });
@@ -701,7 +707,7 @@ emailRouter.post(
         });
       }
 
-      // به‌روزرسانی وضعیت ایمیل
+      // check email
       // user.is_verify_email = true;
       user.email = emailDto.email;
       await user.save();
@@ -715,12 +721,469 @@ emailRouter.post(
       return res.status(500).json({
         status: false,
         message: "server error",
-        error: error.message
+        error: error.message,
       });
     }
   }
 );
 
-// send link forget_password into email
+// send otp forget_password into email
+/**
+ * @swagger
+ * /v1/email/request_email_forget_password/:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: درخواست ارسال لینک/کد بازیابی رمز عبور
+ *     description: |
+ *       ارسال کد بازیابی رمز عبور (OTP) به ایمیل کاربر برای بازنشانی رمز عبور
+ *
+ *       نکات مهم:
+ *       - این endpoint برای کاربران غیرلاگین‌شده قابل دسترسی است
+ *       - کد OTP به مدت ۲ دقیقه معتبر است
+ *       - برای حفظ حریم خصوصی، حتی اگر ایمیل وجود نداشته باشد نیز پاسخ موفق نشان داده می‌شود
+ *       - کد OTP در Redis ذخیره می‌شود و با IP کاربر مرتبط می‌شود
+ *     security:
+ *       - JWT: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: آدرس ایمیل کاربر برای بازیابی رمز عبور
+ *                 example: "user@example.com"
+ *           examples:
+ *             validRequest:
+ *               summary: نمونه درخواست معتبر
+ *               value:
+ *                 email: "user@example.com"
+ *     responses:
+ *       201:
+ *         description: |
+ *           درخواست ارسال کد OTP با موفقیت دریافت شد
+ *
+ *           نکته: برای حفظ امنیت، حتی اگر ایمیل در سیستم وجود نداشته باشد نیز این پاسخ ارسال می‌شود
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "otp send successfully"
+ *       400:
+ *         description: داده‌های ورودی نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "email"
+ *                       value:
+ *                         type: object
+ *                         example:
+ *                           isEmail: "email must be an email"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *                 error:
+ *                   type: string
+ *                   example: "خطای داخلی سرور"
+ */
+emailRouter.post(
+  "/request_email_forget_password/",
+  notAuthenticateJwt,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
+
+      const requestEmailDto = plainToClass(EmailDto, req.body);
+      const error = await validate(requestEmailDto);
+      if (error.length > 0) {
+        return res.status(400).json(
+          error.map((err) => ({
+            field: err.property,
+            value: err.constraints,
+          }))
+        );
+      }
+
+      // check email
+      const userRepository = AppDataSource.getRepository(User);
+      const checkUserEmail = await userRepository.findOne({
+        where: {
+          is_active: true,
+          email: requestEmailDto.email,
+        },
+        select: {
+          id: true,
+        },
+      });
+      if (!checkUserEmail) {
+        return res.status(200).json({
+          status: "success",
+          message: "otp send successfly",
+        });
+      }
+      // store in redis
+      const otpCode = await createEmailService.storeEmailOtp(
+        requestEmailDto.email,
+        req.ip,
+        "forget_password"
+      );
+
+      // send otp into email
+      await createEmailService.sendEmail({
+        to: requestEmailDto.email,
+        subject: "بازنشانی رمز عبور",
+        text: `کد بازیابی رمز عبور شما:  ${otpCode}`,
+        html: `
+                <div dir="rtl" style="font-family: Tahoma, sans-serif; padding: 20px; direction: rtl; text-align: right;">
+                <h2 style="color: #333;">بازنشانی رمز عبور</h2>
+                <p>کاربر گرامی، درخواست بازنشانی رمز عبور برای حساب کاربری شما دریافت شد. برای تغییر رمز عبور، کد زیر را وارد کنید:</p>
+                
+                <div style="background: #f0f0f0; padding: 15px; font-size: 24px; letter-spacing: 5px;
+                            text-align: center; margin: 20px 0; border-radius: 8px; border: 1px solid #ddd;">
+                    <strong>${otpCode}</strong>
+                </div>
+                
+                <p style="font-size: 14px; color: #666;">این کد تا ۲ دقیقه معتبر است.</p>
+                <p style="font-size: 14px; color: #999;">اگر شما درخواستی ارسال نکرده‌اید، لطفاً این پیام را نادیده بگیرید.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin-top: 20px;">
+                </div>
+            `,
+      });
+
+      return res.status(200).json({
+        status: "success",
+        message: "otp send successfly",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
+    }
+  }
+);
 
 // verify link forget_password into email
+/**
+ * @swagger
+ * /v1/email/verify_email_forget_password/:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: تأیید کد بازیابی رمز عبور و تنظیم رمز عبور جدید
+ *     description: |
+ *       تأیید کد OTP ارسال شده به ایمیل و تنظیم رمز عبور جدید برای کاربر
+ *
+ *       نکات مهم:
+ *       - این endpoint برای کاربران غیرلاگین‌شده قابل دسترسی است
+ *       - کد OTP باید طی ۲ دقیقه تأیید شود
+ *       - رمز عبور جدید و تأیید رمز عبور باید یکسان باشند
+ *       - پس از تأیید موفق، رمز عبور کاربر به‌روزرسانی شده و توکن‌های دسترسی صادر می‌شوند
+ *       - کد OTP پس از تأیید موفق، از Redis حذف می‌شود (One-Time Use)
+ *     security:
+ *       - JWT: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - code
+ *               - new_password
+ *               - confirm_new_password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: آدرس ایمیل کاربر
+ *                 example: "user@example.com"
+ *               code:
+ *                 type: integer
+ *                 description: کد تأیید ارسال شده به ایمیل (به صورت عددی)
+ *                 example: 123456
+ *               new_password:
+ *                 type: string
+ *                 description: رمز عبور جدید
+ *                 minLength: 6
+ *                 example: "newPassword123!"
+ *                 format: password
+ *               confirm_new_password:
+ *                 type: string
+ *                 description: تأیید رمز عبور جدید (باید با new_password یکسان باشد)
+ *                 minLength: 6
+ *                 example: "newPassword123!"
+ *                 format: password
+ *           examples:
+ *             validRequest:
+ *               summary: نمونه درخواست معتبر
+ *               value:
+ *                 email: "user@example.com"
+ *                 code: 123456
+ *                 new_password: "newPassword123!"
+ *                 confirm_new_password: "newPassword123!"
+ *             passwordMismatch:
+ *               summary: نمونه با رمزهای عبور ناهمخوان
+ *               value:
+ *                 email: "user@example.com"
+ *                 code: 123456
+ *                 new_password: "password123"
+ *                 confirm_new_password: "differentPassword"
+ *     responses:
+ *       200:
+ *         description: |
+ *           کد با موفقیت تأیید شد، رمز عبور به‌روزرسانی شد و توکن‌های دسترسی صادر شدند
+ *
+ *           کاربر می‌تواند بلافاصله با رمز عبور جدید و توکن دریافتی وارد سیستم شود
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "رمز عبور با موفقیت تغییر یافت و احراز هویت انجام شد"
+ *                 access_token:
+ *                   type: string
+ *                   description: توکن دسترسی (معتبر به مدت ۳۰ روز)
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 refresh_token:
+ *                   type: string
+ *                   description: توکن تازه‌سازی برای دریافت توکن دسترسی جدید
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 is_staff:
+ *                   type: boolean
+ *                   description: آیا کاربر مدیر است؟
+ *                   example: false
+ *                 is_artist:
+ *                   type: boolean
+ *                   description: آیا کاربر هنرمند است؟
+ *                   example: true
+ *                 user_id:
+ *                   type: string
+ *                   description: شناسه یکتا کاربر
+ *                   format: uuid
+ *                   example: "123e4567-e89b-12d3-a456-426614174000"
+ *                 token_type:
+ *                   type: string
+ *                   example: "Bearer"
+ *                 expires_in:
+ *                   type: string
+ *                   description: مدت زمان اعتبار توکن دسترسی
+ *                   example: "30d"
+ *       400:
+ *         description: |
+ *           داده‌های ورودی نامعتبر
+ *
+ *           دلایل احتمالی:
+ *           - فیلدهای الزامی پر نشده‌اند
+ *           - فرمت ایمیل نامعتبر است
+ *           - کد OTP باید عددی باشد
+ *           - رمز عبور جدید و تأیید آن یکسان نیستند (نیاز به پیاده‌سازی custom validator)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid Data"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       property:
+ *                         type: string
+ *                         example: "confirm_new_password"
+ *                       constraints:
+ *                         type: object
+ *                         example:
+ *                           match: "confirm_new_password must match new_password"
+ *       404:
+ *         description: |
+ *           کد تأیید نامعتبر است یا کاربر یافت نشد
+ *
+ *           دلایل احتمالی:
+ *           - کد OTP منقضی شده (بیش از ۲ دقیقه از ارسال گذشته)
+ *           - کد OTP اشتباه وارد شده
+ *           - درخواست از IP متفاوتی ارسال شده
+ *           - ایمیل در سیستم وجود ندارد
+ *           - حساب کاربری غیرفعال است
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - type: object
+ *                   properties:
+ *                     status:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: "کد تأیید نامعتبر است یا منقضی شده. لطفاً درخواست کد جدید کنید"
+ *                 - type: object
+ *                   properties:
+ *                     status:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: "کاربر یافت نشد یا حساب غیرفعال است"
+ *       500:
+ *         description: خطای سرور داخلی
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *                 error:
+ *                   type: string
+ *                   example: "خطای داخلی سرور"
+ */
+emailRouter.post(
+  "/verify_email_forget_password/",
+  notAuthenticateJwt,
+  async (req: Request, res: Response) => {
+    try {
+      const verifyEmailDto = plainToClass(
+        VerifyForgetPasswordEmailDto,
+        req.body
+      );
+      const errors = await validate(verifyEmailDto);
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid Data",
+          errors: errors.map((err) => ({
+            property: err.property,
+            constraints: err.constraints,
+          })),
+        });
+      }
+
+      //   check otp
+      const verifyOtpRedis = await createEmailService.verifyEmailOtp(
+        verifyEmailDto.email,
+        verifyEmailDto.code,
+        req.ip,
+        "forget_password"
+      );
+      if (!verifyOtpRedis) {
+        return res.status(404).json({
+          status: false,
+          message:
+            "کد تأیید نامعتبر است یا منقضی شده. لطفاً درخواست کد جدید کنید",
+        });
+      }
+
+      // 3. check user
+      const userRepository = AppDataSource.getRepository(User);
+      const user = await userRepository.findOne({
+        where: {
+          email: verifyEmailDto.email,
+          is_active: true,
+        },
+        select: {
+          id: true,
+          is_staff: true,
+          is_artist: true,
+          email: true,
+          password: true,
+        },
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          status: false,
+          message: "کاربر یافت نشد یا حساب غیرفعال است",
+        });
+      }
+
+      //   token
+      const tokens = funcCreateToken(user.id, true);
+
+      //   check password
+      if (verifyEmailDto.confirm_new_password !== verifyEmailDto.new_password) {
+        return res.status(400).json({
+          status: false,
+          message: "password not same",
+        });
+      }
+
+      // save new password
+      const hashPassword = funcCreateHashPassword(verifyEmailDto.new_password);
+      user.password = hashPassword;
+      await user.save();
+
+      //   response data
+      return res.status(200).json({
+        status: "success",
+        message: "احراز هویت با موفقیت انجام شد",
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
+        is_staff: user.is_staff,
+        is_artist: user.is_artist,
+        user_id: user.id,
+        token_type: "Bearer",
+        expires_in: "30d",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
+    }
+  }
+);
