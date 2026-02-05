@@ -7,6 +7,7 @@ import { User } from "../../../../entity/User";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { Router, Request, Response } from "express";
 import { CreatePlayHistoryDto } from "../../../../dtos/music/CreatePlayHistoryDto";
+import { Artist } from "../../../../entity/Artist";
 // import { Playlist } from "../../../../entity/Playlist";
 
 
@@ -610,18 +611,23 @@ playHistoryRouter.delete(
     }
 );
 
-
-// heat music
+// heat music by artist
 /**
  * @swagger
- * /v1/user/play/heat_music/:
+ * /v1/user/play/heat_music/{artistId}:
  *   get:
- *     summary: دریافت آهنگ های داغ
- *     description: دریافت آهنگ هایی که play_count آنها بیشتر از 1 است و بیشترین play_count را دارند. امکان نمایش تصادفی نیز وجود دارد
+ *     summary: دریافت آهنگ های داغ یک هنرمند خاص
+ *     description: دریافت آهنگ های یک هنرمند که play_count آنها بیشتر از 1 است و بیشترین play_count را دارند
  *     tags: [PlayHistory]
  *     security:
  *       - bearerAuth: []
  *     parameters:
+ *       - in: path
+ *         name: artistId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه هنرمند
  *       - in: query
  *         name: page
  *         required: false
@@ -639,16 +645,9 @@ playHistoryRouter.delete(
  *           minimum: 1
  *           maximum: 100
  *         description: تعداد آیتم‌ها در هر صفحه
- *       - in: query
- *         name: random
- *         required: false
- *         schema:
- *           type: boolean
- *           default: false
- *         description: نمایش تصادفی آهنگ‌های داغ
  *     responses:
  *       200:
- *         description: لیست آهنگ های داغ
+ *         description: لیست آهنگ های داغ هنرمند
  *         content:
  *           application/json:
  *             schema:
@@ -665,6 +664,9 @@ playHistoryRouter.delete(
  *                       id:
  *                         type: integer
  *                         example: 1
+ *                       audio_path:
+ *                         type: string
+ *                         example: "/uploads/audio/song.mp3"
  *                       title:
  *                         type: string
  *                         example: "آهنگ نمونه"
@@ -675,15 +677,15 @@ playHistoryRouter.delete(
  *                         type: string
  *                         format: date-time
  *                         example: "2023-01-01T00:00:00.000Z"
- *                       artist:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: integer
- *                             example: 1
- *                           name:
- *                             type: string
- *                             example: "خواننده نمونه"
+ *                       artist_id:
+ *                         type: integer
+ *                         example: 5
+ *                       artist_full_name:
+ *                         type: string
+ *                         example: "خواننده نمونه"
+ *                       artist_profile_image:
+ *                         type: string
+ *                         example: "/uploads/images/profile.jpg"
  *                       album:
  *                         type: object
  *                         properties:
@@ -698,7 +700,7 @@ playHistoryRouter.delete(
  *                   properties:
  *                     total:
  *                       type: integer
- *                       example: 100
+ *                       example: 25
  *                     page:
  *                       type: integer
  *                       example: 1
@@ -707,13 +709,17 @@ playHistoryRouter.delete(
  *                       example: 10
  *                     totalPages:
  *                       type: integer
- *                       example: 10
+ *                       example: 3
  *                     hasNext:
  *                       type: boolean
  *                       example: true
  *                     hasPrev:
  *                       type: boolean
  *                       example: false
+ *       400:
+ *         description: شناسه هنرمند نامعتبر است
+ *       404:
+ *         description: هنرمند پیدا نشد
  *       500:
  *         description: خطای سرور داخلی
  *         content:
@@ -722,194 +728,117 @@ playHistoryRouter.delete(
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 playHistoryRouter.get(
-    "/heat_music/",
+    "/heat_music/:artistId",
     authenticateJWT,
     async (req: Request, res: Response) => {
         try {
+            const artistId = parseInt(req.params.artistId);
+            
+            if (isNaN(artistId)) {
+                return res.status(400).json({
+                    status: false,
+                    message: "invalid artist_id"
+                });
+            }
+            
             const page = Math.max(1, parseInt(req.query.page as string) || 1);
             const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
-            const isRandom = req.query.random === 'true';
             const skip = (page - 1) * limit;
             
             const songRepository = AppDataSource.getRepository(Song);
+            const artistRepository = AppDataSource.getRepository(Artist);
+            
+            const artistExists = await artistRepository.findOne({
+                where: { id: artistId, is_active: true },
+                select: ['id']
+            });
+            
+            if (!artistExists) {
+                return res.status(404).json({
+                    status: false,
+                    message: "artist not found"
+                });
+            }
             
             const baseQueryBuilder = songRepository
                 .createQueryBuilder("song")
+                .leftJoinAndSelect("song.audio", "audio")
                 .leftJoinAndSelect("song.artist", "artist")
                 .leftJoinAndSelect("artist.user", "user")
                 .leftJoinAndSelect("user.profile_image", "profile_image")
                 .leftJoinAndSelect("song.album", "album")
-                .where("song.play_count > :minPlayCount", { minPlayCount: 1 })
-                .andWhere("song.is_active = :isActive", { isActive: true });
+                .where("song.artist_id = :artistId", { artistId })
+                .andWhere("song.play_count > :minPlayCount", { minPlayCount: 1 })
+                .andWhere("song.is_active = :isActive", { isActive: true })
+                .andWhere("artist.is_active = :artistIsActive", { artistIsActive: true });
             
-            if (isRandom) {
-                const total = await baseQueryBuilder.getCount();
-                if (total <= limit) {
-                    const allSongs = await baseQueryBuilder
-                        .select([
-                            "song.id",
-                            "song.title",
-                            "song.play_count",
-                            "song.release_date",
-                            "artist.id",
-                            "user.first_name",
-                            "user.last_name",
-                            "album.id",
-                            "album.title",
-                            "profile_image.image_path"
-                        ])
-                        .orderBy("RANDOM()")
-                        .getMany();
-                    
-                    const formattedSongs = allSongs.map(song => ({
-                        id: song.id,
-                        title: song.title,
-                        play_count: song.play_count,
-                        release_date: song.release_date,
-                        artist_id: song.artist?.id,
-                        artist_full_name: song.artist?.user 
-                            ? `${song.artist.user.first_name} ${song.artist.user.last_name}` 
-                            : null,
-                        artist_profile_image: song.artist?.user?.profile_image?.image_path || null,
-                        album: song.album ? {
-                            id: song.album.id,
-                            title: song.album.title
-                        } : null
-                    }));
-                    
-                    return res.status(200).json({
-                        status: true,
-                        data: formattedSongs,
-                        pagination: {
-                            total: allSongs.length,
-                            page: 1,
-                            limit: allSongs.length,
-                            totalPages: 1,
-                            hasNext: false,
-                            hasPrev: false
-                        }
-                    });
-                } else {
-                    const randomIdsQuery = await songRepository
-                        .createQueryBuilder("song")
-                        .select("song.id")
-                        .where("song.play_count > :minPlayCount", { minPlayCount: 1 })
-                        .andWhere("song.is_active = :isActive", { isActive: true })
-                        .orderBy("RANDOM()")
-                        .limit(limit)
-                        .getRawMany();
-                    
-                    const randomIds = randomIdsQuery.map(item => item.song_id);
-                    
-                    const songs = await songRepository
-                        .createQueryBuilder("song")
-                        .leftJoinAndSelect("song.artist", "artist")
-                        .leftJoinAndSelect("artist.user", "user")
-                        .leftJoinAndSelect("user.profile_image", "profile_image")
-                        .leftJoinAndSelect("song.album", "album")
-                        .where("song.id IN (:...ids)", { ids: randomIds })
-                        .select([
-                            "song.id",
-                            "song.title",
-                            "song.play_count",
-                            "song.release_date",
-                            "artist.id",
-                            "user.first_name",
-                            "user.last_name",
-                            "album.id",
-                            "album.title",
-                            "profile_image.image_path"
-                        ])
-                        .getMany();
-                    
-                    const formattedSongs = songs.map(song => ({
-                        id: song.id,
-                        title: song.title,
-                        play_count: song.play_count,
-                        release_date: song.release_date,
-                        artist_id: song.artist?.id,
-                        artist_full_name: song.artist?.user 
-                            ? `${song.artist.user.first_name} ${song.artist.user.last_name}` 
-                            : null,
-                        artist_profile_image: song.artist?.user?.profile_image?.image_path || null,
-                        album: song.album ? {
-                            id: song.album.id,
-                            title: song.album.title
-                        } : null
-                    }));
-                    
-                    const total = await songRepository
-                        .createQueryBuilder("song")
-                        .where("song.play_count > :minPlayCount", { minPlayCount: 1 })
-                        .andWhere("song.is_active = :isActive", { isActive: true })
-                        .getCount();
-                    
-                    const totalPages = Math.ceil(total / limit);
-                    
-                    return res.status(200).json({
-                        status: true,
-                        data: formattedSongs,
-                        pagination: {
-                            total,
-                            page,
-                            limit,
-                            totalPages,
-                            hasNext: page < totalPages,
-                            hasPrev: page > 1
-                        }
-                    });
-                }
-            } else {
-                const [songs, total] = await baseQueryBuilder
-                    .select([
-                        "song.id",
-                        "song.title",
-                        "song.play_count",
-                        "song.release_date",
-                        "artist.id",
-                        "user.first_name",
-                        "user.last_name",
-                        "album.id",
-                        "album.title",
-                        "profile_image.image_path"
-                    ])
-                    .orderBy("song.play_count", "DESC")
-                    .addOrderBy("song.release_date", "DESC")
-                    .skip(skip)
-                    .take(limit)
-                    .getManyAndCount();
-                
-                const formattedSongs = songs.map(song => ({
-                    id: song.id,
-                    title: song.title,
-                    play_count: song.play_count,
-                    release_date: song.release_date,
-                    artist_id: song.artist?.id,
-                    artist_full_name: song.artist?.user 
-                        ? `${song.artist.user.first_name} ${song.artist.user.last_name}` 
-                        : null,
-                    artist_profile_image: song.artist?.user?.profile_image?.image_path || null,
-                    album: song.album ? {
-                        id: song.album.id,
-                        title: song.album.title
-                    } : null
-                }));
-                
-                const totalPages = Math.ceil(total / limit);
-                
+            const total = await baseQueryBuilder.getCount();
+            
+            if (total === 0) {
                 return res.status(200).json({
                     status: true,
-                    data: formattedSongs,
+                    data: [],
                     pagination: {
-                        total,
+                        total: 0,
                         page,
                         limit,
-                        totalPages,
-                        hasNext: page < totalPages,
-                        hasPrev: page > 1
+                        totalPages: 0,
+                        hasNext: false,
+                        hasPrev: false
                     }
                 });
             }
+            
+            const songs = await baseQueryBuilder
+                .select([
+                    "song.id",
+                    "song.title",
+                    "song.play_count",
+                    "song.release_date",
+                    "audio.audio_file_path",
+                    "artist.id",
+                    "user.first_name",
+                    "user.last_name",
+                    "album.id",
+                    "album.title",
+                    "profile_image.image_path"
+                ])
+                .orderBy("song.play_count", "DESC")
+                .skip(skip)
+                .take(limit)
+                .getMany();
+            
+            const formattedSongs = songs.map(song => ({
+                id: song.id,
+                audio_path: song.audio?.audio_file_path || null,
+                title: song.title,
+                play_count: song.play_count,
+                release_date: song.release_date,
+                artist_id: song.artist?.id,
+                artist_full_name: song.artist?.user 
+                    ? `${song.artist.user.first_name} ${song.artist.user.last_name}` 
+                    : null,
+                artist_profile_image: song.artist?.user?.profile_image?.image_path || null,
+                album: song.album ? {
+                    id: song.album.id,
+                    title: song.album.title
+                } : null
+            }));
+            
+            const totalPages = Math.ceil(total / limit);
+            
+            return res.status(200).json({
+                status: true,
+                data: formattedSongs,
+                pagination: {
+                    total,
+                    page,
+                    limit,
+                    totalPages,
+                    hasNext: page < totalPages,
+                    hasPrev: page > 1
+                }
+            });
 
         } catch (error) {
             return res.status(500).json({
