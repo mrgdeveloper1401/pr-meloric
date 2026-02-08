@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString } from "class-validator";
+import { IsArray, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class UpdateArtistProfile {
     @IsNumber()
@@ -32,4 +32,8 @@ export class UpdateArtistProfile {
     @IsString()
     @IsOptional()
     birth_date: string
+
+    @IsArray()
+    @IsOptional()
+    jobs: string[]
 }

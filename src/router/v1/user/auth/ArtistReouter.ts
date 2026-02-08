@@ -286,6 +286,17 @@ artistReouter.get(
  *                 nullable: true
  *                 description: آیدی تصویر بنر
  *                 example: 789
+ *               jobs:
+ *                 type: array
+ *                 nullable: true
+ *                 description: |
+ *                   لیست شغل‌های آرتیست
+ *                   - هر آیتم باید رشته باشد
+ *                   - آرایه می‌تواند خالی باشد
+ *                 items:
+ *                   type: string
+ *                   example: "خواننده"
+ *                 maxItems: 10
  *     responses:
  *       '200':
  *         description: موفقیت‌آمیز - پروفایل آرتیست با موفقیت بروزرسانی شد
@@ -311,6 +322,12 @@ artistReouter.get(
  *                       type: string
  *                       nullable: true
  *                       example: "بیوگرافی جدید"
+ *                     jobs:
+ *                       type: array
+ *                       nullable: true
+ *                       items:
+ *                         type: string
+ *                         example: "خواننده"
  *                     user:
  *                       type: object
  *                       properties:
@@ -370,6 +387,7 @@ artistReouter.get(
  *           داده‌های نامعتبر
  *           - validation error
  *           - فرمت داده‌ها صحیح نیست
+ *           - jobs باید آرایه‌ای از رشته‌ها باشد
  *         content:
  *           application/json:
  *             schema:
@@ -592,6 +610,10 @@ artistReouter.patch(
 
       if (updateArtistProfile.bio !== undefined) {
         artist.bio = updateArtistProfile.bio;
+      }
+
+      if (updateArtistProfile.jobs !== undefined) {
+        artist.jobs = updateArtistProfile.jobs;
       }
 
       if (updateArtistProfile.first_name !== undefined) {
@@ -887,6 +909,7 @@ artistReouter.get(
         artist_last_name: getArtist.user.last_name || null,
         monthly_listeners: getArtist.monthly_listeners || 0,
         bio: getArtist.bio,
+        jobs: getArtist.jobs,
         nick_name: getArtist.nick_name,
         gallery_images: getArtist.gallery_images
         .filter(gallery => gallery.is_active)
