@@ -34,5 +34,8 @@ export class Artist extends TimestampEntity{
   bio: string;
 
   @Column({nullable: true, length: 100})
-  nick_name: string
+  nick_name: string;
+
+  @Column('varchar', {array: true, nullable: true }) // TODO, move in entity User.ts
+  jobs: string[];
 }
