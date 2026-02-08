@@ -377,7 +377,10 @@ favoriteRouter.get(
                         }
                     },
                     take: limit,
-                    skip: skip
+                    skip: skip,
+                    order: {
+                        id: "DESC"
+                    }
                 }
             );
 
