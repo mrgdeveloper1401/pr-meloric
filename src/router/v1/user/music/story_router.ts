@@ -5,20 +5,22 @@ import { Story } from "../../../../entity/Story";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { In, MoreThan } from "typeorm";
 import { User } from "../../../../entity/User";
-import { s3ClientConfig, videoOrImageUploaded } from "../../../../utils/amazon_s3/S3Config";
+import {
+  s3ClientConfig,
+  videoOrImageUploaded,
+} from "../../../../utils/amazon_s3/S3Config";
 import fs from "fs";
 import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { MediaTypeEnum, StoryMedia } from "../../../../entity/StoryMedia";
-import dotenv from "dotenv"
-import { getVideoDurationInSeconds } from 'get-video-duration';
+import dotenv from "dotenv";
+import { getVideoDurationInSeconds } from "get-video-duration";
 import { plainToClass } from "class-transformer";
 import { CreateStoryDto } from "../../../../dtos/music/CreateStory";
 import { validate } from "class-validator";
-import { handleUploadMediaStoryMidd } from "../../../../middlewares/HandleMulterError";
+import { handleUploadError } from "../../../../middlewares/HandleMulterError";
 
 export const storyRouter = express.Router();
-dotenv.config()
-
+dotenv.config();
 
 // Create story with multiple media
 /**
@@ -116,113 +118,94 @@ dotenv.config()
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.post(
-    "/story/create_story_with_media/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            // get user by request
-            const userId = (req as any).user.user_id;
+  "/story/create_story_with_media/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      // get user by request
+      const userId = (req as any).user.user_id;
 
-            // check request body
-            if (!req.body) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "request body is required"
-                    }
-                )
-            }
+      // check request body
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
 
-            // validate dto
-            const createStoryDto = plainToClass(CreateStoryDto, req.body)
-            const errors = await validate(createStoryDto)
-            if (errors.length > 0) {
-                return res.status(400).json(
-                    {
-                        status: false,
-                        message: "invalid data",
-                        error: errors.map(
-                            err => (
-                                {
-                                    field: err.property,
-                                    value: err.constraints
-                                }
-                            )
-                        )
-                    }
-                );
-            }
+      // validate dto
+      const createStoryDto = plainToClass(CreateStoryDto, req.body);
+      const errors = await validate(createStoryDto);
+      if (errors.length > 0) {
+        return res.status(400).json({
+          status: false,
+          message: "invalid data",
+          error: errors.map((err) => ({
+            field: err.property,
+            value: err.constraints,
+          })),
+        });
+      }
 
-            // check media
-            const storyMediaRepository = AppDataSource.getRepository(StoryMedia);
-            const checkStoryMedia = await storyMediaRepository.find(
-                {
-                    where: {
-                        id: In(createStoryDto.media_ids),
-                        is_active: true,
-                        user: {id: userId}
-                    },
-                    select: {
-                        id: true
-                    }
-                }
-            );
-            if (!checkStoryMedia) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "story media dose not exits"
-                    }
-                )
-            }
-            const foundMediaIds = checkStoryMedia.map(media => media.id);
-            const missingMediaIds = createStoryDto.media_ids.filter(id => !foundMediaIds.includes(id));
-            if (missingMediaIds.length > 0) {
-                return res.status(404).json(
-                    {
-                        status: false,
-                        message: "Some media files not found",
-                        missing_media_ids: missingMediaIds,
-                        found_media_ids: foundMediaIds
-                    }
-                )
-            }
-            // create story
-            const storyRepository = AppDataSource.getRepository(Story);
-            const newStory = new Story();
-            // newStory.caption = createStoryDto.caption;
-            newStory.user = {id: userId} as User;
-            newStory.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
-            // newStory.view_count = 0;
-            newStory.is_active = true;
+      // check media
+      const storyMediaRepository = AppDataSource.getRepository(StoryMedia);
+      const checkStoryMedia = await storyMediaRepository.find({
+        where: {
+          id: In(createStoryDto.media_ids),
+          is_active: true,
+          user: { id: userId },
+        },
+        select: {
+          id: true,
+        },
+      });
+      // show foundMediaIds and missingMediaIds
+      const foundMediaIds = checkStoryMedia.map((media) => media.id);
+      const missingMediaIds = createStoryDto.media_ids.filter(
+        (id) => !foundMediaIds.includes(id)
+      );
+      if (missingMediaIds.length > 0) {
+        return res.status(404).json({
+          status: false,
+          message: "Some media files not found",
+          missing_media_ids: missingMediaIds,
+          found_media_ids: foundMediaIds,
+        });
+      }
+      // create story
+      const storyRepository = AppDataSource.getRepository(Story);
+      const newStory = new Story();
+      // newStory.caption = createStoryDto.caption;
+      newStory.user = { id: userId } as User;
+      newStory.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      // newStory.view_count = 0;
+      newStory.is_active = true;
 
-            // save story
-            await storyRepository.save(newStory);
+      // save story
+      await storyRepository.save(newStory);
 
-            // update media
-            const updatePromises = checkStoryMedia.map(
-                async (media) => {
-                    media.story = newStory;
-                    await storyMediaRepository.save(media);
-                }
-            )
-            await Promise.all(updatePromises);
-    
-            return res.status(201).json({
-                status: "success",
-                message: "Story with media created successfully",
-                data: {
-                    id: newStory.id
-                }
-            });
+      // update media
+      const updatePromises = checkStoryMedia.map(async (media) => {
+        media.story = newStory;
+        await storyMediaRepository.save(media);
+      });
+      await Promise.all(updatePromises);
 
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
-        }
+      return res.status(201).json({
+        status: "success",
+        message: "Story with media created successfully",
+        data: {
+          id: newStory.id,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // Get story detail
@@ -284,91 +267,71 @@ storyRouter.post(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.get(
-    "/story/:story_id/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const storyId = parseInt(req.params.story_id);
+  "/story/:story_id/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const storyId = parseInt(req.params.story_id);
 
-            const storyRepository = AppDataSource.getRepository(Story);
-            const twentyFourHoursAgo = new Date();
-            twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
-            const story = await storyRepository.findOne({
-                where: { 
-                    id: storyId,
-                    is_active: true,
-                    createdAt: MoreThan(twentyFourHoursAgo),
-                    media: {
-                        is_active: true
-                    }
-                },
-                relations: [
-                    "media", 
-                    "user", 
-                    "user.profile",
-                    "user.profile.profile_image"
-                ],
-                select: {
-                    id: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    // caption: true,
-                    // view_count: true,
-                    media: {
-                        id: true,
-                        file_path: true,
-                        media_type: true
-                    },
-                    user: {
-                        id: true,
-                        username: true,
-                        profile_image: {
-                            id: true,
-                            image_path: true
-                        },
-                        profile: {
-                            id: true,
-                            // profile_image: {
-                                // id: true,
-                                // image_path: true
-                            // }
-                        }
-                    }
-                }
-            });
-
-            if (!story) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Story not found"
-                });
-            }
-
-            // incress view count
-            // story.view_count += 1;
-            // await storyRepository.save(story);
-
-            return res.status(200).json({
-                status: "success",
-                data: story
-            });
-
-        } catch (error) {
-            console.error("Error fetching story detail:", error);
-            return res.status(500).json({
+      // check parametrs
+      if (isNaN(storyId)) {
+        return res.status(400).json(
+            {
                 status: false,
-                message: "server error"
-            });
-        }
+                message: `${storyId} is invalid`
+            }
+        );
+      }
+
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      const story = await AppDataSource.getRepository(Story)
+        .createQueryBuilder("story")
+        .leftJoinAndSelect("story.user", "user")
+        .leftJoinAndSelect("user.user_artist_set", "artist")
+        .leftJoinAndSelect("user.profile_image", "profile_image")
+        .where("story.is_active = :isActive",{isActive: true}) // check active
+        .andWhere("story.expires_at > :expiredAt", {expiredAt: twentyFourHoursAgo}) // check is expire story
+        .andWhere("story.id = :storyId", { storyId: storyId }) // filter by story id
+        .select([
+          "user.id",
+          "user.is_artist",
+          "user.username",
+          "artist.id",
+          "user.first_name",
+          "user.last_name",
+          "profile_image.image_path",
+          "profile_image.id",
+        ])
+        .getOne();
+
+      if (!story) {
+        return res.status(404).json({
+          status: false,
+          message: "Story not found",
+        });
+      }
+
+      return res.status(200).json({
+        status: "success",
+        data: story,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message
+      });
     }
+  }
 );
 
-// Delete story 
+// Delete story
 /**
  * @swagger
  * /v1/user/story/story/{story_id}/:
  *   delete:
- *     summary: حذف استوری 
+ *     summary: حذف استوری
  *     description: |
  *       این endpoint برای حذف نرم استوری و غیرفعال کردن تمام مدیاهای مرتبط با آن استفاده می‌شود.
  *       فقط کاربر ایجادکننده استوری می‌تواند آن را حذف کند.
@@ -443,59 +406,61 @@ storyRouter.get(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.delete(
-    "/story/:story_id/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const storyId = parseInt(req.params.story_id);
-            const userId = (req as any).user.user_id;
+  "/story/:story_id/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const storyId = parseInt(req.params.story_id);
+      const userId = (req as any).user.user_id;
 
-            // check storyId
-            if (isNaN(storyId)) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid story ID"
-                });
-            }
+      // check storyId
+      if (isNaN(storyId)) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid story ID",
+        });
+      }
 
-            const storyRepository = AppDataSource.getRepository(Story);
-            const mediaRepository = AppDataSource.getRepository(StoryMedia);
-            
-            // find story 
-            const story = await storyRepository.findOne({
-                where: { 
-                    id: storyId,
-                    is_active: true,
-                    user: {id: userId}
-                },
-            });
+      const storyRepository = AppDataSource.getRepository(Story);
 
-            if (!story) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Story not found"
-                });
-            }
+      // find story
+      const story = await storyRepository.findOne({
+        where: {
+          id: storyId,
+          is_active: true,
+          user: { id: userId },
+        },
+        select: {
+          id: true,
+        },
+      });
 
-            // delete story
-            story.is_active = false;
-            await storyRepository.save(story);
+      if (!story) {
+        return res.status(404).json({
+          status: false,
+          message: "Story not found",
+        });
+      }
 
-            return res.status(200).json({
-                status: "success",
-                message: "Story and related media deleted successfully",
-                data: {
-                    story_id: story.id,
-                }
-            });
+      // delete story
+      story.is_active = false;
+      await storyRepository.save(story);
 
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        message: "Story and related media deleted successfully",
+        data: {
+          story_id: story.id,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // Get all stories with pagination
@@ -578,121 +543,130 @@ storyRouter.delete(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.get(
-    "/all_user_story/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const limit = parseInt(req.query.limit as string) || 20;
-            const page = parseInt(req.query.page as string) || 1;
-            const skip = (page - 1) * limit;
+  "/all_user_story/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const page = parseInt(req.query.page as string) || 1;
+      const skip = (page - 1) * limit;
 
-            const twentyFourHoursAgo = new Date();
-            twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
-            // ابتدا کاربران منحصر به فرد را پیدا کنید
-            const usersWithStories = await AppDataSource.getRepository(Story)
-                .createQueryBuilder("story")
-                .leftJoinAndSelect("story.user", "user")
-                .leftJoinAndSelect("user.user_artist_set", "artist")
-                .leftJoinAndSelect("user.profile_image", "profile_image")
-                .where("story.is_active = :isActive AND story.expires_at > :expiredAt", {
-                    isActive: true, 
-                    expiredAt: twentyFourHoursAgo
-                })
-                .select([
-                    "user.id",
-                    "user.is_artist",
-                    "user.username",
-                    "artist.id",
-                    "user.first_name",
-                    "user.last_name",
-                    "profile_image.image_path",
-                    "profile_image.id",
-                    "COUNT(story.id) as story_count" // number user story
-                ])
-                .groupBy("user.id, artist.id, profile_image.id")
-                .orderBy("MAX(story.createdAt)", "DESC") // order story
-                .skip(skip)
-                .take(limit)
-                .getRawMany();
+      // ابتدا کاربران منحصر به فرد را پیدا کنید
+      const usersWithStories = await AppDataSource.getRepository(Story)
+        .createQueryBuilder("story")
+        .leftJoinAndSelect("story.user", "user")
+        .leftJoinAndSelect("user.user_artist_set", "artist")
+        .leftJoinAndSelect("user.profile_image", "profile_image")
+        .where(
+          "story.is_active = :isActive AND story.expires_at > :expiredAt",
+          {
+            isActive: true,
+            expiredAt: twentyFourHoursAgo,
+          }
+        )
+        .select([
+          "user.id",
+          "user.is_artist",
+          "user.username",
+          "artist.id",
+          "user.first_name",
+          "user.last_name",
+          "profile_image.image_path",
+          "profile_image.id",
+          "COUNT(story.id) as story_count", // number user story
+        ])
+        .groupBy("user.id, artist.id, profile_image.id")
+        .orderBy("MAX(story.createdAt)", "DESC") // order story
+        .skip(skip)
+        .take(limit)
+        .getRawMany();
 
-            // get media for all user
-            const simpleData = await Promise.all(
-                usersWithStories.map(async (userRow) => {
-                    // media in 24 hour ago
-                    const userStories = await AppDataSource.getRepository(Story)
-                        .createQueryBuilder("story")
-                        .leftJoinAndSelect("story.media", "media")
-                        .where("story.user_id = :userId", { userId: userRow.user_id })
-                        .andWhere("story.is_active = :isActive AND story.expires_at > :expiredAt", {
-                            isActive: true,
-                            expiredAt: twentyFourHoursAgo
-                        })
-                        .orderBy("story.createdAt", "DESC")
-                        .getMany();
+      // get media for all user
+      const simpleData = await Promise.all(
+        usersWithStories.map(async (userRow) => {
+          // media in 24 hour ago
+          const userStories = await AppDataSource.getRepository(Story)
+            .createQueryBuilder("story")
+            .leftJoinAndSelect("story.media", "media")
+            .where("story.user_id = :userId", { userId: userRow.user_id })
+            .andWhere(
+              "story.is_active = :isActive AND story.expires_at > :expiredAt",
+              {
+                isActive: true,
+                expiredAt: twentyFourHoursAgo,
+              }
+            )
+            .orderBy("story.createdAt", "DESC")
+            .getMany();
 
-                    // meage story_media
-                    const allMedia = userStories.flatMap(story => 
-                        story.media?.map(media => ({
-                            id: media.id,
-                            file_path: media.file_path,
-                            media_type: media.media_type,
-                            mime_type: media.mime_type,
-                            story_id: story.id,
-                            created_at: story.createdAt
-                        })) || []
-                    );
+          // meage story_media
+          const allMedia = userStories.flatMap(
+            (story) =>
+              story.media?.map((media) => ({
+                id: media.id,
+                file_path: media.file_path,
+                media_type: media.media_type,
+                mime_type: media.mime_type,
+                story_id: story.id,
+                created_at: story.createdAt,
+              })) || []
+          );
 
-                    return {
-                        id: userRow.user_id,
-                        user_id: userRow.user_id,
-                        username: userRow.user_username,
-                        artist_id: userRow.artist_id || null,
-                        is_artist: userRow.user_is_artist,
-                        created_at: userStories[0]?.createdAt,
-                        profile_image: userRow.profile_image_image_path || null,
-                        profile_image_id: userRow.profile_image_id || null,
-                        story_media: allMedia,
-                        stories_count: userStories.length
-                    };
-                })
-            );
+          return {
+            id: userRow.user_id,
+            user_id: userRow.user_id,
+            username: userRow.user_username,
+            artist_id: userRow.artist_id || null,
+            is_artist: userRow.user_is_artist,
+            created_at: userStories[0]?.createdAt,
+            profile_image: userRow.profile_image_image_path || null,
+            profile_image_id: userRow.profile_image_id || null,
+            story_media: allMedia,
+            stories_count: userStories.length,
+          };
+        })
+      );
 
-            // count all number
-            const totalUsersCount = await AppDataSource.getRepository(Story)
-                .createQueryBuilder("story")
-                .leftJoin("story.user", "user")
-                .where("story.is_active = :isActive AND story.expires_at > :expiredAt", {
-                    isActive: true,
-                    expiredAt: twentyFourHoursAgo
-                })
-                .select("COUNT(DISTINCT user.id)", "count")
-                .getRawOne();
+      // count all number
+      const totalUsersCount = await AppDataSource.getRepository(Story)
+        .createQueryBuilder("story")
+        .leftJoin("story.user", "user")
+        .where(
+          "story.is_active = :isActive AND story.expires_at > :expiredAt",
+          {
+            isActive: true,
+            expiredAt: twentyFourHoursAgo,
+          }
+        )
+        .select("COUNT(DISTINCT user.id)", "count")
+        .getRawOne();
 
-            const totalCount = parseInt(totalUsersCount.count) || 0;
-            const totalPages = Math.ceil(totalCount / limit);
+      const totalCount = parseInt(totalUsersCount.count) || 0;
+      const totalPages = Math.ceil(totalCount / limit);
 
-            return res.status(200).json({
-                status: "success",
-                pagination: {
-                    current_page: page,
-                    total_pages: totalPages,
-                    total_items: totalCount,
-                    items_per_page: limit,
-                    has_next: page < totalPages,
-                    has_previous: page > 1
-                },
-                data: simpleData,
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        pagination: {
+          current_page: page,
+          total_pages: totalPages,
+          total_items: totalCount,
+          items_per_page: limit,
+          has_next: page < totalPages,
+          has_previous: page > 1,
+        },
+        data: simpleData,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
     }
+  }
 );
 
 // Create media
@@ -761,73 +735,77 @@ storyRouter.get(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.post(
-    "/create_media/",
-    authenticateJWT,
-    videoOrImageUploaded.single("file"),
-    handleUploadMediaStoryMidd,
-    async (req: Request, res: Response) => {
-        try {
-            // check request body
-            if (!req.body || !req.file) {
-                return res.status(400).json({
-                    status: false,
-                    message: "request body is required"
-                });
-            }
+  "/create_media/",
+  authenticateJWT,
+  videoOrImageUploaded.single("file"),
+  handleUploadError,
+  async (req: Request, res: Response) => {
+    try {
+      // check request body
+      if (!req.body || !req.file) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
 
-            // read file
-            const fileContent = fs.readFileSync(req.file.path);
-            const userId = (req as any).user.user_id;
-            
-            // calc duration video
-            let videoDuration = 0;
-            if (req.file.mimetype.startsWith('video/')) {
-                videoDuration = await getVideoDurationInSeconds(req.file.path);
-            }
+      // read file
+      const fileContent = fs.readFileSync(req.file.path);
+      const userId = (req as any).user.user_id;
 
-            const params: PutObjectCommandInput = {
-                ACL: "public-read",
-                Bucket: process.env.AWS_BUCKET_NAME,
-                Key: `uploads/${userId}/${req.file.filename}.${req.file.mimetype.split('/')[1]}`,
-                Body: fileContent,
-                ContentType: req.file.mimetype
-            };
+      // calc duration video
+      let videoDuration = 0;
+      if (req.file.mimetype.startsWith("video/")) {
+        videoDuration = await getVideoDurationInSeconds(req.file.path);
+      }
 
-            // upload in s3
-            const command = new PutObjectCommand(params);
-            await s3ClientConfig.send(command);
+      const params: PutObjectCommandInput = {
+        ACL: "public-read",
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: `uploads/${userId}/${req.file.filename}.${
+          req.file.mimetype.split("/")[1]
+        }`,
+        Body: fileContent,
+        ContentType: req.file.mimetype,
+      };
 
-            // remove file in memory
-            fs.unlinkSync(req.file.path);
+      // upload in s3
+      const command = new PutObjectCommand(params);
+      await s3ClientConfig.send(command);
 
-            // save in database
-            const file = req.file;
-            const mediaRepository = AppDataSource.getRepository(StoryMedia);
-            const newStoryMedia = new StoryMedia();
-            newStoryMedia.file_path = `https://${process.env.AWS_BUCKET_NAME}.s3.ir-thr-at1.arvanstorage.ir/${params.Key}`;
-            newStoryMedia.mime_type = file.mimetype;
-            newStoryMedia.size = file.size;
-            newStoryMedia.user = { id: userId } as User;
-            newStoryMedia.duration = videoDuration; // مقدار عددی
-            newStoryMedia.media_type = file.mimetype.split("/")[0] === "image" ? MediaTypeEnum.IMAGE : MediaTypeEnum.VIDEO;
+      // remove file in memory
+      fs.unlinkSync(req.file.path);
 
-            // save in database
-            await mediaRepository.save(newStoryMedia);
+      // save in database
+      const file = req.file;
+      const mediaRepository = AppDataSource.getRepository(StoryMedia);
+      const newStoryMedia = new StoryMedia();
+      newStoryMedia.file_path = `https://${process.env.AWS_BUCKET_NAME}.s3.ir-thr-at1.arvanstorage.ir/${params.Key}`;
+      newStoryMedia.mime_type = file.mimetype;
+      newStoryMedia.size = file.size;
+      newStoryMedia.user = { id: userId } as User;
+      newStoryMedia.duration = videoDuration; // مقدار عددی
+      newStoryMedia.media_type =
+        file.mimetype.split("/")[0] === "image"
+          ? MediaTypeEnum.IMAGE
+          : MediaTypeEnum.VIDEO;
 
-            return res.status(201).json({
-                status: "success",
-                message: "Media created successfully",
-                data: newStoryMedia
-            });
+      // save in database
+      await mediaRepository.save(newStoryMedia);
 
-        } catch (error) {
-            console.error("Error creating media:", error);
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
-        }
+      return res.status(201).json({
+        status: "success",
+        message: "Media created successfully",
+        data: newStoryMedia,
+      });
+    } catch (error) {
+      console.error("Error creating media:", error);
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 // Get user media with pagination
@@ -910,64 +888,63 @@ storyRouter.post(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.get(
-    "/my_media/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            // const page = Number(req.query.page) || 1;
-            // const limit = Number(req.query.limit) || 20;
-            // const skip = (page - 1) * limit;
+  "/my_media/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      // const page = Number(req.query.page) || 1;
+      // const limit = Number(req.query.limit) || 20;
+      // const skip = (page - 1) * limit;
 
-            const mediaRepository = AppDataSource.getRepository(StoryMedia);
-            
-            const [mediaList, totalCount] = await mediaRepository.findAndCount({
-                where: {
-                    user: { id: userId },
-                    is_active: true
-                },
-                select: {
-                    id: true,
-                    file_path: true,
-                    mime_type: true,
-                    size: true,
-                    duration: true,
-                    media_type: true,
-                    createdAt: true
-                },
-                order: {
-                    createdAt: "DESC"
-                },
-                // take: limit,
-                // skip: skip
-            });
+      const mediaRepository = AppDataSource.getRepository(StoryMedia);
 
-            // const totalPages = Math.ceil(totalCount / limit);
+      const [mediaList, totalCount] = await mediaRepository.findAndCount({
+        where: {
+          user: { id: userId },
+          is_active: true,
+        },
+        select: {
+          id: true,
+          file_path: true,
+          mime_type: true,
+          size: true,
+          duration: true,
+          media_type: true,
+          createdAt: true,
+        },
+        order: {
+          createdAt: "DESC",
+        },
+        // take: limit,
+        // skip: skip
+      });
 
-            return res.status(200).json({
-                status: "success",
-                data: mediaList,
-                // pagination: {
-                //     current_page: page,
-                //     total_pages: totalPages,
-                //     total_items: totalCount,
-                //     items_per_page: limit,
-                //     has_next: page < totalPages,
-                //     has_previous: page > 1
-                // }
-            });
+      // const totalPages = Math.ceil(totalCount / limit);
 
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error",
-                error: error.message,
-                userId: (req as any).user?.user_id,
-                query: req.query,
-                stack: error.stack
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        data: mediaList,
+        // pagination: {
+        //     current_page: page,
+        //     total_pages: totalPages,
+        //     total_items: totalCount,
+        //     items_per_page: limit,
+        //     has_next: page < totalPages,
+        //     has_previous: page > 1
+        // }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+        userId: (req as any).user?.user_id,
+        query: req.query,
+        stack: error.stack,
+      });
     }
+  }
 );
 
 // Delete media
@@ -1049,50 +1026,49 @@ storyRouter.get(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.delete(
-    "/media/:media_id/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            const mediaId = parseInt(req.params.media_id);
+  "/media/:media_id/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const mediaId = parseInt(req.params.media_id);
 
-            // Check if media exists and user has permission
-            const mediaRepository = AppDataSource.getRepository(StoryMedia);
-            const media = await mediaRepository.findOne({
-                where: {
-                    id: mediaId,
-                    user: { id: userId },
-                    is_active: true
-                },
-                relations: ["user"]
-            });
+      // Check if media exists and user has permission
+      const mediaRepository = AppDataSource.getRepository(StoryMedia);
+      const media = await mediaRepository.findOne({
+        where: {
+          id: mediaId,
+          user: { id: userId },
+          is_active: true,
+        },
+        relations: ["user"],
+      });
 
-            if (!media) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Media not found or you don't have permission to delete it"
-                });
-            }
+      if (!media) {
+        return res.status(404).json({
+          status: false,
+          message: "Media not found or you don't have permission to delete it",
+        });
+      }
 
-            // Soft delete the media (set is_active to false)
-            media.is_active = false;
-            await mediaRepository.save(media);
+      // Soft delete the media (set is_active to false)
+      media.is_active = false;
+      await mediaRepository.save(media);
 
-            return res.status(200).json({
-                status: "success",
-                message: "Media deleted successfully",
-                data: {
-                    id: media.id,
-                }
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        message: "Media deleted successfully",
+        data: {
+          id: media.id,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 // append media into story
@@ -1207,113 +1183,115 @@ storyRouter.delete(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.post(
-    "/story/:story_id/add_media/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            const storyId = Number(req.params.story_id);
-            const { media_ids } = req.body;
+  "/story/:story_id/add_media/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const storyId = Number(req.params.story_id);
+      const { media_ids } = req.body;
 
-            // check story id
-            if (isNaN(storyId) || storyId <= 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid story ID"
-                });
-            }
+      // check story id
+      if (isNaN(storyId) || storyId <= 0) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid story ID",
+        });
+      }
 
-            // check request body
-            if (!req.body) {
-                return res.status(400).json({
-                    status: false,
-                    message: "request body is required"
-                });
-            }
+      // check request body
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
 
-            // check media_ids
-            if (!media_ids || !Array.isArray(media_ids) || media_ids.length === 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "media_ids must be a non-empty array"
-                });
-            }
+      // check media_ids
+      if (!media_ids || !Array.isArray(media_ids) || media_ids.length === 0) {
+        return res.status(400).json({
+          status: false,
+          message: "media_ids must be a non-empty array",
+        });
+      }
 
-            // check story
-            const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000); 
-            const storyRepository = AppDataSource.getRepository(Story);
-            const story = await storyRepository.findOne({
-                where: {
-                    id: storyId,
-                    user: { id: userId },
-                    expires_at: MoreThan(twentyFourHoursAgo),
-                    is_active: true
-                },
-                select: ['id']
-            });
+      // check story
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const storyRepository = AppDataSource.getRepository(Story);
+      const story = await storyRepository.findOne({
+        where: {
+          id: storyId,
+          user: { id: userId },
+          expires_at: MoreThan(twentyFourHoursAgo),
+          is_active: true,
+        },
+        select: ["id"],
+      });
 
-            if (!story) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Story not found or you don't have permission"
-                });
-            }
+      if (!story) {
+        return res.status(404).json({
+          status: false,
+          message: "Story not found or you don't have permission",
+        });
+      }
 
-            // بررسی مدیاها
-            const storyMediaRepository = AppDataSource.getRepository(StoryMedia);
-            const existingMedia = await storyMediaRepository.find({
-                where: {
-                    id: In(media_ids),
-                    is_active: true,
-                    user: { id: userId },
-                },
-                select: ['id']
-            });
+      // بررسی مدیاها
+      const storyMediaRepository = AppDataSource.getRepository(StoryMedia);
+      const existingMedia = await storyMediaRepository.find({
+        where: {
+          id: In(media_ids),
+          is_active: true,
+          user: { id: userId },
+        },
+        select: ["id"],
+      });
 
-            const foundMediaIds = existingMedia.map(media => media.id);
-            const missingMediaIds = media_ids.filter(id => !foundMediaIds.includes(id));
+      const foundMediaIds = existingMedia.map((media) => media.id);
+      const missingMediaIds = media_ids.filter(
+        (id) => !foundMediaIds.includes(id)
+      );
 
-            if (missingMediaIds.length > 0) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Some media files not found or already assigned to another story",
-                    missing_media_ids: missingMediaIds
-                });
-            }
+      if (missingMediaIds.length > 0) {
+        return res.status(404).json({
+          status: false,
+          message:
+            "Some media files not found or already assigned to another story",
+          missing_media_ids: missingMediaIds,
+        });
+      }
 
-            // append media into story
-            const updatePromises = existingMedia.map(async (media) => {
-                media.story = story;
-                await storyMediaRepository.save(media);
-            });
+      // append media into story
+      const updatePromises = existingMedia.map(async (media) => {
+        media.story = story;
+        await storyMediaRepository.save(media);
+      });
 
-            await Promise.all(updatePromises);
+      await Promise.all(updatePromises);
 
-            // count all media
-            const totalMediaCount = await storyMediaRepository.count({
-                where: {
-                    story: { id: storyId },
-                    is_active: true
-                }
-            });
+      // count all media
+      const totalMediaCount = await storyMediaRepository.count({
+        where: {
+          story: { id: storyId },
+          is_active: true,
+        },
+      });
 
-            return res.status(200).json({
-                status: "success",
-                message: "Media added to story successfully",
-                data: {
-                    story_id: storyId,
-                    added_media_ids: foundMediaIds,
-                    total_media_count: totalMediaCount
-                }
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        message: "Media added to story successfully",
+        data: {
+          story_id: storyId,
+          added_media_ids: foundMediaIds,
+          total_media_count: totalMediaCount,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 /**
@@ -1427,112 +1405,113 @@ storyRouter.post(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.delete(
-    "/story/:story_id/remove_media/",
-    authenticateJWT,
-    async (req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            const storyId = Number(req.params.story_id);
-            const { media_ids } = req.body;
+  "/story/:story_id/remove_media/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const storyId = Number(req.params.story_id);
+      const { media_ids } = req.body;
 
-            // story
-            if (isNaN(storyId) || storyId <= 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "Invalid story ID"
-                });
-            }
+      // story
+      if (isNaN(storyId) || storyId <= 0) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid story ID",
+        });
+      }
 
-            //  request body
-            if (!req.body) {
-                return res.status(400).json({
-                    status: false,
-                    message: "request body is required"
-                });
-            }
+      //  request body
+      if (!req.body) {
+        return res.status(400).json({
+          status: false,
+          message: "request body is required",
+        });
+      }
 
-            //  media_ids
-            if (!media_ids || !Array.isArray(media_ids) || media_ids.length === 0) {
-                return res.status(400).json({
-                    status: false,
-                    message: "media_ids must be a non-empty array"
-                });
-            }
+      //  media_ids
+      if (!media_ids || !Array.isArray(media_ids) || media_ids.length === 0) {
+        return res.status(400).json({
+          status: false,
+          message: "media_ids must be a non-empty array",
+        });
+      }
 
-            // check story
-            const storyRepository = AppDataSource.getRepository(Story);
-            const story = await storyRepository.findOne({
-                where: {
-                    id: storyId,
-                    user: { id: userId },
-                    is_active: true
-                },
-                select: ['id']
-            });
+      // check story
+      const storyRepository = AppDataSource.getRepository(Story);
+      const story = await storyRepository.findOne({
+        where: {
+          id: storyId,
+          user: { id: userId },
+          is_active: true,
+        },
+        select: ["id"],
+      });
 
-            if (!story) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Story not found or you don't have permission"
-                });
-            }
+      if (!story) {
+        return res.status(404).json({
+          status: false,
+          message: "Story not found or you don't have permission",
+        });
+      }
 
-            // check media in story
-            const storyMediaRepository = AppDataSource.getRepository(StoryMedia);
-            const existingMedia = await storyMediaRepository.find({
-                where: {
-                    id: In(media_ids),
-                    is_active: true,
-                    user: { id: userId },
-                    story: { id: storyId }
-                },
-                select: ['id']
-            });
+      // check media in story
+      const storyMediaRepository = AppDataSource.getRepository(StoryMedia);
+      const existingMedia = await storyMediaRepository.find({
+        where: {
+          id: In(media_ids),
+          is_active: true,
+          user: { id: userId },
+          story: { id: storyId },
+        },
+        select: ["id"],
+      });
 
-            const foundMediaIds = existingMedia.map(media => media.id);
-            const missingMediaIds = media_ids.filter(id => !foundMediaIds.includes(id));
+      const foundMediaIds = existingMedia.map((media) => media.id);
+      const missingMediaIds = media_ids.filter(
+        (id) => !foundMediaIds.includes(id)
+      );
 
-            if (missingMediaIds.length > 0) {
-                return res.status(404).json({
-                    status: false,
-                    message: "Some media files not found in this story",
-                    missing_media_ids: missingMediaIds
-                });
-            }
+      if (missingMediaIds.length > 0) {
+        return res.status(404).json({
+          status: false,
+          message: "Some media files not found in this story",
+          missing_media_ids: missingMediaIds,
+        });
+      }
 
-            // remove media in story
-            const updatePromises = existingMedia.map(async (media) => {
-                media.story = null;
-                await storyMediaRepository.save(media);
-            });
+      // remove media in story
+      const updatePromises = existingMedia.map(async (media) => {
+        media.story = null;
+        await storyMediaRepository.save(media);
+      });
 
-            await Promise.all(updatePromises);
+      await Promise.all(updatePromises);
 
-            // count other media
-            const remainingMediaCount = await storyMediaRepository.count({
-                where: {
-                    story: { id: storyId },
-                    is_active: true
-                }
-            });
+      // count other media
+      const remainingMediaCount = await storyMediaRepository.count({
+        where: {
+          story: { id: storyId },
+          is_active: true,
+        },
+      });
 
-            return res.status(200).json({
-                status: "success",
-                message: "Media removed from story successfully",
-                data: {
-                    story_id: storyId,
-                    removed_media_ids: foundMediaIds,
-                    remaining_media_count: remainingMediaCount
-                }
-            });
-
-        } catch (error) {
-            return res.status(500).json({
-                status: false,
-                message: "server error"
-            });
-        }
+      return res.status(200).json({
+        status: "success",
+        message: "Media removed from story successfully",
+        data: {
+          story_id: storyId,
+          removed_media_ids: foundMediaIds,
+          remaining_media_count: remainingMediaCount,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+      });
     }
+  }
 );
 
 // my story
@@ -1667,86 +1646,84 @@ storyRouter.delete(
  *               $ref: '#/components/schemas/ServerError'
  */
 storyRouter.get(
-    "/my_story/",
-    authenticateJWT,
-    async(req: Request, res: Response) => {
-        try {
-            const userId = (req as any).user.user_id;
-            const limit = Number(req.query.limit) || 20;
-            const page = Number(req.query.page) || 1;
-            const skip = (page - 1) * limit;
+  "/my_story/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user.user_id;
+      const limit = Number(req.query.limit) || 20;
+      const page = Number(req.query.page) || 1;
+      const skip = (page - 1) * limit;
 
-            const storyRepository = AppDataSource.getRepository(Story);
-            const [myStory, total] = await storyRepository.findAndCount(
-                {
-                    where: {
-                        is_active: true,
-                        user: {id: userId}
-                    },
-                    skip: skip,
-                    take: limit,
-                    select: {
-                        id: true,
-                        createdAt: true,
-                        updatedAt: true,
-                        // caption: true,
-                        expires_at: true,
-                        // view_count: true,
-                        media: {
-                            id: true,
-                            file_path: true,
-                            media_type: true
-                        },
-                        user: {
-                            id: true,
-                            username: true,
-                            profile_image: {
-                                id: true,
-                                image_path: true
-                            },
-                            profile: {
-                                id: true,
-                                // profile_image: {
-                                //     id: true,
-                                //     image_path: true
-                                // }
-                            }
-                        }
-                    },
-                    relations: {
-                        media: true,
-                        user: {
-                            profile_image: true,
-                            profile: true
-                        }
-                    },
-                    order: {
-                        createdAt: "DESC"
-                    }
-                }
-            );
+      const storyRepository = AppDataSource.getRepository(Story);
+      const [myStory, total] = await storyRepository.findAndCount({
+        where: {
+          is_active: true,
+          user: { id: userId },
+        },
+        skip: skip,
+        take: limit,
+        select: {
+          id: true,
+          createdAt: true,
+          updatedAt: true,
+          // caption: true,
+          expires_at: true,
+          // view_count: true,
+          media: {
+            id: true,
+            file_path: true,
+            media_type: true,
+          },
+          user: {
+            id: true,
+            username: true,
+            profile_image: {
+              id: true,
+              image_path: true,
+            },
+            profile: {
+              id: true,
+              // profile_image: {
+              //     id: true,
+              //     image_path: true
+              // }
+            },
+          },
+        },
+        relations: {
+          media: true,
+          user: {
+            profile_image: true,
+            profile: true,
+          },
+        },
+        order: {
+          createdAt: "DESC",
+        },
+      });
 
-            // محاسبه تعداد صفحات
-            const totalPages = Math.ceil(total / limit);
-            
-            return res.status(200).json({
-                status: "success",
-                pagination: {
-                    current_page: page,
-                    total_pages: totalPages,
-                    total_items: total,
-                    items_per_page: limit,
-                    has_next: page < totalPages,
-                    has_previous: page > 1
-                },
-                data: myStory,
-            });
-        } catch (error) {
-            console.error("Get my stories error:", error);
-            return res.status(500).json({
-                status: false,
-                message: "Server error"
-            });
-        }
+      // محاسبه تعداد صفحات
+      const totalPages = Math.ceil(total / limit);
+
+      return res.status(200).json({
+        status: "success",
+        pagination: {
+          current_page: page,
+          total_pages: totalPages,
+          total_items: total,
+          items_per_page: limit,
+          has_next: page < totalPages,
+          has_previous: page > 1,
+        },
+        data: myStory,
+      });
+    } catch (error) {
+      console.error("Get my stories error:", error);
+      return res.status(500).json({
+        status: false,
+        message: "Server error",
+      });
     }
+  }
 );

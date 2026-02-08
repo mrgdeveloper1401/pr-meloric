@@ -10,7 +10,7 @@ import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { audioUpload, s3ClientConfig, upload } from "../../../utils/amazon_s3/S3Config";
 import { Audio } from "../../../entity/Audio";
 import { User } from "../../../entity/User";
-import { handleMulterError } from "../../../middlewares/HandleMulterError";
+import { handleUploadError } from "../../../middlewares/HandleMulterError";
 
 
 export const coreRouter = express.Router();
@@ -151,7 +151,6 @@ coreRouter.get(
         }
     }
 )
-
 
 // detail public notification
 /**
@@ -379,7 +378,7 @@ coreRouter.post(
     "/upload_image/",
     authenticateJWT,
     upload.single("file"),
-    handleMulterError,
+    handleUploadError,
     async (req: Request, res: Response) => {
         try {
             // validate data
@@ -866,6 +865,7 @@ coreRouter.post(
     "/upload_audio/",
     authenticateJWT,
     audioUpload.single("music"),
+    handleUploadError,
     async (req: Request, res: Response) => {
         try {
             // check upload file

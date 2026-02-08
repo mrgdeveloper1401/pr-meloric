@@ -13,17 +13,11 @@ export class Story extends TimestampEntity {
     @JoinColumn({ name: "user_id" })
     user: User;
 
-    // @Column({ type: "varchar", length: 500, nullable: true })
-    // caption: string;
-
     @Column({ default: true })
     is_active: boolean;
 
     @Column({ type: "timestamp" })
     expires_at: Date;
-
-    // @Column({ default: 0 })
-    // view_count: number;
 
     @OneToMany(() => StoryMedia, storyMedia => storyMedia.story, { cascade: false })
     media: StoryMedia[];
