@@ -40,7 +40,7 @@ services:
     build:
       context: dockerfile/prod/nginx
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     ports:
       - "80:80"
       - "443:443"
