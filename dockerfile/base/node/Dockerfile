@@ -1,5 +1,7 @@
 FROM docker.arvancloud.ir/node:24-alpine
 
+COPY . .
+
 WORKDIR /home/app
 
 LABEL maintainer="mysum325g@gmail.com"
