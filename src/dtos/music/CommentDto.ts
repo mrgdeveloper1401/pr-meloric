@@ -1,7 +1,6 @@
-import { IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsBoolean, IsNotEmpty, IsNumber, IsString } from "class-validator";
 
-
-export class CreateCommentDTO{
+export class CreateCommentDTO {
   @IsNumber()
   @IsNotEmpty()
   song_id: number;
@@ -30,4 +29,12 @@ export interface CommentResponseDTO {
     id: number;
     title: string;
   };
+}
+
+export class UpdateCommentIsReport {
+  @IsBoolean()
+  is_report: boolean;
+
+  @IsNumber()
+  comment_id: number;
 }

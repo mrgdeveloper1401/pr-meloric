@@ -11,6 +11,7 @@ import { audioUpload, s3ClientConfig, upload } from "../../../utils/amazon_s3/S3
 import { Audio } from "../../../entity/Audio";
 import { User } from "../../../entity/User";
 import { handleUploadError } from "../../../middlewares/HandleMulterError";
+import { MeloricContactUs } from "../../../entity/MeloContactUs";
 
 
 export const coreRouter = express.Router();
@@ -1238,6 +1239,101 @@ coreRouter.delete(
                 status: false,
                 message: "server error"
             });
+        }
+    }
+);
+
+// meloric_contact_us
+/**
+ * @swagger
+ * /v1/user/core/meloric_contact_us/:
+ *   get:
+ *     summary: دریافت لیست راه‌های ارتباطی ملوریک
+ *     description: |
+ *       این endpoint برای دریافت لیست تمام راه‌های ارتباطی فعال ملوریک استفاده می‌شود.
+ *       شامل لینک‌های شبکه‌های اجتماعی، ایمیل‌ها و سایر راه‌های ارتباطی می‌باشد.
+ *       این مسیر عمومی است و نیاز به احراز هویت ندارد.
+ *     tags: [Contact]
+ *     responses:
+ *       200:
+ *         description: لیست راه‌های ارتباطی با موفقیت دریافت شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         description: شناسه راه ارتباطی
+ *                         example: 1
+ *                       url:
+ *                         type: string
+ *                         description: لینک یا آدرس راه ارتباطی
+ *                         example: "https://t.me/meloric"
+ *                       contact_us_type:
+ *                         type: string
+ *                         description: نوع راه ارتباطی (تلگرام، اینستاگرام، ایمیل و غیره)
+ *                         example: "telegram"
+ *       500:
+ *         description: خطای سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *                 error:
+ *                   type: string
+ *                   example: "Error message details"
+ */
+coreRouter.get(
+    "/meloric_contact_us/",
+    async (req: Request, res: Response) => {
+        try {
+            const MeloContactUsRepo = AppDataSource.getRepository(MeloricContactUs);
+            const allMedia = await MeloContactUsRepo.find(
+                {
+                    where: {
+                        is_active: true
+                    }
+                }
+            );
+
+            const data = allMedia.map(
+                i => ({
+                    id: i.id,
+                    url: i.url,
+                    contact_us_type: i.contact_us_type
+                })
+            )
+
+            return res.status(200).json(
+                {
+                    status: "success",
+                    data: data
+                }
+            )
+        } catch (error) {
+            return res.status(500).json(
+                {
+                    status: false,
+                    message: "server error",
+                    error: error.message
+                }
+            )
         }
     }
 );

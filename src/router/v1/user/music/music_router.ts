@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { AppDataSource } from "../../../../data-source";
-import { Song } from "../../../../entity/Song";
+import { Song, SongReport } from "../../../../entity/Song";
 import { Album } from "../../../../entity/Album";
 import { User } from "../../../../entity/User";
 import { Audio } from "../../../../entity/Audio";
@@ -18,6 +18,8 @@ import { PlaylistSong } from "../../../../entity/PlaylistSong";
 import { isArtistUser } from "../../../../middlewares/IsArtist";
 import { SingleMusicDto } from "../../../../dtos/music/SingleMusic";
 import { SongProductionRole } from "../../../../entity/MusicProductionRole";
+import { SongReportDto } from "../../../../dtos/music/ReportSongDto";
+import { CommentReport } from "../../../../entity/Comment";
 
 export const musicRouter = Router();
 
@@ -3594,3 +3596,190 @@ musicRouter.get(
     }
   }
 );
+
+// get upload music
+/**
+ * @swagger
+ * /v1/user/music/owner/myuploads:
+ *   get:
+ *     tags:
+ *       - Music
+ *     summary: دریافت لیست آهنگ‌های آپلود شده توسط آرتیست
+ *     description: |
+ *       دریافت لیست کامل آهنگ‌هایی که آرتیست جاری آپلود کرده است
+ *       - نیاز به احراز هویت دارد
+ *       - فقط کاربران آرتیست می‌توانند استفاده کنند
+ *       - آهنگ‌ها به ترتیب تاریخ ایجاد (نزولی) مرتب می‌شوند
+ *       - شامل اطلاعات کامل هر آهنگ می‌شود
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: page
+ *         in: query
+ *         description: شماره صفحه (اختیاری - پیش‌فرض 1)
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *           example: 1
+ *       - name: limit
+ *         in: query
+ *         description: تعداد آیتم در هر صفحه (اختیاری - پیش‌فرض 20)
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *           example: 20
+ *     responses:
+ *       '200':
+ *         description: لیست آهنگ‌ها با موفقیت دریافت شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "success"
+ *                 count:
+ *                   type: integer
+ *                   description: تعداد کل آهنگ‌ها
+ *                   example: 15
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       song_id:
+ *                         type: integer
+ *                         description: آیدی آهنگ
+ *                         example: 10
+ *                       song_title:
+ *                         type: string
+ *                         description: عنوان آهنگ
+ *                         example: "آهنگ جدید من"
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         description: تاریخ ایجاد آهنگ
+ *                         example: "2025-12-02T15:58:08.294Z"
+ *                       play_count:
+ *                         type: integer
+ *                         description: تعداد پخش آهنگ
+ *                         example: 0
+ *                       is_single:
+ *                         type: boolean
+ *                         description: آیا آهنگ تکی است
+ *                         example: true
+ *                       album_id:
+ *                         type: integer
+ *                         nullable: true
+ *                         description: آیدی آلبوم (در صورت وجود)
+ *                         example: null
+ *                       audio_id:
+ *                         type: integer
+ *                         description: آیدی فایل صوتی
+ *                         example: 2
+ *                       image_id:
+ *                         type: integer
+ *                         nullable: true
+ *                         description: آیدی تصویر کاور (در صورت وجود)
+ *                         example: 2
+ *                       featured_artists:
+ *                         type: array
+ *                         description: لیست آرتیست‌های فیت شده
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             artist_id:
+ *                               type: integer
+ *                               description: آیدی آرتیست
+ *                               example: 5
+ *                             artist_username:
+ *                               type: string
+ *                               description: نام کاربری آرتیست
+ *                               example: "lpp3"
+ *                       production_roles:
+ *                         type: array
+ *                         description: لیست نقش‌های تولید آهنگ
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: integer
+ *                               description: آیدی نقش تولید
+ *                               example: 4
+ *                             role:
+ *                               type: string
+ *                               description: نوع نقش تولید
+ *                               example: "producer"
+ *                               enum:
+ *                                 - mixer
+ *                                 - mastering
+ *                                 - producer
+ *                                 - director
+ *                                 - composer
+ *                                 - arranger
+ *                                 - sound_designer
+ *                                 - lyricist
+ *                                 - other
+ *                             artist_id:
+ *                               type: integer
+ *                               description: آیدی آرتیست مسئول این نقش
+ *                               example: 4
+ *                             artist_username:
+ *                               type: string
+ *                               description: نام کاربری آرتیست مسئول این نقش
+ *                               example: "lpp2"
+ *       '401':
+ *         description: عدم احراز هویت یا توکن نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       '403':
+ *         description: کاربر آرتیست نیست یا دسترسی ندارد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "فقط آرتیست‌ها می‌توانند به این بخش دسترسی داشته باشند"
+ *       '404':
+ *         description: آرتیستی برای کاربر جاری یافت نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "آرتیستی برای این کاربر یافت نشد"
+ *       '500':
+ *         description: خطای داخلی سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "server error"
+ *                 error:
+ *                   type: string
+ *                   example: "Detailed error message"
+ */

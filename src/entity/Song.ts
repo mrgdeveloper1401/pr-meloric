@@ -1,22 +1,33 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne, Column, JoinColumn, JoinTable, ManyToMany, OneToMany } from "typeorm";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  Column,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  OneToMany,
+  Index,
+} from "typeorm";
 import { Album } from "./Album";
 import { Artist } from "./Artist";
 import { TimestampEntity } from "./Abstract";
 import { Audio } from "./Audio";
 import { Image } from "./Image";
 import { SongProductionRole } from "./MusicProductionRole";
+import { User } from "./User";
 
 @Entity()
-export class Song extends TimestampEntity{
+export class Song extends TimestampEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Artist, {onDelete: "RESTRICT"})
-  @JoinColumn({name: "artist_id"})
+  @ManyToOne(() => Artist, { onDelete: "RESTRICT" })
+  @JoinColumn({ name: "artist_id" })
   artist: Artist;
 
-  @ManyToOne(() => Album, {onDelete: "RESTRICT", nullable: true})
-  @JoinColumn({name: "album_id"})
+  @ManyToOne(() => Album, { onDelete: "RESTRICT", nullable: true })
+  @JoinColumn({ name: "album_id" })
   album: Album;
 
   @Column({ length: 255 })
@@ -31,18 +42,18 @@ export class Song extends TimestampEntity{
   @Column()
   play_count: number;
 
-  @Column({nullable: true})
-  music_lyrics: string
+  @Column({ nullable: true })
+  music_lyrics: string;
 
   @ManyToOne(() => Audio)
-  @JoinColumn({name: "audio_id"})
-  audio: Audio
+  @JoinColumn({ name: "audio_id" })
+  audio: Audio;
 
-  @ManyToOne(() => Image, {onDelete: "RESTRICT", nullable: true})
-  @JoinColumn({name: "image_id"})
-  image: Image
+  @ManyToOne(() => Image, { onDelete: "RESTRICT", nullable: true })
+  @JoinColumn({ name: "image_id" })
+  image: Image;
 
-  @Column({default: false, name: "is_single"})
+  @Column({ default: false, name: "is_single" })
   is_single: boolean;
 
   @ManyToMany(() => Artist, { nullable: true })
@@ -50,15 +61,37 @@ export class Song extends TimestampEntity{
     name: "song_featured_artists",
     joinColumn: {
       name: "song_id",
-      referencedColumnName: "id"
+      referencedColumnName: "id",
     },
     inverseJoinColumn: {
       name: "artist_id",
-      referencedColumnName: "id"
-    }
+      referencedColumnName: "id",
+    },
   })
   featured_artists: Artist[];
 
-  @OneToMany(() => SongProductionRole, productionRole => productionRole.song)
+  @OneToMany(() => SongProductionRole, (productionRole) => productionRole.song)
   production_roles: SongProductionRole[];
+}
+
+@Entity({ name: "song_report" })
+@Index(["user"])
+@Index(["song"])
+export class SongReport extends TimestampEntity {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @ManyToOne(() => User, { onDelete: "RESTRICT", nullable: false })
+  @JoinColumn({ name: "user_id" })
+  user: User;
+
+  @ManyToOne(() => Song, { onDelete: "RESTRICT", nullable: false })
+  @JoinColumn({ name: "song_id" })
+  song: Song;
+
+  @Column({ default: false })
+  is_report: boolean;
+
+  @Column({ default: true })
+  is_active: boolean;
 }

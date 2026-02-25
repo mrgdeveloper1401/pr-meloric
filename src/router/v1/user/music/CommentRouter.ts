@@ -1,14 +1,16 @@
 // src/router/v1/user/music/CommentRouter.ts
 import { Router, Request, Response } from "express";
 import { AppDataSource } from "../../../../data-source";
-import { Comment } from "../../../../entity/Comment";
+import { Comment, CommentReport } from "../../../../entity/Comment";
 import { User } from "../../../../entity/User";
 import { Song } from "../../../../entity/Song";
 import { authenticateJWT } from "../../../../middlewares/authenticate";
 import { plainToClass } from "class-transformer";
-import { CreateCommentDTO } from "../../../../dtos/music/CommentDto";
+import {
+  CreateCommentDTO,
+  UpdateCommentIsReport,
+} from "../../../../dtos/music/CommentDto";
 import { validate } from "class-validator";
-import { error } from "console";
 
 const router = Router();
 
@@ -20,7 +22,7 @@ const router = Router();
  */
 
 /**
- * 
+ *
  * @swagger
  * components:
  *   schemas:
@@ -126,21 +128,6 @@ router.post(
     try {
       // check get user
       const userId = (req as any).user.user_id;
-      // const userRepository = AppDataSource.getRepository(User)
-      // const getUser = await userRepository.findOne(
-      //   {
-      //     where: {id: userId, is_active: true},
-      //     select: ['id']
-      //   }
-      // );
-      // if (!getUser) {
-      //   return res.status(404).json(
-      //     {
-      //       status: false,
-      //       message: "user not found"
-      //     }
-      //   )
-      // }
 
       if (!req.body) {
         return res.status(400).json({
@@ -701,6 +688,637 @@ router.delete(
       res.status(500).json({
         status: false,
         message: "Server error",
+      });
+    }
+  }
+);
+
+// report comment
+/**
+ * @swagger
+ * /v1/user/comment_music/report_comment:
+ *   post:
+ *     summary: گزارش یک نظر
+ *     description: |
+ *       این endpoint برای گزارش یک نظر توسط کاربر استفاده می‌شود.
+ *       هر کاربر فقط یک بار می‌تواند یک نظر خاص را گزارش کند.
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - comment_id
+ *               - is_report
+ *             properties:
+ *               comment_id:
+ *                 type: integer
+ *                 description: شناسه نظر مورد نظر برای گزارش
+ *                 example: 42
+ *               is_report:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       201:
+ *         description: گزارش با موفقیت ثبت شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: you successfully report comment 42
+ *       400:
+ *         description: خطای اعتبارسنجی یا گزارش تکراری
+ *         content:
+ *           application/json:
+ *             oneOf:
+ *               - schema:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         description: فیلد دارای خطا
+ *                         example: comment_id
+ *                       value:
+ *                         type: object
+ *                         description: محدودیت‌های نقض شده
+ *                         example: { isNotEmpty: "comment_id should not be empty" }
+ *               - schema:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: you already report this comment
+ *       401:
+ *         description: نیاز به احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Unauthorized
+ *       404:
+ *         description: نظر پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: comment not found
+ *       500:
+ *         description: خطای سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: server error
+ *                 error:
+ *                   type: string
+ *                   example: "Cannot read property 'id' of undefined"
+ */
+router.post(
+  "/report_comment/",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      // validate request body
+      const reportCommentDto = plainToClass(UpdateCommentIsReport, req.body);
+      const errors = await validate(reportCommentDto);
+      if (errors.length > 0) {
+        return res.status(400).json(
+          errors.map((i) => ({
+            field: i.property,
+            value: i.constraints,
+          }))
+        );
+      }
+
+      // check comment
+      const userId = (req as any).user.user_id;
+      const commentRepository = AppDataSource.getRepository(Comment);
+      const checkComment = await commentRepository.findOne({
+        where: {
+          id: reportCommentDto.comment_id,
+          is_active: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+      if (!checkComment) {
+        return res.status(404).json({
+          status: false,
+          message: "comment not found",
+        });
+      }
+
+      // check report comment already exists
+      const reportCommentRepository =
+        AppDataSource.getRepository(CommentReport);
+      const checkReport = await reportCommentRepository.findOne({
+        where: {
+          comment: { id: checkComment.id },
+          user: { id: userId },
+          is_active: true,
+        },
+        select: {
+          id: true,
+          is_report: true,
+        },
+      });
+
+      if (!checkReport) {
+        // create comment report and check
+        await reportCommentRepository.insert({
+          comment: { id: checkComment.id },
+          user: { id: userId },
+          is_report: true,
+        });
+
+        return res.status(201).json({
+          status: "success",
+          message: `you successfly report comment ${checkComment.id}`,
+        });
+      } else {
+        return res.status(400).json({
+          status: false,
+          message: "you already report this comment",
+        });
+      }
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// get list of comment reports
+/**
+ * @swagger
+ * /v1/user/comment_music/comment/reports_list:
+ *   get:
+ *     summary: دریافت لیست گزارش‌های کامنت
+ *     description: |
+ *       این endpoint برای دریافت لیست گزارش‌های کامنت با قابلیت صفحه‌بندی و فیلتر استفاده می‌شود.
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت دارد
+ *       - قابلیت فیلتر بر اساس وضعیت گزارش
+ *       - مرتب‌سازی بر اساس تاریخ ایجاد (نزولی)
+ *       - اطلاعات کامل کامنت و کاربر گزارش‌دهنده نمایش داده می‌شود
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: شماره صفحه
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: تعداد آیتم‌ها در هر صفحه
+ *     responses:
+ *       200:
+ *         description: لیست گزارش‌ها با موفقیت دریافت شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 total:
+ *                   type: integer
+ *                   description: تعداد کل گزارش‌ها
+ *                   example: 120
+ *                 page:
+ *                   type: integer
+ *                   description: شماره صفحه فعلی
+ *                   example: 1
+ *                 total_pages:
+ *                   type: integer
+ *                   description: تعداد کل صفحات
+ *                   example: 6
+ *                 limit:
+ *                   type: integer
+ *                   description: تعداد آیتم‌ها در هر صفحه
+ *                   example: 20
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         description: شناسه گزارش
+ *                         example: 12
+ *                       is_report:
+ *                         type: boolean
+ *                         description: وضعیت گزارش
+ *                         example: true
+ *                       is_active:
+ *                         type: boolean
+ *                         description: وضعیت فعال بودن گزارش
+ *                         example: true
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         description: تاریخ ایجاد گزارش
+ *                         example: "2024-01-20T14:30:00.000Z"
+ *                       user:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 8
+ *                           username:
+ *                             type: string
+ *                             example: "reporter_user"
+ *                           first_name:
+ *                             type: string
+ *                             example: "علی"
+ *                           last_name:
+ *                             type: string
+ *                             example: "رضایی"
+ *                       comment:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 15
+ *                           content:
+ *                             type: string
+ *                             description: متن کامنت
+ *                             example: "این کامنت محتوای نامناسب دارد"
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             description: تاریخ ایجاد کامنت
+ *                             example: "2024-01-19T10:15:00.000Z"
+ *                           user:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                                 example: 5
+ *                               username:
+ *                                 type: string
+ *                                 example: "comment_owner"
+ *                               first_name:
+ *                                 type: string
+ *                                 example: "مریم"
+ *                               last_name:
+ *                                 type: string
+ *                                 example: "کریمی"
+ *       401:
+ *         description: نیاز به احراز هویت
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Unauthorized
+ *       403:
+ *         description: دسترسی غیرمجاز (فقط ادمین)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Access denied. Admin only.
+ *       500:
+ *         description: خطای سرور
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: server error
+ *                 error:
+ *                   type: string
+ */
+router.get(
+  "/comment/reports_list",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const skip = (page - 1) * limit;
+
+      const reportRepository = AppDataSource.getRepository(CommentReport);
+
+      const userId = (req as any).user.user_id;
+
+      const queryBuilder = reportRepository
+        .createQueryBuilder("commentReport")
+        .leftJoinAndSelect("commentReport.user", "user")
+        .leftJoinAndSelect("commentReport.comment", "comment")
+        .orderBy("commentReport.createdAt", "DESC")
+        .where("commentReport.is_active = :isActive", {isActive: true})
+        .andWhere("user.id = :id", {id: userId})
+        .skip(skip)
+        .take(limit);
+      queryBuilder.select([
+        "commentReport.id",
+        "commentReport.is_report",
+        "commentReport.createdAt",
+        "user.id",
+        "comment.id",
+      ]);
+
+      const [reports, total] = await queryBuilder.getManyAndCount();
+      const simpleData = reports.map(
+        d => (
+          {
+            id: d.id,
+            user_id: d.user.id,
+            comment_id: d.comment.id,
+            created_at: d.createdAt,
+            is_report: d.is_report
+          }
+        )
+      )
+      return res.status(200).json({
+        status: "success",
+        total,
+        page,
+        total_pages: Math.ceil(total / limit),
+        limit,
+        data: simpleData
+      });
+
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message
+      });
+    }
+  }
+);
+
+// get comment report details
+/**
+ * @swagger
+ * /v1/user/comment_music/comment/reports_list/{id}:
+ *   get:
+ *     summary: دریافت جزئیات یک گزارش کامنت
+ *     description: |
+ *       این endpoint برای دریافت جزئیات کامل یک گزارش خاص از کامنت استفاده می‌شود.
+ *       
+ *       **نکات مهم:**
+ *       - نیاز به احراز هویت دارد
+ *       - اطلاعات کامل کاربر گزارش‌دهنده، کامنت گزارش‌شده و صاحب کامنت را برمی‌گرداند
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: شناسه گزارش کامنت
+ *         example: 12
+ *     responses:
+ *       200:
+ *         description: جزئیات گزارش با موفقیت دریافت شد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 12
+ *                     is_report:
+ *                       type: boolean
+ *                       example: true
+ *                     is_active:
+ *                       type: boolean
+ *                       example: true
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-20T14:30:00.000Z"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-20T14:30:00.000Z"
+ *                     reporter:
+ *                       type: object
+ *                       description: کاربر گزارش‌دهنده
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                           example: 8
+ *                         username:
+ *                           type: string
+ *                           example: "reporter_user"
+ *                         first_name:
+ *                           type: string
+ *                           example: "علی"
+ *                         last_name:
+ *                           type: string
+ *                           example: "رضایی"
+ *                         email:
+ *                           type: string
+ *                           example: "ali.rezaei@example.com"
+ *                         phone:
+ *                           type: string
+ *                           example: "09123456789"
+ *                     comment:
+ *                       type: object
+ *                       description: کامنت گزارش‌شده
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                           example: 15
+ *                         content:
+ *                           type: string
+ *                           example: "این کامنت محتوای نامناسب دارد"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2024-01-19T10:15:00.000Z"
+ *                         is_active:
+ *                           type: boolean
+ *                           example: true
+ *                         owner:
+ *                           type: object
+ *                           description: صاحب کامنت
+ *                           properties:
+ *                             id:
+ *                               type: integer
+ *                               example: 5
+ *                             username:
+ *                               type: string
+ *                               example: "comment_owner"
+ *                             first_name:
+ *                               type: string
+ *                               example: "مریم"
+ *                             last_name:
+ *                               type: string
+ *                               example: "کریمی"
+ *                             email:
+ *                               type: string
+ *                               example: "maryam.karimi@example.com"
+ *       400:
+ *         description: شناسه گزارش نامعتبر
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Invalid report ID
+ *       401:
+ *         description: نیاز به احراز هویت
+ *       403:
+ *         description: دسترسی غیرمجاز (فقط ادمین)
+ *       404:
+ *         description: گزارش پیدا نشد
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Report not found
+ *       500:
+ *         description: خطای سرور
+ */
+router.get(
+  "/comment/reports_list/:id",
+  authenticateJWT,
+  async (req: Request, res: Response) => {
+    try {
+      const reportId = parseInt(req.params.id);
+      
+      if (isNaN(reportId)) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid report ID"
+        });
+      }
+
+      const reportRepository = AppDataSource.getRepository(CommentReport);
+      const userId = (req as any).user.user_id;
+  
+      const report = await reportRepository
+        .createQueryBuilder("commentReport")
+        .leftJoinAndSelect("commentReport.user", "reporter")
+        .leftJoinAndSelect("commentReport.comment", "comment")
+        .where("commentReport.id = :reportId", { reportId })
+        .andWhere("commentReport.is_active = :isActive", {isActive: true})
+        .andWhere("reporter.id = :id", {id: userId})
+        .select([
+          "commentReport.id",
+          "commentReport.is_report",
+          "commentReport.createdAt",
+          "reporter.id",
+          "comment.id",
+        ])
+        .getOne();
+
+      if (!report) {
+        return res.status(404).json({
+          status: false,
+          message: "Report not found"
+        });
+      }
+
+      const simpleData = {
+        id: report.id,
+        user_id: report.user.id,
+        comment_id: report.comment.id,
+        created_at: report.comment.createdAt,
+        is_report: report.is_report
+      }
+
+      return res.status(200).json({
+        status: "success",
+        data: simpleData
+      });
+
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: "server error",
+        error: error.message
       });
     }
   }

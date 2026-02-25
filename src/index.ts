@@ -26,6 +26,8 @@ import { wallerRouter } from "./router/v1/user/wallet/WalletRouter";
 import { emailRouter } from "./router/v1/user/auth/EmailRouter";
 import { relatedMusicrouter } from "./router/v1/user/music/RelatedMusicRouter";
 import { recentMusicRouter } from "./router/v1/user/music/RecentlyMusic";
+import { gateWayRouter } from "./router/v1/core/GateWayRouter";
+import { reportMusic } from "./router/v1/user/music/ReportMusic";
 
 dotenv.config();
 
@@ -73,6 +75,8 @@ AppDataSource.initialize()
     app.use("/v1/email/", emailRouter),
     app.use("/v1/related_music/", relatedMusicrouter);
     app.use("/v1/music/recent/", recentMusicRouter)
+    app.use("/v1/gateway/", gateWayRouter)
+    app.use("/v1/user/report/music/", reportMusic)
     // listen
     app.listen(port);
 

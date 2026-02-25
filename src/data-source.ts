@@ -16,13 +16,13 @@ import { Playlist } from "./entity/Playlist";
 import { PlaylistSong } from "./entity/PlaylistSong";
 import { FavoriteSong } from "./entity/FavoriteSong";
 import { PlayHistory } from "./entity/PlayHistory";
-import { Comment } from "./entity/Comment";
+import { Comment, CommentReport } from "./entity/Comment";
 import { Subscription } from "./entity/Subscription";
 import { Plan } from "./entity/Plan";
 import { PlanFeature } from "./entity/PlanFuture";
 import { UserPayment } from "./entity/UserPayment";
 import { UserLog } from "./entity/UserLog";
-import { Song } from "./entity/Song";
+import { Song, SongReport } from "./entity/Song";
 import { Gateway } from "./entity/Gateway";
 import { UserSubscriber } from "./utils/Subscriber/UserSubscriber";
 import { TokenBlock } from "./entity/TokenBlock";
@@ -30,11 +30,12 @@ import { Story } from "./entity/Story";
 import dotenv from "dotenv";
 import { StoryMedia } from "./entity/StoryMedia";
 import { DownloadMusics } from "./entity/Donwloads";
-import { WalletTransaction } from "./entity/WalletTransaction";
+import { GateWayTransaction } from "./entity/Transaction";
 import { ArtistGallery } from "./entity/ArtistGallery";
 import { ArtistSocial } from "./entity/ArtistSocial";
 import { SongProductionRole } from "./entity/MusicProductionRole";
 import { RecentMusic } from "./entity/RecentMusic";
+import { MeloricContactUs } from "./entity/MeloContactUs";
 
 dotenv.config();
 
@@ -46,7 +47,8 @@ export const AppDataSource = new DataSource({
   port: DEBUG === "true" ? 5434 : Number(process.env.PROD_POSTGRES_PORT),
   username: DEBUG === "true" ? "postgres" : process.env.PROD_POSTGRES_USER,
   password: DEBUG === "true" ? "postgres" : process.env.PROD_POSTGRES_PASSWORD,
-  database: DEBUG === "true" ? "new_meloric_db11" : process.env.PROD_POSTGRES_DB,
+  database:
+    DEBUG === "true" ? "new_meloric_db11" : process.env.PROD_POSTGRES_DB,
   synchronize: true,
   logging: "all",
   entities: [
@@ -78,11 +80,14 @@ export const AppDataSource = new DataSource({
     Story,
     StoryMedia,
     DownloadMusics,
-    WalletTransaction,
+    GateWayTransaction,
     ArtistGallery,
     ArtistSocial,
     SongProductionRole,
-    RecentMusic
+    RecentMusic,
+    MeloricContactUs,
+    CommentReport,
+    SongReport,
   ],
   migrations: [],
   subscribers: [UserSubscriber],
