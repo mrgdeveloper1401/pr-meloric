@@ -2146,7 +2146,7 @@ userAuthRouter.get(
       // get user_id
       const userId = (req as any).user.user_id;
       // get data and pagination
-      const page = (req.query.page as string) || 1; // current page
+      const page = Number(req.query.page as string) || 1; // current page
       const limit = parseInt(req.query.limit as string) || 20; // item in page
       const skip = (Number(page) - 1) * limit; // calc item skip
       const notificationRepository =
@@ -2881,19 +2881,15 @@ userAuthRouter.post(
       });
 
       if (checkUsername) {
-        return res.status(400).json(
-            {
-                status: false,
-                message: "username already exists"
-            }
-        )
+        return res.status(400).json({
+          status: false,
+          message: "username already exists",
+        });
       } else {
-        return res.status(200).json(
-            {
-                status: "success",
-                message: "ok"
-            }
-        )
+        return res.status(200).json({
+          status: "success",
+          message: "ok",
+        });
       }
     } catch (error) {
       return res.status(500).json({
