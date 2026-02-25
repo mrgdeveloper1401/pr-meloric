@@ -1,4 +1,4 @@
-FROM base_melo_nodejs:3.0.0
+FROM base_melo_nodejs:1.0.0
 
 WORKDIR /home/app
 
