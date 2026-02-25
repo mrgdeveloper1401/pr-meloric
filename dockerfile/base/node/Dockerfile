@@ -12,7 +12,7 @@ RUN cp /dev/null /etc/apk/repositories && \
     apk update && \
     apk upgrade && \
     apk add --no-cache bash postgresql17-client curl gcc musl-dev linux-headers libpq && \
-    npm install -g npm@11.7.0 && \
-    npm install -g typescript && \
-    npm i -g @adminjs/cli && \
+    npm install -g npm@latest && \
+    npm install -g typescript@latest && \
+    # npm i -g @adminjs/cli && \
     npm i
