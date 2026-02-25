@@ -2148,7 +2148,7 @@ userAuthRouter.get(
       // get data and pagination
       const page = Number(req.query.page as string) || 1; // current page
       const limit = parseInt(req.query.limit as string) || 20; // item in page
-      const skip = (Number(page) - 1) * limit; // calc item skip
+      const skip = (page - 1) * limit; // calc item skip
       const notificationRepository =
         AppDataSource.getRepository(UserNotification);
       const [notification, totalCount] =
